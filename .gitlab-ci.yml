@@ -1,0 +1,59 @@
+stages:
+  - lint_n_fmt
+  - templ
+  - sqlc
+  - goose
+  - build
+  - test
+  - deploy
+
+quick_check:
+    stage: lint_n_fmt
+    script:
+        - echo "go fmt, go vet, go mod tidy"
+        #- go vet .
+        #- go fmt .
+        #- go mod tidy .
+
+templ_check: # need to ensure that templ is actually installed on the runner/able to grab it?
+    stage: templ
+    script:
+        - echo "templ running"
+        #- templ generate
+
+sqlc_check:
+    stage: sqlc
+    script:
+        - echo "sqlc running"
+        #- sqlc generate
+        #- sqlc diff
+        #- sqlc vet
+
+goose_check:
+    stage: goose
+    script: # on failure we need to cancel the pipeline and stop here if goose up fails
+        - echo "goose up running"
+        #- goose up 
+
+go_build:
+    stage: build
+    script: # update this to instead use a Dockerfile build that then uploads to container registry (AWS ECS) which on deploy pulls container image and deploys to EC2 instance
+        - echo "building go"
+        #- go build .
+
+test1:
+    stage: test
+    script:
+        - echo "test1 running"
+        #- gotest ./...
+
+# deploys to EC2 instance using container image
+# could also have 2 deployments, one deploys to a staging server than can run tests on actual
+# website in a semi-production environment, if tests pass there, "graduate" the code to the
+# production VM where we know that it won't crash on demo day/randomly
+go_deploy1:
+    stage: deploy
+    script:
+        - echo "Deployed to EC2 instance at right now time"
+        #- aws deploy to VM
+
