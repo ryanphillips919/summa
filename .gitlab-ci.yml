@@ -14,16 +14,14 @@ quick_check:
         #- go vet .
         #- go fmt .
         #- go mod tidy .
-    rules:
-        - if: $CI_COMMIT_TAG 
+
 
 templ_check: # need to ensure that templ is actually installed on the runner/able to grab it?
     stage: templ
     script:
         - echo "templ running"
         #- templ generate
-    rules:
-        - if: $CI_COMMIT_TAG 
+
 
 sqlc_check:
     stage: sqlc
@@ -32,24 +30,21 @@ sqlc_check:
         #- sqlc generate
         #- sqlc diff
         #- sqlc vet
-    rules:
-        - if: $CI_COMMIT_TAG 
+
 
 goose_check:
     stage: goose
     script: # on failure we need to cancel the pipeline and stop here if goose up fails
         - echo "goose up running"
         #- goose up 
-    rules:
-        - if: $CI_COMMIT_TAG 
+
 
 go_build:
     stage: build
     script: # update this to instead use a Dockerfile build that then uploads to container registry (AWS ECS) which on deploy pulls container image and deploys to EC2 instance
         - echo "building go"
         #- go build .
-    rules:
-        - if: $CI_COMMIT_TAG 
+
 
 test1:
     stage: test
@@ -66,5 +61,3 @@ go_deploy1:
     script:
         - echo "Deployed to EC2 instance at right now time"
         #- aws deploy to VM
-    rules:
-        - if: $CI_COMMIT_TAG 
