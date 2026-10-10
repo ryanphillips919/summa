@@ -9,32 +9,36 @@ import (
 )
 
 func startEmbeddedNATS() (*server.Server, *nats.Conn, error) {
-    opts := &server.Options{
-        DontListen: true,
-        JetStream:  true,
-        StoreDir:   ".data/nats",
-    }
+	// Configure the embedded NATS server.
+	options := &server.Options{
+		DontListen: true,        // Only allow in-process connections.
+		JetStream:  true,        // Enable persistent messaging and KV storage.
+		StoreDir:   ".data/nats", // Store JetStream data locally.
+	}
 
-    ns, err := server.NewServer(opts)
-    if err != nil {
-        return nil, nil, err
-    }
+	// Create and start the server.
+	natsServer, err := server.NewServer(options)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create NATS server: %w", err)
+	}
 
-    go ns.Start()
+	go natsServer.Start()
 
-    if !ns.ReadyForConnections(5 * time.Second) {
-        ns.Shutdown()
-        return nil, nil, fmt.Errorf("NATS failed to start")
-    }
+	// Wait until the server is ready to accept connections.
+	if !natsServer.ReadyForConnections(5 * time.Second) {
+		natsServer.Shutdown()
+		return nil, nil, fmt.Errorf("NATS server failed to start")
+	}
 
-    nc, err := nats.Connect(
-        nats.DefaultURL,
-        nats.InProcessServer(ns),
-    )
-    if err != nil {
-        ns.Shutdown()
-        return nil, nil, err
-    }
+	// Connect directly to the embedded server without TCP.
+	natsConn, err := nats.Connect(
+		nats.DefaultURL,
+		nats.InProcessServer(natsServer),
+	)
+	if err != nil {
+		natsServer.Shutdown()
+		return nil, nil, fmt.Errorf("connect to NATS: %w", err)
+	}
 
-    return ns, nc, nil
+	return natsServer, natsConn, nil
 }

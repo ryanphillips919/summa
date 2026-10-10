@@ -9,37 +9,42 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-
 func main() {
-	ns, nc, err := startEmbeddedNATS()
+	// Start NATS
+	natsServer, natsConn, err := startEmbeddedNATS()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer ns.Shutdown()
-	defer nc.Close()
+	defer natsServer.Shutdown()
+	defer natsConn.Close()
 
 	log.Println("Embedded NATS ready")
 
-	r := chi.NewRouter()
-	// A good base middleware stack
-	r.Use(middleware.RequestID)
-	r.Use(middleware.ClientIPFromRemoteAddr) // pick one ClientIPFrom* based on your infra, see below
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	// Start HTTP server
+	router := newRouter()
 
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
-	r.Use(middleware.Timeout(60 * time.Second))
+	log.Println("Summa running on http://localhost:8080")
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	if err := http.ListenAndServe(":8080", router); err != nil {
+		log.Printf("HTTP server stopped: %v", err)
+	}
+}
+
+func newRouter() http.Handler {
+	router := chi.NewRouter()
+
+	// Middleware
+	router.Use(middleware.RequestID)
+	router.Use(middleware.ClientIPFromRemoteAddr)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(60 * time.Second))
+
+	// Routes
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hi"))
 	})
 
-	// Start HTTP server
-	log.Println("Summa running on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		log.Println("HTTP server stopped:", err)
-	}
+	return router
 }
