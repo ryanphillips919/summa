@@ -9,7 +9,18 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+
 func main() {
+	ns, nc, err := startEmbeddedNATS()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer ns.Shutdown()
+	defer nc.Close()
+
+	log.Println("Embedded NATS ready")
+
 	r := chi.NewRouter()
 	// A good base middleware stack
 	r.Use(middleware.RequestID)
@@ -28,5 +39,7 @@ func main() {
 
 	// Start HTTP server
 	log.Println("Summa running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	if err := http.ListenAndServe(":8080", r); err != nil {
+		log.Println("HTTP server stopped:", err)
+	}
 }
