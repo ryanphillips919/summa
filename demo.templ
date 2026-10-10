@@ -1,0 +1,251 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+templ Page(d DemoDocument) {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<meta charset="utf-8"/>
+			<meta http-equiv="x-ua-compatible" content="ie=edge"/>
+			<title>Summa Ledger Demo</title>
+			<meta name="description" content=""/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/demo.css"/>
+			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"></script>
+		</head>
+		// data-init is a datastar attribute that executes on first page load OR page changes.
+		// what this means for us is that everytime a user changes some input field, this function
+		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
+		// giving us real-time collaboration for free
+		<body data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})">
+			@Demo(d)
+		</body>
+	</html>
+}
+
+templ Demo(d DemoDocument) {
+	<main id="demo">
+		@TableView(d)
+	</main>
+}
+
+templ DemoEdit(d DemoDocument) {
+	<main id="demo">
+		@TableEdit(d)
+		<button data-on:click="@get('/demo/cancel', {filterSignals: {include: /^$/}})">Save</button>
+	</main>
+}
+
+type DemoDocument struct {
+	d []Dates
+	r []Rows
+}
+
+type Dates struct {
+	date time.Time
+}
+
+type Rows struct {
+	account string
+	data    []int64
+}
+
+func cellName(row, col int) string {
+	return fmt.Sprintf("r%dc%d", row, col)
+}
+
+func generateSignals(d DemoDocument) [][]string {
+	// need an way to generate all the input signals on variable for any given document object
+	// one list per date column: [["$r0c0", "$r1c0"], ["$r0c1", "$r1c1"], ...]
+	result := make([][]string, len(d.d))
+	for col := range d.d {
+		for row := range d.r {
+			result[col] = append(result[col], "$"+cellName(row, col))
+		}
+	}
+	return result
+}
+
+func (d *DemoDocument) setCells(cells map[string]int64) {
+	for i := range d.r {
+		for j := range d.r[i].data {
+			if v, ok := cells[cellName(i, j)]; ok {
+				d.r[i].data[j] = v
+			}
+		}
+	}
+}
+
+// starting values for every cell signal: {"r0c0": 123, "r0c1": 452, ...}
+// r meaning row, c meaning column
+func cellSignals(d DemoDocument) map[string]int64 {
+	m := map[string]int64{}
+	for row, acc := range d.r {
+		for col, v := range acc.data {
+			m[cellName(row, col)] = v
+		}
+	}
+	return m
+}
+
+// we didn't need this before but what this function does is take an html attribute and turn it into a dynamic way to set them
+// for this specifically datastar has a data-computed attribute that can execute client side javascript on reactive signals
+// so instead of needing to calculate the sum of each column manually for the EBIDTA row, it takes all of the signals and then does
+// $r1c0 + $r2c0 .... as the input into data-computed:total="$r1c0 + $r2c0 + $r3c0"
+// the only problem? if we only use a single signal called total, every column will be summed up....
+// we need to dynamically create a new signal that is set to data-computed, but that depends on how many columns we have...
+// so this is why we need this function that returns a templ.Attributes
+// it'll dynamically generate data-computed:total12="$r0c12 + $r1c12 + $r2c12" etc.
+func footerAttrs(i int, col []string) templ.Attributes {
+	return templ.Attributes{
+		fmt.Sprintf("data-computed:total%d", i): strings.Join(col, " + "),
+		"data-text":                             fmt.Sprintf("$total%d.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", i),
+	}
+}
+
+templ TableView(d DemoDocument) {
+	<table data-signals={ templ.JSONString(cellSignals(d)) }>
+		<caption>Demo For Real-Time Collaboration for Summa!</caption>
+		@TableHeader(d.d)
+		@TableBodyView(d.r)
+		@TableFooterView(generateSignals(d))
+	</table>
+}
+
+templ TableHeader(d []Dates) {
+	<thead>
+		<tr>
+			// empty row for aesthetic reasons
+			<th scope="col"></th>
+			for _, header := range d {
+				// every header should have a date column like "Oct 09", etc
+				<th scope="col">{ header.date.Format("Jan, 06") }</th>
+			}
+		</tr>
+	</thead>
+}
+
+templ TableBodyView(rows []Rows) {
+	<tbody>
+		for i, acc := range rows {
+			<tr>
+				// list the chart of account type, ie assets, liabilities, equities, expenses etc
+				<th scope="row">{ acc.account }</th>
+				for j := range acc.data {
+					// the actual list, on a single row, ie expenses 123 452 -420 310
+					// we're adding a data-on attribute here to calls the /demo/edit url
+					// on double click, get the DemoEdit templ that replaces the non-changable html
+					// into input fields users can edit/post back to the backend
+					<td
+						data-on:dblclick="@get('/demo/edit', {filterSignals: {include: /^$/}})"
+						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", cellName(i, j)) }
+					></td>
+				}
+			</tr>
+		}
+	</tbody>
+}
+
+templ TableFooterView(columns [][]string) {
+	<tfoot>
+		<tr>
+			<th scope="row">EBITDA</th>
+			for i, col := range columns {
+				// string of totals will be something like "$r0c0 + $r1c0 + $r2c0 + $r3c0"
+				<td { footerAttrs(i, col)... }></td>
+			}
+		</tr>
+	</tfoot>
+}
+
+// when a user double clicks on a cell datastar morphs into the DOM
+// the same HTML but with input elements users can change
+templ TableEdit(d DemoDocument) {
+	<table data-signals={ templ.JSONString(cellSignals(d)) }>
+		<caption>Demo For Real-Time Collaboration for Summa!</caption>
+		@TableHeader(d.d)
+		@TableBodyEdit(d.r)
+		@TableFooterView(generateSignals(d))
+	</table>
+}
+
+templ TableBodyEdit(rows []Rows) {
+	<tbody>
+		for i, acc := range rows {
+			<tr>
+				// list the chart of account type, ie assets, liabilities, equities, expenses etc
+				<th scope="row">{ acc.account }</th>
+				for j := range acc.data {
+					// editable version of the cell: a number input bound to the cell's signal,
+					// so typing updates $r0c0 etc and the footer totals recalculate live
+					<td>
+						<input
+							type="number"
+							data-bind={ cellName(i, j) }
+							data-on:change={ fmt.Sprintf("@post('/demo', {filterSignals: {include: /^%s$/}})", cellName(i, j)) }
+						/>
+					</td>
+				}
+			</tr>
+		}
+	</tbody>
+}
+
+// AI generated function to generate some dummy data before we have an actual data to play with
+func dummyDocument() DemoDocument {
+	const columns = 15
+
+	accounts := []struct {
+		name string
+		base int64
+	}{
+		{"Revenue: Product Sales", 48200},
+		{"Revenue: Subscriptions", 21500},
+
+		{"COGS: Materials", -14200},
+		{"COGS: Direct Labor", -9800},
+
+		{"Payroll: Salaries", -14500},
+		{"Payroll: Hourly Wages", -5200},
+
+		{"Facilities: Rent", -3200},
+		{"Facilities: Utilities", -640},
+
+		{"Marketing: Advertising", -2100},
+		{"Marketing: Content", -750},
+
+		{"Technology: Software Subscriptions", -1150},
+		{"Technology: IT Support", -520},
+
+		{"Professional Fees: Accounting", -850},
+		{"Professional Fees: Legal", -1200},
+
+		{"General: Office Supplies", -310},
+		{"General: Insurance", -780},
+
+		{"Travel: Airfare", -620},
+	}
+
+	var doc DemoDocument
+
+	for c := 0; c < columns; c++ {
+		// day 0 of the following month is the last day of this month
+		doc.d = append(doc.d, Dates{date: time.Date(2026, time.July+time.Month(c)+1, 0, 0, 0, 0, 0, time.UTC)})
+	}
+
+	for r, acc := range accounts {
+		row := Rows{account: acc.name}
+		for c := 0; c < columns; c++ {
+			// add 0-19% to the base so the numbers aren't all identical
+			row.data = append(row.data, acc.base+acc.base*int64((c*7+r*3)%20)/100)
+		}
+		doc.r = append(doc.r, row)
+	}
+
+	return doc
+}

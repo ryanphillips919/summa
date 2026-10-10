@@ -1,0 +1,11 @@
+.env
+.vscode/
+.idea/
+.DS_Store
+.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+/tmp/
+/data/

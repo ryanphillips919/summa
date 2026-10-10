@@ -1,0 +1,36 @@
+table {
+	border-collapse: collapse;
+	font-family: system-ui, sans-serif;
+}
+
+caption {
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+}
+
+th, td {
+	padding: 0.5rem 1rem;
+}
+
+td {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+th[scope="row"] {
+	text-align: left;
+}
+
+tbody tr:nth-child(odd) {
+	background: #f1f3f5;
+}
+
+tfoot tr {
+	border-top: 2px solid #333;
+	font-weight: bold;
+}
+
+td input {
+	width: 7rem;
+	text-align: right;
+}
