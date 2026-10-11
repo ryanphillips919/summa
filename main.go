@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Start NATS
-	natsServer, natsConn, err := startEmbeddedNATS()
+	natsServer, natsConn, err := startEmbeddedNATS(".data/nats")
 	if err != nil {
 		log.Fatal(err)
 	}

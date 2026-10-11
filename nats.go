@@ -8,12 +8,12 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func startEmbeddedNATS() (*server.Server, *nats.Conn, error) {
+func startEmbeddedNATS(storeDir string) (*server.Server, *nats.Conn, error) {
 	// Configure the embedded NATS server.
 	options := &server.Options{
-		DontListen: true,         // Only allow in-process connections.
-		JetStream:  true,         // Enable persistent messaging and KV storage.
-		StoreDir:   ".data/nats", // Store JetStream data locally.
+		DontListen: true,     // Only allow in-process connections.
+		JetStream:  true,     // Enable persistent messaging and KV storage.
+		StoreDir:   storeDir, // Store JetStream data in the caller-provided directory.
 	}
 
 	// Create and start the server.
