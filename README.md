@@ -60,3 +60,47 @@ go fmt ./.. # format your golang code in all directories
 go test . # test all the test files. It's nice because we can have a single test.go file and Go knows how to run the tests, and will exclude them in the build
 go build . # build this into a Golang binary for deployment/this is what Docker will build for us for the VM.
 ```
+
+## Analytics starter
+
+Summa's first analytics slice keeps the security boundary in Go: the handler
+authorizes and loads organization-scoped cash movements, then sends only those
+movements to `analytics/engine.py` over stdin as JSON. The Python process
+returns JSON, which Go can pass directly to a templ component or a Datastar
+signal patch. It has no database credentials and runs with a 10-second timeout.
+
+`POST /api/analytics/run` accepts signed cash movements (inflows positive,
+outflows negative):
+
+```json
+{
+  "forecast_days": 14,
+  "cash_movements": [
+    {"id": "txn-1", "date": "2026-10-01", "amount": 1200, "description": "Invoice payment"},
+    {"id": "txn-2", "date": "2026-10-02", "amount": -185, "description": "Hosting"}
+  ]
+}
+```
+
+The engine produces a transparent 7-day rolling-mean forecast and flags amount
+outliers with a modified Z-score based on median absolute deviation (threshold
+`3.5`). These are explainable baselines, not accounting advice. Require enough
+history before surfacing a result, show the method and interval in the UI, and
+let a bookkeeper mark reviewed anomalies without altering the ledger.
+
+For a first dashboard, use Apache ECharts rather than D3: it is faster to ship
+accessible line, band, bar, and table-linked charts with server-supplied JSON.
+Use a line series for `daily_cash_flow`, a dashed line for forecast, and a
+stacked translucent range from `lower_95` to `upper_95`; render anomalies in a
+review queue beside the chart. D3 becomes worthwhile for a custom ledger flow,
+relationship graph, or unusually bespoke interaction.
+
+Run the integration test with:
+
+```sh
+go test ./...
+```
+
+The container includes Python 3. In non-container deployment, set
+`SUMMA_ANALYTICS_PYTHON` and/or `SUMMA_ANALYTICS_SCRIPT` if their default paths
+are not available.

@@ -1,0 +1,91 @@
+// Package analytics is the boundary between Summa's Go application and its
+// local Python analytics engine. Go remains responsible for authorization and
+// selecting organization-scoped data before calling this package.
+package analytics
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
+)
+
+type CashMovement struct {
+	ID          string  `json:"id,omitempty"`
+	Date        string  `json:"date"`
+	Amount      float64 `json:"amount"`
+	Description string  `json:"description,omitempty"`
+}
+
+type Request struct {
+	CashMovements []CashMovement `json:"cash_movements"`
+	ForecastDays  int            `json:"forecast_days,omitempty"`
+}
+
+type ForecastPoint struct {
+	Date                        string  `json:"date"`
+	PredictedNetCashFlow        float64 `json:"predicted_net_cash_flow"`
+	Lower95                     float64 `json:"lower_95"`
+	Upper95                     float64 `json:"upper_95"`
+	CumulativePredictedCashFlow float64 `json:"cumulative_predicted_cash_flow"`
+}
+
+type Anomaly struct {
+	ID             string  `json:"id"`
+	Date           string  `json:"date"`
+	Amount         float64 `json:"amount"`
+	Description    string  `json:"description"`
+	ModifiedZScore float64 `json:"modified_z_score"`
+	Reason         string  `json:"reason"`
+}
+
+type Response struct {
+	Methodology map[string]string `json:"methodology"`
+	Summary     struct {
+		MovementCount   int     `json:"movement_count"`
+		ObservedFrom    string  `json:"observed_from"`
+		ObservedThrough string  `json:"observed_through"`
+		DailyBaseline   float64 `json:"daily_baseline"`
+		AnomalyCount    int     `json:"anomaly_count"`
+	} `json:"summary"`
+	Forecast  []ForecastPoint `json:"forecast"`
+	Anomalies []Anomaly       `json:"anomalies"`
+}
+
+// Run calls analytics/engine.py. Set SUMMA_ANALYTICS_PYTHON or
+// SUMMA_ANALYTICS_SCRIPT in deployment when their locations differ.
+func Run(parent context.Context, request Request) (Response, error) {
+	var response Response
+	input, err := json.Marshal(request)
+	if err != nil {
+		return response, fmt.Errorf("marshal analytics request: %w", err)
+	}
+
+	python := os.Getenv("SUMMA_ANALYTICS_PYTHON")
+	if python == "" {
+		python = "python3"
+	}
+	script := os.Getenv("SUMMA_ANALYTICS_SCRIPT")
+	if script == "" {
+		script = filepath.Join("analytics", "engine.py")
+	}
+
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
+	cmd.Stdin = bytes.NewReader(input)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	output, err := cmd.Output()
+	if err != nil {
+		return response, fmt.Errorf("run analytics engine: %w: %s", err, stderr.String())
+	}
+	if err := json.Unmarshal(output, &response); err != nil {
+		return response, fmt.Errorf("decode analytics response: %w", err)
+	}
+	return response, nil
+}
