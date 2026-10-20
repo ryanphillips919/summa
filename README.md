@@ -61,46 +61,39 @@ go test . # test all the test files. It's nice because we can have a single test
 go build . # build this into a Golang binary for deployment/this is what Docker will build for us for the VM.
 ```
 
+
 ## Analytics starter
 
-Summa's first analytics slice keeps the security boundary in Go: the handler
-authorizes and loads organization-scoped cash movements, then sends only those
-movements to `analytics/engine.py` over stdin as JSON. The Python process
-returns JSON, which Go can pass directly to a templ component or a Datastar
-signal patch. It has no database credentials and runs with a 10-second timeout.
+Go owns authorization and database access. After it loads organization-scoped
+cash movements, it sends only that data to `analytics/engine.py` over stdin as
+JSON. Python returns JSON for a templ component or Datastar update and has no
+database credentials. The Go client stops the subprocess after 10 seconds.
 
-`POST /api/analytics/run` accepts signed cash movements (inflows positive,
-outflows negative):
+`POST /api/analytics/run` accepts signed cash movements (inflows positive and
+expenses negative):
 
 ```json
 {
-  "forecast_days": 14,
+  "forecast_days": 60,
   "cash_movements": [
     {"id": "txn-1", "date": "2026-10-01", "amount": 1200, "description": "Invoice payment"},
-    {"id": "txn-2", "date": "2026-10-02", "amount": -185, "description": "Hosting"}
+    {"id": "txn-2", "date": "2026-10-02", "amount": -185, "vendor": "AWS", "description": "Hosting"}
   ]
 }
 ```
 
-The engine produces a transparent 7-day rolling-mean forecast and flags amount
-outliers with a modified Z-score based on median absolute deviation (threshold
-`3.5`). These are explainable baselines, not accounting advice. Require enough
-history before surfacing a result, show the method and interval in the UI, and
-let a bookkeeper mark reviewed anomalies without altering the ledger.
+The engine supports 1-90 day forecasts. It backtests a 7-day rolling-mean
+baseline against a linear trend with weekday seasonality using rolling-origin
+MAE, then returns the better model and both error values. It flags expense
+amount outliers using median absolute deviation (threshold `3.5`) and potential
+duplicates matching date, amount, and normalized vendor or description. These
+are review signals, not accounting advice. Show the selected method and interval
+in the UI and let a bookkeeper mark a flag reviewed without altering the ledger.
 
-For a first dashboard, use Apache ECharts rather than D3: it is faster to ship
-accessible line, band, bar, and table-linked charts with server-supplied JSON.
-Use a line series for `daily_cash_flow`, a dashed line for forecast, and a
-stacked translucent range from `lower_95` to `upper_95`; render anomalies in a
-review queue beside the chart. D3 becomes worthwhile for a custom ledger flow,
-relationship graph, or unusually bespoke interaction.
+Use Apache ECharts for the first dashboard: plot observed daily cash flow, the
+selected forecast, a confidence band, and a linked anomaly-review table. D3 is
+better reserved for a bespoke ledger-flow or relationship visualization.
 
-Run the integration test with:
-
-```sh
-go test ./...
-```
-
-The container includes Python 3. In non-container deployment, set
-`SUMMA_ANALYTICS_PYTHON` and/or `SUMMA_ANALYTICS_SCRIPT` if their default paths
-are not available.
+Run the integration test with `go test ./...`. The container includes Python 3.
+Set `SUMMA_ANALYTICS_PYTHON` or `SUMMA_ANALYTICS_SCRIPT` when non-default paths
+are required.

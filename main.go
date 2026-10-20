@@ -26,12 +26,9 @@ func main() {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hi"))
+		w.Write([]byte("Summa is running. POST cash movements to /api/analytics/run."))
 	})
 
-	// The handler deliberately accepts only the movement data needed by Python.
-	// In the production route, load it from SQLite after checking the current
-	// user's organization membership; never let the subprocess query the DB.
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
@@ -41,7 +38,6 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "invalid analytics request: "+err.Error())
 			return
 		}
-
 		result, err := analytics.Run(r.Context(), request)
 		if err != nil {
 			log.Printf("analytics request failed: %v", err)

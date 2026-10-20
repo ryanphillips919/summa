@@ -19,6 +19,7 @@ type CashMovement struct {
 	Date        string  `json:"date"`
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description,omitempty"`
+	Vendor      string  `json:"vendor,omitempty"`
 }
 
 type Request struct {
@@ -41,16 +42,20 @@ type Anomaly struct {
 	Description    string  `json:"description"`
 	ModifiedZScore float64 `json:"modified_z_score"`
 	Reason         string  `json:"reason"`
+	Type           string  `json:"type"`
 }
 
 type Response struct {
 	Methodology map[string]string `json:"methodology"`
 	Summary     struct {
-		MovementCount   int     `json:"movement_count"`
-		ObservedFrom    string  `json:"observed_from"`
-		ObservedThrough string  `json:"observed_through"`
-		DailyBaseline   float64 `json:"daily_baseline"`
-		AnomalyCount    int     `json:"anomaly_count"`
+		MovementCount   int      `json:"movement_count"`
+		ObservedFrom    string   `json:"observed_from"`
+		ObservedThrough string   `json:"observed_through"`
+		DailyBaseline   float64  `json:"daily_baseline"`
+		AnomalyCount    int      `json:"anomaly_count"`
+		ForecastModel   string   `json:"forecast_model"`
+		BaselineMAE     *float64 `json:"baseline_validation_mae"`
+		SelectedMAE     *float64 `json:"selected_model_validation_mae"`
 	} `json:"summary"`
 	Forecast  []ForecastPoint `json:"forecast"`
 	Anomalies []Anomaly       `json:"anomalies"`
