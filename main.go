@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"summa/internal/analytics"
 
@@ -39,7 +38,7 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+	// r.Use(middleware.Timeout(60 * time.Second)) <- this breaks real time split screen sometimes, ignore for now
 
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +70,7 @@ func newRouter(app *App) http.Handler {
 	})
 
 	r.Mount("/demo", app.demoRoutes())
+	r.Mount("/timeline", app.timelineRoutes())
 	return r
 }
 

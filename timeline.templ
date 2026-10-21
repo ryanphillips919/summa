@@ -1,0 +1,61 @@
+package main
+
+import (
+	"slices"
+	"time"
+)
+
+type EntrySystem struct {
+	entry []Entry
+}
+
+type Entry struct {
+	created time.Time
+	rev     uint64
+	values  string
+}
+
+templ Timeline() {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<meta charset="utf-8"/>
+			<meta http-equiv="x-ua-compatible" content="ie=edge"/>
+			<title>Summa Ledger Timeline</title>
+			<meta name="description" content=""/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/demo.css"/>
+			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"></script>
+		</head>
+		// data-init is a datastar attribute that executes on first page load OR page changes.
+		// what this means for us is that everytime a user changes some input field, this function
+		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
+		// giving us real-time collaboration for free
+		<body data-init="@get('/timeline/watch')">
+			<nav>
+				<ul>
+					<li><a href="/demo">Demo</a></li>
+					<li><a href="/timeline">Timeline</a></li>
+				</ul>
+			</nav>
+			<main id="timeline"></main>
+		</body>
+	</html>
+}
+
+templ TimelineEntry(e EntrySystem) {
+	<main id="timeline">
+		<ul>
+			// need to iterate backwards here since we want to display from newest to oldest additions
+			for _, v := range slices.Backward(e.entry) {
+				<li>
+					<div>
+						<p>{ v.created.Format("2006-01-02 03:04:05 PM") }</p>
+						<p>{ v.rev }</p>
+						<p>{ v.values }</p>
+					</div>
+				</li>
+			}
+		</ul>
+	</main>
+}

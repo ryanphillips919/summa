@@ -23,21 +23,31 @@ templ Page(d DemoDocument) {
 		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
 		// giving us real-time collaboration for free
 		<body data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})">
-			@Demo(d)
+			<nav>
+				<ul>
+					<li><a href="/demo">Demo</a></li>
+					<li><a href="/timeline">Timeline</a></li>
+				</ul>
+			</nav>
+			@Demo(d, nil, 0)
 		</body>
 	</html>
 }
 
-templ Demo(d DemoDocument) {
+// changed is the set of cells that just changed (nil on a plain render) and rev is the
+// NATS KV revision that changed them. Together they drive the flash animation.
+templ Demo(d DemoDocument, changed map[string]int64, rev uint64) {
 	<main id="demo">
-		@TableView(d)
+		@TableView(d, changed, rev)
 	</main>
 }
 
 templ DemoEdit(d DemoDocument) {
 	<main id="demo">
 		@TableEdit(d)
-		<button data-on:click="@get('/demo/cancel', {filterSignals: {include: /^$/}})">Save</button>
+		// Save sends every cell signal; the server diffs against what it has and only stores the changes
+		<button data-on:click="@post('/demo', {filterSignals: {include: /^r\d+c\d+$/}})">Save</button>
+		<button data-on:click="@get('/demo/cancel', {filterSignals: {include: /^$/}})">Cancel</button>
 	</main>
 }
 
@@ -81,6 +91,19 @@ func (d *DemoDocument) setCells(cells map[string]int64) {
 	}
 }
 
+// returns only the cells whose incoming value differs from what we have
+func (d *DemoDocument) diffCells(cells map[string]int64) map[string]int64 {
+	changed := map[string]int64{}
+	for i := range d.r {
+		for j, cur := range d.r[i].data {
+			if v, ok := cells[cellName(i, j)]; ok && v != cur {
+				changed[cellName(i, j)] = v
+			}
+		}
+	}
+	return changed
+}
+
 // starting values for every cell signal: {"r0c0": 123, "r0c1": 452, ...}
 // r meaning row, c meaning column
 func cellSignals(d DemoDocument) map[string]int64 {
@@ -108,12 +131,49 @@ func footerAttrs(i int, col []string) templ.Attributes {
 	}
 }
 
-templ TableView(d DemoDocument) {
+// --- flash animation helpers ---------------------------------------------------
+// a CSS animation only plays when its class is *added*, and datastar morphs in place,
+// so if the same cell changes twice in a row the class would already be there and
+// nothing would replay. alternating between two class names by revision parity dodges that.
+
+func flashClass(key string, changed map[string]int64, rev uint64) string {
+	if _, ok := changed[key]; !ok {
+		return ""
+	}
+	if rev%2 == 0 {
+		return "flash-a"
+	}
+	return "flash-b"
+}
+
+// which column indexes had at least one changed cell → flash the EBITDA total
+func changedCols(changed map[string]int64) map[int]bool {
+	cols := map[int]bool{}
+	for key := range changed {
+		var r, c int
+		fmt.Sscanf(key, "r%dc%d", &r, &c)
+		cols[c] = true
+	}
+	return cols
+}
+
+// one color per revision so every client flashes the same color for the same update.
+// rev * 137 (the golden angle) hops around the hue wheel without repeating for a long time.
+// rev 0 means "plain render, nothing flashing" so we emit nothing at all.
+func flashColor(rev uint64) string {
+	if rev == 0 {
+		return ""
+	}
+	hue := (rev * 137) % 360
+	return fmt.Sprintf("--flash: oklch(0.85 0.17 %d)", hue)
+}
+
+templ TableView(d DemoDocument, changed map[string]int64, rev uint64) {
 	<table data-signals={ templ.JSONString(cellSignals(d)) }>
 		<caption>Demo For Real-Time Collaboration for Summa!</caption>
 		@TableHeader(d.d)
-		@TableBodyView(d.r)
-		@TableFooterView(generateSignals(d))
+		@TableBodyView(d.r, changed, rev)
+		@TableFooterView(generateSignals(d), changedCols(changed), rev)
 	</table>
 }
 
@@ -130,7 +190,7 @@ templ TableHeader(d []Dates) {
 	</thead>
 }
 
-templ TableBodyView(rows []Rows) {
+templ TableBodyView(rows []Rows, changed map[string]int64, rev uint64) {
 	<tbody>
 		for i, acc := range rows {
 			<tr>
@@ -142,6 +202,8 @@ templ TableBodyView(rows []Rows) {
 					// on double click, get the DemoEdit templ that replaces the non-changable html
 					// into input fields users can edit/post back to the backend
 					<td
+						class={ flashClass(cellName(i, j), changed, rev) }
+						style={ flashColor(rev) }
 						data-on:dblclick="@get('/demo/edit', {filterSignals: {include: /^$/}})"
 						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", cellName(i, j)) }
 					></td>
@@ -151,13 +213,17 @@ templ TableBodyView(rows []Rows) {
 	</tbody>
 }
 
-templ TableFooterView(columns [][]string) {
+templ TableFooterView(columns [][]string, cols map[int]bool, rev uint64) {
 	<tfoot>
 		<tr>
 			<th scope="row">EBITDA</th>
 			for i, col := range columns {
 				// string of totals will be something like "$r0c0 + $r1c0 + $r2c0 + $r3c0"
-				<td { footerAttrs(i, col)... }></td>
+				<td
+					class={ templ.KV("flash-a", cols[i] && rev%2 == 0), templ.KV("flash-b", cols[i] && rev%2 == 1) }
+					style={ flashColor(rev) }
+					{ footerAttrs(i, col)... }
+				></td>
 			}
 		</tr>
 	</tfoot>
@@ -170,7 +236,7 @@ templ TableEdit(d DemoDocument) {
 		<caption>Demo For Real-Time Collaboration for Summa!</caption>
 		@TableHeader(d.d)
 		@TableBodyEdit(d.r)
-		@TableFooterView(generateSignals(d))
+		@TableFooterView(generateSignals(d), nil, 0)
 	</table>
 }
 
@@ -184,11 +250,7 @@ templ TableBodyEdit(rows []Rows) {
 					// editable version of the cell: a number input bound to the cell's signal,
 					// so typing updates $r0c0 etc and the footer totals recalculate live
 					<td>
-						<input
-							type="number"
-							data-bind={ cellName(i, j) }
-							data-on:change={ fmt.Sprintf("@post('/demo', {filterSignals: {include: /^%s$/}})", cellName(i, j)) }
-						/>
+						<input type="number" data-bind={ cellName(i, j) }/>
 					</td>
 				}
 			</tr>
@@ -198,7 +260,7 @@ templ TableBodyEdit(rows []Rows) {
 
 // AI generated function to generate some dummy data before we have an actual data to play with
 func dummyDocument() DemoDocument {
-	const columns = 15
+	const columns = 5
 
 	accounts := []struct {
 		name string

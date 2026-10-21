@@ -31,18 +31,25 @@ func (a *App) demoHandler(w http.ResponseWriter, r *http.Request) {
 func (a *App) demoPostHandler(w http.ResponseWriter, r *http.Request) {
 	var cells map[string]int64
 	if err := datastar.ReadSignals(r, &cells); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	doc.setCells(cells)
-	// usually we wouldn't need to do this because signals are json under the hood
-	// but since we converted back to a map we turn it back into json so we can
-	// pass it around NATS kv storage
-	data, _ := json.Marshal(cells)
-	a.kv.Put(r.Context(), "demo.update", data)
-	entry, _ := a.kv.Get(r.Context(), "demo.update")
-	// we can see under the hood what exactly NATS is doing when we use kv.PUT
-	fmt.Printf("%s @ %d -> %q\n", entry.Key(), entry.Revision(), string(entry.Value()))
-	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc))
+
+	changed := doc.diffCells(cells)
+	if len(changed) == 0 {
+		// nothing changed → no KV write, so no watcher push. we have to
+		// exit edit mode ourselves
+		datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0))
+		return
+	}
+
+	doc.setCells(changed)
+	data, _ := json.Marshal(changed)
+	rev, _ := a.kv.Put(r.Context(), "demo.update", data)
+	fmt.Printf("demo.update @ %d -> %s\n", rev, data)
+	// deliberately no patch here: the watcher will push Demo(doc, changed, rev)
+	// to every client including this one, so there's exactly one render and one flash
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *App) demoEditHandler(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +57,7 @@ func (a *App) demoEditHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) demoCancelHandler(w http.ResponseWriter, r *http.Request) {
-	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc))
+	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0))
 }
 
 // this is the function that lets us update all clients in real-time!
@@ -62,16 +69,24 @@ func (a *App) demoCancelHandler(w http.ResponseWriter, r *http.Request) {
 // After that we just have a loop where watcher will return all the entries that have been updated in the bucket
 // if no updates? do nothing
 // if there's an update? re-render the page using datastar!
+// the entry's value is the delta of changed cells, so we pass it (plus the revision)
+// into the templ so only the cells that changed get the flash animation
 // easiest real-time collaborative functionality ever
 func (a *App) demoWatcherHandler(w http.ResponseWriter, r *http.Request) {
-	watcher, _ := a.kv.Watch(r.Context(), "demo.*", jetstream.UpdatesOnly())
+	watcher, err := a.kv.Watch(r.Context(), "demo.*", jetstream.UpdatesOnly())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	defer watcher.Stop()
 	sse := datastar.NewSSE(w, r)
 	for entry := range watcher.Updates() {
 		if entry == nil {
 			continue
 		}
-		if err := sse.PatchElementTempl(Demo(doc)); err != nil {
+		var changed map[string]int64
+		json.Unmarshal(entry.Value(), &changed)
+		if err := sse.PatchElementTempl(Demo(doc, changed, entry.Revision())); err != nil {
 			return
 		}
 	}
