@@ -1,11 +1,23 @@
 stages:
   - test
 
-windows_smoke_test:
+linux_go_build_and_test:
   stage: test
+  image: golang:1.27-bookworm
   tags:
-    - windows
+    - docker
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends python3
+    - python3 --version
   script:
     - go version
+    - |
+      unformatted="$(gofmt -l .)"
+      if [ -n "$unformatted" ]; then
+        echo "$unformatted"
+        exit 1
+      fi
+    - go vet ./...
     - go test ./...
     - go build ./...
