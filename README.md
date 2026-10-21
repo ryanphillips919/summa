@@ -1,6 +1,12 @@
 # Summa
 
-A collaborative, cloud-native accounting software system.
+## CI and deployment
+
+Linux is Summa's primary testing environment and planned deployment platform.
+
+GitHub Actions runs automated formatting, testing, and build checks on Ubuntu. GitLab CI is configured to run equivalent checks in a Debian-based Go container using our self-hosted Docker runner.
+
+Developers using Windows can work through WSL or Docker.
 
 ## Team
 - David Kendall
