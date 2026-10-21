@@ -65,6 +65,11 @@ func newRouter(app *App) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok","service":"summa"}`))
+	})
+
 	r.Mount("/demo", app.demoRoutes())
 	return r
 }
