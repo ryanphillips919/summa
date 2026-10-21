@@ -1,6 +1,12 @@
 # Summa
 
-A collaborative, cloud-native accounting software system.
+## CI and deployment
+
+Linux is Summa's primary testing environment and planned deployment platform.
+
+GitHub Actions runs automated formatting, testing, and build checks on Ubuntu. GitLab CI is configured to run equivalent checks in a Debian-based Go container using our self-hosted Docker runner.
+
+Developers using Windows can work through WSL or Docker.
 
 ## Team
 - David Kendall
@@ -60,3 +66,40 @@ go fmt ./.. # format your golang code in all directories
 go test . # test all the test files. It's nice because we can have a single test.go file and Go knows how to run the tests, and will exclude them in the build
 go build . # build this into a Golang binary for deployment/this is what Docker will build for us for the VM.
 ```
+
+
+## Analytics starter
+
+Go owns authorization and database access. After it loads organization-scoped
+cash movements, it sends only that data to `analytics/engine.py` over stdin as
+JSON. Python returns JSON for a templ component or Datastar update and has no
+database credentials. The Go client stops the subprocess after 10 seconds.
+
+`POST /api/analytics/run` accepts signed cash movements (inflows positive and
+expenses negative):
+
+```json
+{
+  "forecast_days": 60,
+  "cash_movements": [
+    {"id": "txn-1", "date": "2026-10-01", "amount": 1200, "description": "Invoice payment"},
+    {"id": "txn-2", "date": "2026-10-02", "amount": -185, "vendor": "AWS", "description": "Hosting"}
+  ]
+}
+```
+
+The engine supports 1-90 day forecasts. It backtests a 7-day rolling-mean
+baseline against a linear trend with weekday seasonality using rolling-origin
+MAE, then returns the better model and both error values. It flags expense
+amount outliers using median absolute deviation (threshold `3.5`) and potential
+duplicates matching date, amount, and normalized vendor or description. These
+are review signals, not accounting advice. Show the selected method and interval
+in the UI and let a bookkeeper mark a flag reviewed without altering the ledger.
+
+Use Apache ECharts for the first dashboard: plot observed daily cash flow, the
+selected forecast, a confidence band, and a linked anomaly-review table. D3 is
+better reserved for a bespoke ledger-flow or relationship visualization.
+
+Run the integration test with `go test ./...`. The container includes Python 3.
+Set `SUMMA_ANALYTICS_PYTHON` or `SUMMA_ANALYTICS_SCRIPT` when non-default paths
+are required.
