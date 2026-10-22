@@ -86,7 +86,8 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 
 type analyticsDemoResponse struct {
 	analytics.Response
-	CashMovements []analytics.CashMovement `json:"cash_movements"`
+	CashMovements      []analytics.CashMovement `json:"cash_movements"`
+	OpeningCashBalance float64                  `json:"opening_cash_balance"`
 }
 
 func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
@@ -113,8 +114,9 @@ func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
-		Response:      result,
-		CashMovements: request.CashMovements,
+		Response:           result,
+		CashMovements:      request.CashMovements,
+		OpeningCashBalance: request.OpeningCashBalance,
 	})
 }
 

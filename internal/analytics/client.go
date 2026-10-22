@@ -26,8 +26,9 @@ type CashMovement struct {
 }
 
 type Request struct {
-	CashMovements []CashMovement `json:"cash_movements"`
-	ForecastDays  int            `json:"forecast_days,omitempty"`
+	CashMovements      []CashMovement `json:"cash_movements"`
+	ForecastDays       int            `json:"forecast_days,omitempty"`
+	OpeningCashBalance float64        `json:"opening_cash_balance"`
 }
 
 type DailyCashFlowPoint struct {
