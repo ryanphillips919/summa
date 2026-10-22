@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Small, deterministic cash-flow analytics engine for Summa.
 
-Reads a JSON request from stdin and writes a JSON result to stdout.  Keep this
+Reads a JSON request from stdin and writes a JSON result to stdout.  Keeps this
 boundary stable: Go owns authorization and database access; this program only
 receives already-authorized ledger-derived cash movements.
 """
@@ -16,6 +16,8 @@ import sys
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any
+
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 
 def parse_date(value: str) -> date:
@@ -60,39 +62,55 @@ def rolling_mean_prediction(values: list[float]) -> float:
     return statistics.fmean(values[-7:])
 
 
-def trend_seasonal_fit(values: list[float], first_weekday: int) -> tuple[float, float, list[float], float]:
-    """Fit a linear trend plus a weekday residual using plain Python."""
-    window = values[-min(56, len(values)):]
-    x_values = list(range(len(window)))
-    x_mean, y_mean = statistics.fmean(x_values), statistics.fmean(window)
-    denominator = sum((x - x_mean) ** 2 for x in x_values)
-    slope = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, window)) / denominator
-    intercept = y_mean - slope * x_mean
-    residuals = [y - (intercept + slope * x) for x, y in zip(x_values, window)]
-    weekday_adjustment = [
-        statistics.fmean([
-            residual for index, residual in enumerate(residuals)
-            if (first_weekday + len(values) - len(window) + index) % 7 == weekday
-        ])
-        for weekday in range(7)
-    ]
-    rmse = math.sqrt(statistics.fmean(value * value for value in residuals))
-    return intercept, slope, weekday_adjustment, rmse
+def holt_winters_forecast(values: list[float], horizon: int) -> tuple[list[float], float]:
+    """Fit Holt-Winters Exponential Smoothing with weekly seasonality."""
+    try:
+        # Require at least 28 days of data for stable seasonal decomposition
+        if len(values) < 28:
+            raise ValueError("Insufficient data for seasonal Holt-Winters")
+            
+        model = ExponentialSmoothing(
+            values,
+            trend="add",
+            seasonal="add",
+            seasonal_periods=7,
+            initialization_method="estimated"
+        ).fit(optimized=True)
+        
+        forecast_values = model.forecast(horizon)
+        fitted_values = model.fittedvalues
+        residuals = [actual - fitted for actual, fitted in zip(values, fitted_values)]
+        rmse = math.sqrt(statistics.fmean(r * r for r in residuals))
+        
+        return list(forecast_values), rmse
+    except Exception:
+        # Fallback to rolling mean if optimization fails or data is too short
+        recent = values[-7:]
+        mean_val = statistics.fmean(recent)
+        rmse = statistics.stdev(recent) if len(recent) > 1 else 0.0
+        return [mean_val] * horizon, rmse
 
 
-def backtest_mae(values: list[float], model: str, first_weekday: int) -> float | None:
+def backtest_mae(values: list[float], model_type: str) -> float | None:
     """One-day rolling-origin validation on the newest observed days."""
     errors = []
-    for index in range(max(14, len(values) - 14), len(values)):
+    start_idx = max(28, len(values) - 14) if model_type == "holt_winters" else max(14, len(values) - 14)
+    
+    for index in range(start_idx, len(values)):
         training = values[:index]
-        if model == "rolling_mean":
+        if model_type == "rolling_mean":
             predicted = rolling_mean_prediction(training)
-        elif len(training) >= 28:
-            intercept, slope, seasonal, _ = trend_seasonal_fit(training, first_weekday)
-            predicted = intercept + slope * min(56, len(training)) + seasonal[(first_weekday + index) % 7]
+        elif model_type == "holt_winters":
+            try:
+                hw_preds, _ = holt_winters_forecast(training, 1)
+                predicted = hw_preds[0]
+            except Exception:
+                return None
         else:
             return None
+            
         errors.append(abs(values[index] - predicted))
+        
     return statistics.fmean(errors) if errors else None
 
 
@@ -115,27 +133,31 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
     values = [entry["net_cash_flow"] for entry in daily]
     baseline = rolling_mean_prediction(values)
-    baseline_mae = backtest_mae(values, "rolling_mean", first_day.weekday())
-    trend_mae = backtest_mae(values, "trend_seasonal", first_day.weekday())
-    use_trend = trend_mae is not None and (baseline_mae is None or trend_mae < baseline_mae)
-    model_name = "linear trend with weekday seasonality" if use_trend else "7-day rolling mean"
-    if use_trend:
-        intercept, slope, weekday_adjustment, rmse = trend_seasonal_fit(values, first_day.weekday())
+    
+    # Run model competition between baseline and Holt-Winters
+    baseline_mae = backtest_mae(values, "rolling_mean")
+    hw_mae = backtest_mae(values, "holt_winters")
+    
+    use_hw = hw_mae is not None and (baseline_mae is None or hw_mae < baseline_mae)
+    model_name = "Holt-Winters Exponential Smoothing (Additive)" if use_hw else "7-day rolling mean"
+
+    # Generate forecast values and error metrics based on the winning model
+    if use_hw:
+        forecast_values, rmse = holt_winters_forecast(values, horizon)
     else:
         recent = values[-7:]
+        forecast_values = [baseline] * horizon
         rmse = statistics.stdev(recent) if len(recent) > 1 else 0.0
+
     forecast = []
     running_total = 0.0
-    for offset in range(1, horizon + 1):
+    for offset, predicted in enumerate(forecast_values, start=1):
         forecast_day = last_day + timedelta(days=offset)
-        if use_trend:
-            x = min(56, len(values)) + offset - 1
-            predicted = intercept + slope * x + weekday_adjustment[forecast_day.weekday()]
-            margin = 1.96 * rmse * math.sqrt(1 + offset / len(values))
-        else:
-            predicted = baseline
-            margin = 1.96 * rmse * math.sqrt(offset)
         running_total += predicted
+        
+        # 95% Confidence Interval margin widens progressively over the forecast horizon
+        margin = 1.96 * rmse * math.sqrt(offset)
+        
         forecast.append({
             "date": forecast_day.isoformat(),
             "predicted_net_cash_flow": round(predicted, 2),
@@ -144,14 +166,12 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
             "cumulative_predicted_cash_flow": round(running_total, 2),
         })
 
-    # Audit amount outliers only among outflows. Comparing payments to revenue
-    # would make the score difficult to interpret.
+    # Audit amount outliers only among outflows
     expenses = [movement for movement in movements if movement["amount"] < 0]
     amounts = [abs(movement["amount"]) for movement in expenses]
     center = statistics.median(amounts) if amounts else 0.0
     mad = median_absolute_deviation(amounts, center) if amounts else 0.0
-    # The modified Z-score's 0.6745 normalizes MAD to a normal distribution.
-    # If all values are identical, there is no amount anomaly to report.
+    
     anomalies = []
     if mad > 0:
         for movement in expenses:
@@ -176,8 +196,10 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
         if len(matches) > 1:
             for movement in matches:
                 anomalies.append({
-                    "id": movement["id"], "date": movement["date"].isoformat(),
-                    "amount": round(movement["amount"], 2), "description": movement["description"],
+                    "id": movement["id"], 
+                    "date": movement["date"].isoformat(),
+                    "amount": round(movement["amount"], 2), 
+                    "description": movement["description"],
                     "modified_z_score": None,
                     "reason": "Potential duplicate: same date, amount, and vendor or description.",
                     "type": "potential_duplicate",
@@ -185,7 +207,7 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "methodology": {
-            "forecast": "rolling-mean baseline compared with linear trend plus weekday seasonality using rolling-origin MAE",
+            "forecast": "rolling-mean baseline compared with Holt-Winters Exponential Smoothing using rolling-origin MAE",
             "anomalies": "expense amount modified Z-score (MAD threshold 3.5) plus exact duplicate candidates",
         },
         "summary": {
@@ -196,7 +218,7 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
             "anomaly_count": len(anomalies),
             "forecast_model": model_name,
             "baseline_validation_mae": round(baseline_mae, 2) if baseline_mae is not None else None,
-            "selected_model_validation_mae": round((trend_mae if use_trend else baseline_mae), 2) if (trend_mae if use_trend else baseline_mae) is not None else None,
+            "selected_model_validation_mae": round((hw_mae if use_hw else baseline_mae), 2) if (hw_mae if use_hw else baseline_mae) is not None else None,
         },
         "daily_cash_flow": [
             {"date": entry["date"].isoformat(), "net_cash_flow": entry["net_cash_flow"]}
