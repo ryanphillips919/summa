@@ -40,3 +40,25 @@ JOIN transactions t ON t.id = e.transaction_id
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.account_id = sqlc.arg(account_id)
   AND t.occurred_on <= sqlc.arg(as_of);
+
+-- ListRecentTransactions is the journal: newest first, with who posted each
+-- transaction and the reversal that undid it, if any.
+-- name: ListRecentTransactions :many
+SELECT t.id, t.occurred_on, t.description, t.reverses_id, t.posted_at,
+       u.name AS posted_by_name,
+       r.id AS reversed_by
+FROM transactions t
+JOIN users u ON u.id = t.posted_by
+LEFT JOIN transactions r ON r.organization_id = t.organization_id AND r.reverses_id = t.id
+WHERE t.organization_id = sqlc.arg(organization_id)
+ORDER BY t.occurred_on DESC, t.id DESC
+LIMIT sqlc.arg(max_rows);
+
+-- name: ListEntriesForTransactions :many
+SELECT e.transaction_id, e.direction, e.amount, e.memo,
+       a.code AS account_code, a.name AS account_name
+FROM entries e
+JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
+WHERE e.organization_id = sqlc.arg(organization_id)
+  AND e.transaction_id IN (sqlc.slice(transaction_ids))
+ORDER BY e.transaction_id, e.id;

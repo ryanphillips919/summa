@@ -100,7 +100,7 @@ func (s *Service) authorize(ctx context.Context, q *db.Queries, orgID, actorID i
 	if err != nil {
 		return err
 	}
-	role, err := parseRole(name)
+	role, err := ParseRole(name)
 	if err != nil {
 		return fmt.Errorf("%w: %v", errUnexpectedStoredData, err)
 	}
@@ -124,7 +124,7 @@ func (s *Service) inTx(ctx context.Context, fn func(q *db.Queries) error) error 
 }
 
 func (s *Service) CreateAccount(ctx context.Context, req CreateAccountRequest) (Account, error) {
-	if err := s.authorize(ctx, s.q, req.OrganizationID, req.ActorID, Accountant); err != nil {
+	if err := s.authorize(ctx, s.q, req.OrganizationID, req.ActorID, RoleToManageAccounts); err != nil {
 		return Account{}, err
 	}
 	if !req.Type.valid() || strings.TrimSpace(req.Code) == "" || strings.TrimSpace(req.Name) == "" {
@@ -163,7 +163,7 @@ func (s *Service) CreateAccount(ctx context.Context, req CreateAccountRequest) (
 // Post records a balanced transaction. Either the transaction and all of its
 // entries are stored, or nothing is.
 func (s *Service) Post(ctx context.Context, req PostRequest) (Transaction, error) {
-	if err := s.authorize(ctx, s.q, req.OrganizationID, req.ActorID, Bookkeeper); err != nil {
+	if err := s.authorize(ctx, s.q, req.OrganizationID, req.ActorID, RoleToPost); err != nil {
 		return Transaction{}, err
 	}
 	if req.OccurredOn.IsZero() {
@@ -193,7 +193,7 @@ func (s *Service) Post(ctx context.Context, req PostRequest) (Transaction, error
 // direction of every entry. The original is left untouched, and a transaction
 // can only be reversed once.
 func (s *Service) Reverse(ctx context.Context, req ReverseRequest) (Transaction, error) {
-	if err := s.authorize(ctx, s.q, req.OrganizationID, req.ActorID, Accountant); err != nil {
+	if err := s.authorize(ctx, s.q, req.OrganizationID, req.ActorID, RoleToReverse); err != nil {
 		return Transaction{}, err
 	}
 	if req.OccurredOn.IsZero() {
@@ -310,7 +310,7 @@ func (s *Service) account(ctx context.Context, q *db.Queries, orgID, accountID i
 // Balance returns one account's balance from transactions dated on or before
 // asOf. A positive number means the account's normal balance.
 func (s *Service) Balance(ctx context.Context, orgID, actorID, accountID int64, asOf time.Time) (Amount, error) {
-	if err := s.authorize(ctx, s.q, orgID, actorID, Viewer); err != nil {
+	if err := s.authorize(ctx, s.q, orgID, actorID, RoleToRead); err != nil {
 		return 0, err
 	}
 	a, err := s.account(ctx, s.q, orgID, accountID)
@@ -326,7 +326,7 @@ func (s *Service) Balance(ctx context.Context, orgID, actorID, accountID int64, 
 
 // TrialBalance lists every account with activity as of asOf, ordered by code.
 func (s *Service) TrialBalance(ctx context.Context, orgID, actorID int64, asOf time.Time) (TrialBalance, error) {
-	if err := s.authorize(ctx, s.q, orgID, actorID, Viewer); err != nil {
+	if err := s.authorize(ctx, s.q, orgID, actorID, RoleToRead); err != nil {
 		return TrialBalance{}, err
 	}
 	rows, err := s.q.TrialBalance(ctx, db.TrialBalanceParams{OrganizationID: orgID, AsOf: asOf.Format(dateLayout)})
@@ -335,7 +335,7 @@ func (s *Service) TrialBalance(ctx context.Context, orgID, actorID int64, asOf t
 	}
 	var tb TrialBalance
 	for _, r := range rows {
-		typ, err := parseAccountType(r.Type)
+		typ, err := ParseAccountType(r.Type)
 		if err != nil {
 			return TrialBalance{}, fmt.Errorf("%w: %v", errUnexpectedStoredData, err)
 		}
@@ -355,7 +355,7 @@ func (s *Service) TrialBalance(ctx context.Context, orgID, actorID int64, asOf t
 }
 
 func toAccount(row db.Account) (Account, error) {
-	typ, err := parseAccountType(row.Type)
+	typ, err := ParseAccountType(row.Type)
 	if err != nil {
 		return Account{}, fmt.Errorf("%w: %v", errUnexpectedStoredData, err)
 	}
@@ -371,7 +371,7 @@ func toAccount(row db.Account) (Account, error) {
 }
 
 func toEntry(row db.Entry) (Entry, error) {
-	dir, err := parseDirection(row.Direction)
+	dir, err := ParseDirection(row.Direction)
 	if err != nil {
 		return Entry{}, fmt.Errorf("%w: %v", errUnexpectedStoredData, err)
 	}
@@ -404,4 +404,92 @@ func isUniqueViolation(err error, columns string) bool {
 
 func isForeignKeyViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed")
+}
+
+type JournalLine struct {
+	AccountCode string
+	AccountName string
+	Direction   Direction
+	Amount      Amount
+	Memo        string
+}
+
+type JournalTransaction struct {
+	ID           int64
+	OccurredOn   time.Time
+	Description  string
+	PostedByName string
+	PostedAt     string
+	ReversesID   int64 // this transaction undoes ReversesID
+	ReversedByID int64 // this transaction was undone by ReversedByID
+	Lines        []JournalLine
+}
+
+// Journal returns the most recent transactions with their entries, newest
+// accounting date first.
+func (s *Service) Journal(ctx context.Context, orgID, actorID int64, limit int) ([]JournalTransaction, error) {
+	if err := s.authorize(ctx, s.q, orgID, actorID, RoleToRead); err != nil {
+		return nil, err
+	}
+	rows, err := s.q.ListRecentTransactions(ctx, db.ListRecentTransactionsParams{OrganizationID: orgID, MaxRows: int64(limit)})
+	if err != nil || len(rows) == 0 {
+		return nil, err
+	}
+	journal := make([]JournalTransaction, len(rows))
+	index := make(map[int64]int, len(rows))
+	ids := make([]int64, len(rows))
+	for i, r := range rows {
+		occurredOn, err := time.Parse(dateLayout, r.OccurredOn)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", errUnexpectedStoredData, err)
+		}
+		journal[i] = JournalTransaction{
+			ID:           r.ID,
+			OccurredOn:   occurredOn,
+			Description:  r.Description,
+			PostedByName: r.PostedByName,
+			PostedAt:     r.PostedAt,
+			ReversesID:   r.ReversesID.Int64,
+			ReversedByID: r.ReversedBy.Int64,
+		}
+		index[r.ID] = i
+		ids[i] = r.ID
+	}
+	entries, err := s.q.ListEntriesForTransactions(ctx, db.ListEntriesForTransactionsParams{OrganizationID: orgID, TransactionIds: ids})
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range entries {
+		dir, err := ParseDirection(e.Direction)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", errUnexpectedStoredData, err)
+		}
+		tx := &journal[index[e.TransactionID]]
+		tx.Lines = append(tx.Lines, JournalLine{
+			AccountCode: e.AccountCode,
+			AccountName: e.AccountName,
+			Direction:   dir,
+			Amount:      Amount(e.Amount),
+			Memo:        e.Memo,
+		})
+	}
+	return journal, nil
+}
+
+// Accounts returns the organization's chart of accounts ordered by code.
+func (s *Service) Accounts(ctx context.Context, orgID, actorID int64) ([]Account, error) {
+	if err := s.authorize(ctx, s.q, orgID, actorID, RoleToRead); err != nil {
+		return nil, err
+	}
+	rows, err := s.q.ListAccounts(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	accounts := make([]Account, len(rows))
+	for i, r := range rows {
+		if accounts[i], err = toAccount(r); err != nil {
+			return nil, err
+		}
+	}
+	return accounts, nil
 }

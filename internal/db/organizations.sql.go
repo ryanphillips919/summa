@@ -56,6 +56,17 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const firstOrganization = `-- name: FirstOrganization :one
+SELECT id, name, created_at FROM organizations ORDER BY id LIMIT 1
+`
+
+func (q *Queries) FirstOrganization(ctx context.Context) (Organization, error) {
+	row := q.db.QueryRowContext(ctx, firstOrganization)
+	var i Organization
+	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	return i, err
+}
+
 const getMembershipRole = `-- name: GetMembershipRole :one
 SELECT role FROM memberships WHERE organization_id = ? AND user_id = ?
 `
@@ -70,4 +81,47 @@ func (q *Queries) GetMembershipRole(ctx context.Context, arg GetMembershipRolePa
 	var role string
 	err := row.Scan(&role)
 	return role, err
+}
+
+const listMembers = `-- name: ListMembers :many
+SELECT u.id, u.name, u.email, m.role
+FROM memberships m
+JOIN users u ON u.id = m.user_id
+WHERE m.organization_id = ?
+ORDER BY u.id
+`
+
+type ListMembersRow struct {
+	ID    int64
+	Name  string
+	Email string
+	Role  string
+}
+
+func (q *Queries) ListMembers(ctx context.Context, organizationID int64) ([]ListMembersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMembers, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMembersRow
+	for rows.Next() {
+		var i ListMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

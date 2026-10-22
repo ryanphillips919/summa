@@ -35,7 +35,7 @@ func (d Direction) String() string {
 
 func (d Direction) opposite() Direction { return Debit + Credit - d }
 
-func parseDirection(s string) (Direction, error) {
+func ParseDirection(s string) (Direction, error) {
 	switch s {
 	case "debit":
 		return Debit, nil
@@ -71,7 +71,7 @@ func (t AccountType) String() string {
 	return fmt.Sprintf("AccountType(%d)", int(t))
 }
 
-func parseAccountType(s string) (AccountType, error) {
+func ParseAccountType(s string) (AccountType, error) {
 	for t, name := range accountTypeNames {
 		if name == s {
 			return t, nil
@@ -128,7 +128,8 @@ func (r Role) String() string {
 	return fmt.Sprintf("Role(%d)", int(r))
 }
 
-func parseRole(s string) (Role, error) {
+// ParseRole converts a stored role name ("viewer", "owner", ...) to a Role.
+func ParseRole(s string) (Role, error) {
 	for r, name := range roleNames {
 		if name == s {
 			return r, nil
@@ -136,6 +137,15 @@ func parseRole(s string) (Role, error) {
 	}
 	return 0, fmt.Errorf("ledger: unknown role %q", s)
 }
+
+// The minimum role for each action. Service enforces these; UIs use them to
+// explain and disable actions a member can't take.
+const (
+	RoleToRead           = Viewer
+	RoleToPost           = Bookkeeper
+	RoleToReverse        = Accountant
+	RoleToManageAccounts = Accountant
+)
 
 type Entry struct {
 	AccountID int64

@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 )
 
 const accountTotals = `-- name: AccountTotals :one
@@ -125,6 +126,131 @@ func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionPa
 		&i.PostedAt,
 	)
 	return i, err
+}
+
+const listEntriesForTransactions = `-- name: ListEntriesForTransactions :many
+SELECT e.transaction_id, e.direction, e.amount, e.memo,
+       a.code AS account_code, a.name AS account_name
+FROM entries e
+JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
+WHERE e.organization_id = ?1
+  AND e.transaction_id IN (/*SLICE:transaction_ids*/?)
+ORDER BY e.transaction_id, e.id
+`
+
+type ListEntriesForTransactionsParams struct {
+	OrganizationID int64
+	TransactionIds []int64
+}
+
+type ListEntriesForTransactionsRow struct {
+	TransactionID int64
+	Direction     string
+	Amount        int64
+	Memo          string
+	AccountCode   string
+	AccountName   string
+}
+
+func (q *Queries) ListEntriesForTransactions(ctx context.Context, arg ListEntriesForTransactionsParams) ([]ListEntriesForTransactionsRow, error) {
+	query := listEntriesForTransactions
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.OrganizationID)
+	if len(arg.TransactionIds) > 0 {
+		for _, v := range arg.TransactionIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:transaction_ids*/?", strings.Repeat(",?", len(arg.TransactionIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:transaction_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEntriesForTransactionsRow
+	for rows.Next() {
+		var i ListEntriesForTransactionsRow
+		if err := rows.Scan(
+			&i.TransactionID,
+			&i.Direction,
+			&i.Amount,
+			&i.Memo,
+			&i.AccountCode,
+			&i.AccountName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentTransactions = `-- name: ListRecentTransactions :many
+SELECT t.id, t.occurred_on, t.description, t.reverses_id, t.posted_at,
+       u.name AS posted_by_name,
+       r.id AS reversed_by
+FROM transactions t
+JOIN users u ON u.id = t.posted_by
+LEFT JOIN transactions r ON r.organization_id = t.organization_id AND r.reverses_id = t.id
+WHERE t.organization_id = ?1
+ORDER BY t.occurred_on DESC, t.id DESC
+LIMIT ?2
+`
+
+type ListRecentTransactionsParams struct {
+	OrganizationID int64
+	MaxRows        int64
+}
+
+type ListRecentTransactionsRow struct {
+	ID           int64
+	OccurredOn   string
+	Description  string
+	ReversesID   sql.NullInt64
+	PostedAt     string
+	PostedByName string
+	ReversedBy   sql.NullInt64
+}
+
+// ListRecentTransactions is the journal: newest first, with who posted each
+// transaction and the reversal that undid it, if any.
+func (q *Queries) ListRecentTransactions(ctx context.Context, arg ListRecentTransactionsParams) ([]ListRecentTransactionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentTransactions, arg.OrganizationID, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentTransactionsRow
+	for rows.Next() {
+		var i ListRecentTransactionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredOn,
+			&i.Description,
+			&i.ReversesID,
+			&i.PostedAt,
+			&i.PostedByName,
+			&i.ReversedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTransactionEntries = `-- name: ListTransactionEntries :many
