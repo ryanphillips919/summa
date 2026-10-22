@@ -10,6 +10,60 @@ import (
 	"database/sql"
 )
 
+const accountTotals = `-- name: AccountTotals :one
+SELECT CAST(COALESCE(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount END), 0) AS INTEGER) AS debits,
+       CAST(COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount END), 0) AS INTEGER) AS credits
+FROM entries e
+JOIN transactions t ON t.id = e.transaction_id
+WHERE e.organization_id = ?1
+  AND e.account_id = ?2
+  AND t.occurred_on <= ?3
+`
+
+type AccountTotalsParams struct {
+	OrganizationID int64
+	AccountID      int64
+	AsOf           string
+}
+
+type AccountTotalsRow struct {
+	Debits  int64
+	Credits int64
+}
+
+// AccountTotals returns one account's debits and credits as of a date.
+func (q *Queries) AccountTotals(ctx context.Context, arg AccountTotalsParams) (AccountTotalsRow, error) {
+	row := q.db.QueryRowContext(ctx, accountTotals, arg.OrganizationID, arg.AccountID, arg.AsOf)
+	var i AccountTotalsRow
+	err := row.Scan(&i.Debits, &i.Credits)
+	return i, err
+}
+
+const getTransaction = `-- name: GetTransaction :one
+SELECT id, organization_id, occurred_on, description, counterparty_id, reverses_id, posted_by, posted_at FROM transactions WHERE organization_id = ? AND id = ?
+`
+
+type GetTransactionParams struct {
+	OrganizationID int64
+	ID             int64
+}
+
+func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransaction, arg.OrganizationID, arg.ID)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.OccurredOn,
+		&i.Description,
+		&i.CounterpartyID,
+		&i.ReversesID,
+		&i.PostedBy,
+		&i.PostedAt,
+	)
+	return i, err
+}
+
 const insertEntry = `-- name: InsertEntry :exec
 INSERT INTO entries (organization_id, transaction_id, account_id, direction, amount, memo)
 VALUES (?, ?, ?, ?, ?, ?)
@@ -71,6 +125,46 @@ func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionPa
 		&i.PostedAt,
 	)
 	return i, err
+}
+
+const listTransactionEntries = `-- name: ListTransactionEntries :many
+SELECT id, organization_id, transaction_id, account_id, direction, amount, memo FROM entries WHERE organization_id = ? AND transaction_id = ? ORDER BY id
+`
+
+type ListTransactionEntriesParams struct {
+	OrganizationID int64
+	TransactionID  int64
+}
+
+func (q *Queries) ListTransactionEntries(ctx context.Context, arg ListTransactionEntriesParams) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, listTransactionEntries, arg.OrganizationID, arg.TransactionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Entry
+	for rows.Next() {
+		var i Entry
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.TransactionID,
+			&i.AccountID,
+			&i.Direction,
+			&i.Amount,
+			&i.Memo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const transactionTotals = `-- name: TransactionTotals :one

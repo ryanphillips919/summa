@@ -24,3 +24,19 @@ JOIN entries e      ON e.organization_id = a.organization_id AND e.account_id = 
 JOIN transactions t ON t.id = e.transaction_id
 WHERE a.organization_id = sqlc.arg(organization_id) AND t.occurred_on <= sqlc.arg(as_of)
 GROUP BY a.id ORDER BY a.code;
+
+-- name: GetTransaction :one
+SELECT * FROM transactions WHERE organization_id = ? AND id = ?;
+
+-- name: ListTransactionEntries :many
+SELECT * FROM entries WHERE organization_id = ? AND transaction_id = ? ORDER BY id;
+
+-- AccountTotals returns one account's debits and credits as of a date.
+-- name: AccountTotals :one
+SELECT CAST(COALESCE(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount END), 0) AS INTEGER) AS debits,
+       CAST(COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount END), 0) AS INTEGER) AS credits
+FROM entries e
+JOIN transactions t ON t.id = e.transaction_id
+WHERE e.organization_id = sqlc.arg(organization_id)
+  AND e.account_id = sqlc.arg(account_id)
+  AND t.occurred_on <= sqlc.arg(as_of);

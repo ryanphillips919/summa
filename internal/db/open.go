@@ -19,12 +19,18 @@ var migrations embed.FS
 // Every connection enforces foreign keys; without them the schema's
 // organization and append-only protections silently stop working.
 func Open(ctx context.Context, path string) (*sql.DB, error) {
-	pragmas := url.Values{"_pragma": {
-		"foreign_keys(1)",
-		"journal_mode(WAL)",
-		"busy_timeout(5000)",
-	}}
-	conn, err := sql.Open("sqlite", "file:"+path+"?"+pragmas.Encode())
+	params := url.Values{
+		"_pragma": {
+			"foreign_keys(1)",
+			"journal_mode(WAL)",
+			"busy_timeout(5000)",
+		},
+		// Take the write lock when a transaction begins. Postings read then
+		// write, and a deferred transaction can't wait to upgrade its lock,
+		// so concurrent postings would fail with SQLITE_BUSY instead of queuing.
+		"_txlock": {"immediate"},
+	}
+	conn, err := sql.Open("sqlite", "file:"+path+"?"+params.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("open database %q: %w", path, err)
 	}
