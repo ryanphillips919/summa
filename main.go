@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"summa/internal/analytics"
+	"summa/internal/db"
+	"summa/internal/ledger"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -40,15 +45,28 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	timeout := middleware.Timeout(60 * time.Second)
 
-	r.With(timeout).Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	r.With(timeout).Handle("/analytics/demo/*", http.StripPrefix("/analytics/demo", http.FileServer(http.Dir("analytics/demo"))))
-	r.With(timeout).Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Summa is running. POST cash movements to /api/analytics/run."))
+	// Server-sent event streams (/demo/watch, /timeline/watch, /ledger/watch) stay open for as
+	// long as a tab does, so the timeout only wraps ordinary requests.
+	r.Mount("/demo", app.demoRoutes())
+	r.Mount("/timeline", app.timelineRoutes())
+	r.Mount("/ledger", app.ledgerRoutes())
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(60 * time.Second))
+		app.mountRoutes(r)
+	})
+	return r
+}
+
+func (a *App) mountRoutes(r chi.Router) {
+	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	r.Handle("/analytics/demo/*", http.StripPrefix("/analytics/demo", http.FileServer(http.Dir("analytics/demo"))))
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Summa is running. Try /ledger for the ledger playground, or POST cash movements to /api/analytics/run."))
 	})
 
-	r.With(timeout).Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -67,15 +85,11 @@ func newRouter(app *App) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
-	r.With(timeout).Get("/api/analytics/demo", demoAnalyticsHandler)
-	r.With(timeout).Get("/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/api/analytics/demo", demoAnalyticsHandler)
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
 	})
-
-	r.Mount("/demo", app.demoRoutes())
-	r.Mount("/timeline", app.timelineRoutes())
-	return r
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
@@ -123,6 +137,11 @@ func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 type App struct {
 	nc *nats.Conn
 	kv jetstream.KeyValue
+
+	sqlDB   *sql.DB
+	queries *db.Queries
+	ledger  *ledger.Service
+	orgID   int64 // one organization for now; see seedDevData
 }
 
 func appInit() (*App, func(), error) {
@@ -137,8 +156,40 @@ func appInit() (*App, func(), error) {
 		return nil, nil, fmt.Errorf("starting KV: %w", err)
 	}
 
+	dbPath := os.Getenv("SUMMA_DB")
+	if dbPath == "" {
+		dbPath = filepath.Join("data", "summa.db")
+	}
+	ctx := context.Background()
+	conn, err := openDatabase(ctx, dbPath)
+	if err != nil {
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, err
+	}
+	queries := db.New(conn)
+	ledgerService := ledger.NewService(conn)
+	orgID, err := seedDevData(ctx, queries, ledgerService)
+	if err != nil {
+		conn.Close()
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, fmt.Errorf("seeding database: %w", err)
+	}
+	log.Printf("Database ready at %s", dbPath)
+
 	cleanup := func() {
+		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv}, cleanup, nil
+	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, ledger: ledgerService, orgID: orgID}, cleanup, nil
+}
+
+func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, fmt.Errorf("create database directory: %w", err)
+	}
+	conn, err := db.Open(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("opening database: %w", err)
+	}
+	return conn, nil
 }
