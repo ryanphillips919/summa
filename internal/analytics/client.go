@@ -78,9 +78,17 @@ type pythonCommand struct {
 	args    []string
 }
 
-func findPythonCommand() (pythonCommand, error) {
+func findPythonCommand(script string) (pythonCommand, error) {
 	if configured := os.Getenv("SUMMA_ANALYTICS_PYTHON"); configured != "" {
 		return pythonCommand{program: configured}, nil
+	}
+
+	venvPython := filepath.Join(filepath.Dir(filepath.Dir(script)), ".venv", "bin", "python")
+	if runtime.GOOS == "windows" {
+		venvPython = filepath.Join(filepath.Dir(filepath.Dir(script)), ".venv", "Scripts", "python.exe")
+	}
+	if path, err := exec.LookPath(venvPython); err == nil {
+		return pythonCommand{program: path}, nil
 	}
 
 	var candidates []pythonCommand
@@ -124,14 +132,13 @@ func Run(parent context.Context, request Request) (Response, error) {
 		return response, fmt.Errorf("marshal analytics request: %w", err)
 	}
 
-	python, err := findPythonCommand()
-	if err != nil {
-		return response, err
-	}
-
 	script := os.Getenv("SUMMA_ANALYTICS_SCRIPT")
 	if script == "" {
 		script = filepath.Join("analytics", "engine.py")
+	}
+	python, err := findPythonCommand(script)
+	if err != nil {
+		return response, err
 	}
 
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
