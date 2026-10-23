@@ -63,7 +63,7 @@ func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	r.Handle("/analytics/demo/*", http.StripPrefix("/analytics/demo", http.FileServer(http.Dir("analytics/demo"))))
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Summa is running. Try /ledger for the ledger playground, or POST cash movements to /api/analytics/run."))
+		http.ServeFile(w, r, "assets/home.html")
 	})
 
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
