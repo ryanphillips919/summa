@@ -70,6 +70,16 @@ go build . # build this into a Golang binary for deployment/this is what Docker 
 
 ## Analytics starter
 
+For local `go run .`, install the Python requirements into a project virtual environment:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r analytics/requirements.txt
+go run .
+```
+
+The Go client uses this `.venv` by default; `SUMMA_ANALYTICS_PYTHON` overrides it.
+
 Go owns authorization and database access. After it loads organization-scoped
 cash movements, it sends only that data to `analytics/engine.py` over stdin as
 JSON. Python returns JSON for a templ component or Datastar update and has no

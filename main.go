@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-
-	"summa.local/internal/analytics"
+	"os"
+	"path/filepath"
+	"summa/internal/analytics"
+	"summa/internal/db"
+	"summa/internal/ledger"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -38,11 +44,25 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// r.Use(middleware.Timeout(60 * time.Second)) <- this breaks real time split screen sometimes, ignore for now
 
+	// Server-sent event streams (/demo/watch, /timeline/watch, /ledger/watch) stay open for as
+	// long as a tab does, so the timeout only wraps ordinary requests.
+	r.Mount("/demo", app.demoRoutes())
+	r.Mount("/timeline", app.timelineRoutes())
+	r.Mount("/ledger", app.ledgerRoutes())
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(60 * time.Second))
+		app.mountRoutes(r)
+	})
+	return r
+}
+
+func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	r.Handle("/analytics/demo/*", http.StripPrefix("/analytics/demo", http.FileServer(http.Dir("analytics/demo"))))
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Summa is running. POST cash movements to /api/analytics/run."))
+		http.ServeFile(w, r, "assets/home.html")
 	})
 
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
@@ -64,14 +84,11 @@ func newRouter(app *App) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
+	r.Get("/api/analytics/demo", demoAnalyticsHandler)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
 	})
-
-	r.Mount("/demo", app.demoRoutes())
-	r.Mount("/timeline", app.timelineRoutes())
-	return r
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
@@ -80,9 +97,50 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
+type analyticsDemoResponse struct {
+	analytics.Response
+	CashMovements      []analytics.CashMovement `json:"cash_movements"`
+	OpeningCashBalance float64                  `json:"opening_cash_balance"`
+}
+
+func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
+	fixture, err := os.ReadFile("analytics/data/demo_cash_movements.json")
+	if err != nil {
+		log.Printf("read analytics demo fixture: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is unavailable")
+		return
+	}
+
+	var request analytics.Request
+	if err := json.Unmarshal(fixture, &request); err != nil {
+		log.Printf("decode analytics demo fixture: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is invalid")
+		return
+	}
+
+	result, err := analytics.Run(r.Context(), request)
+	if err != nil {
+		log.Printf("run analytics demo: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "analytics demo could not run")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
+		Response:           result,
+		CashMovements:      request.CashMovements,
+		OpeningCashBalance: request.OpeningCashBalance,
+	})
+}
+
 type App struct {
 	nc *nats.Conn
 	kv jetstream.KeyValue
+
+	sqlDB   *sql.DB
+	queries *db.Queries
+	ledger  *ledger.Service
+	orgID   int64 // one organization for now; see seedDevData
 }
 
 func appInit() (*App, func(), error) {
@@ -97,8 +155,40 @@ func appInit() (*App, func(), error) {
 		return nil, nil, fmt.Errorf("starting KV: %w", err)
 	}
 
+	dbPath := os.Getenv("SUMMA_DB")
+	if dbPath == "" {
+		dbPath = filepath.Join("data", "summa.db")
+	}
+	ctx := context.Background()
+	conn, err := openDatabase(ctx, dbPath)
+	if err != nil {
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, err
+	}
+	queries := db.New(conn)
+	ledgerService := ledger.NewService(conn)
+	orgID, err := seedDevData(ctx, queries, ledgerService)
+	if err != nil {
+		conn.Close()
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, fmt.Errorf("seeding database: %w", err)
+	}
+	log.Printf("Database ready at %s", dbPath)
+
 	cleanup := func() {
+		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv}, cleanup, nil
+	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, ledger: ledgerService, orgID: orgID}, cleanup, nil
+}
+
+func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, fmt.Errorf("create database directory: %w", err)
+	}
+	conn, err := db.Open(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("opening database: %w", err)
+	}
+	return conn, nil
 }

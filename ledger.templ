@@ -1,0 +1,499 @@
+package main
+
+import (
+	"fmt"
+
+	"summa/internal/ledger"
+)
+
+// The ledger playground: a developer page for trying the ledger engine by
+// hand. Every action goes through ledger.Service, so the page can't bypass
+// any ledger rule.
+templ LedgerPage(v ledgerView) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Summa Ledger Playground</title>
+			<link rel="stylesheet" href="/assets/ledger.css"/>
+			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"></script>
+		</head>
+		// one long-lived stream per tab: the server bumps $ledger_rev whenever
+		// anyone changes the ledger (see ledgerWatchHandler); $liveconn is true
+		// while the stream is connected
+		<body data-init="@get('/ledger/watch', {filterSignals: {include: /^$/}})" data-indicator:liveconn>
+			<div data-signals={ templ.JSONString(initialSignals(v)) }>
+				<header class="appbar">
+					<div class="brand">
+						<span class="logo">Σ</span>
+						<span>Summa <span class="muted">Ledger Playground</span></span>
+					</div>
+					<div class="appbar-controls">
+						<span class="live" data-class:on="$liveconn" data-text="$liveconn ? 'Live' : 'Offline'">Connecting…</span>
+						<label class="actor">
+							<span class="muted">Acting as</span>
+							<select data-bind="actor" data-on:change="@get('/ledger/view')">
+								for _, m := range v.Members {
+									<option value={ fmt.Sprint(m.ID) }>{ m.Name }</option>
+								}
+							</select>
+						</label>
+						@ActorBadge(v)
+					</div>
+				</header>
+				<nav class="tabs" aria-label="Ledger features">
+					for _, t := range ledgerTabs {
+						<button type="button" class={ tabClass(v, t.ID) } data-class:active={ fmt.Sprintf("$tab == '%s'", t.ID) } data-on:click={ fmt.Sprintf("$tab = '%s'", t.ID) }>{ t.Label }</button>
+					}
+				</nav>
+				<div id="ledger-flash" class="toasts"></div>
+				// when another tab changes the ledger, re-render this tab with
+				// its own actor and as-of date
+				<div hidden data-on-signal-patch="@get('/ledger/view')" data-on-signal-patch-filter="{include: /^ledger_rev$/}"></div>
+				<main>
+					@LedgerLive(v)
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ ActorBadge(v ledgerView) {
+	<span id="actor-badge">
+		@roleBadge(v.ActorRole)
+	</span>
+}
+
+templ roleBadge(role string) {
+	<span class={ "badge", "role-" + role }>{ role }</span>
+}
+
+// LedgerFlash shows a toast. Each toast gets a new ID so its fade-out
+// animation restarts; click to dismiss early.
+templ LedgerFlash(ok bool, message string) {
+	<div id="ledger-flash" class="toasts">
+		if ok {
+			<div id={ toastID() } class="toast ok" role="status" data-on:click="el.remove()">{ message }</div>
+		} else {
+			<div id={ toastID() } class="toast error" role="alert" data-on:click="el.remove()">{ message }</div>
+		}
+	</div>
+}
+
+// LedgerLive is everything that changes when the ledger or the viewer's
+// choices change. It holds no signals, so re-rendering it never resets what
+// someone is typing.
+templ LedgerLive(v ledgerView) {
+	<div id="ledger-live">
+		@startTab(v)
+		@postTab(v)
+		@journalTab(v)
+		@trialTab(v)
+		@accountsTab(v)
+	</div>
+}
+
+templ panel(v ledgerView, tab string) {
+	<section class="panel" data-show={ fmt.Sprintf("$tab == '%s'", tab) } style={ shownIf(v.Tab == tab) }>
+		{ children... }
+	</section>
+}
+
+// helpBox is a tab's "How this works" box; it can be hidden and shown again.
+templ helpBox(v ledgerView, tab string) {
+	{{ signal := "$" + helpSignal(tab) }}
+	<div class="help" data-show={ signal } style={ shownIf(v.HelpShown[tab]) }>
+		<div class="help-head">
+			<span class="help-title">How this works</span>
+			<button type="button" class="ghost small" data-on:click={ signal + " = false" }>Hide</button>
+		</div>
+		{ children... }
+	</div>
+	<button type="button" class="link" data-show={ "!" + signal } style={ shownIf(!v.HelpShown[tab]) } data-on:click={ signal + " = true" }>Show instructions</button>
+}
+
+templ startTab(v ledgerView) {
+	@panel(v, "start") {
+		<div class="panel-head">
+			<h1>Welcome to the ledger playground</h1>
+			<p class="lead">Try Summa's double-entry ledger by hand. Everything here goes through the same rules the real app uses, and every change is saved to the local database.</p>
+		</div>
+		@helpBox(v, "start") {
+			<p>There's no sign-in yet, so use <strong>Acting as</strong> in the top bar to switch between four people. Each has a different role, and the page only lets you do what that role allows.</p>
+			<p>Open other browser tabs to see live collaboration: anything posted in one tab appears in the others.</p>
+		}
+		<div class="cards">
+			<div class="card">
+				<h2>Try this</h2>
+				<ol class="steps">
+					<li>
+						<div>
+							<strong>Post an expense as a bookkeeper.</strong> On the Post tab, click <em>Pay an expense</em>, type <code>3,200</code> and post it.
+						</div>
+						if id := v.MemberID("bookkeeper"); id != 0 {
+							<button type="button" class="secondary small" data-on:click={ actAs(id, "post") }>Act as bookkeeper</button>
+						}
+					</li>
+					<li>
+						<div>
+							<strong>Try to undo it.</strong> In the Journal, the Reverse button is greyed out: bookkeepers can't reverse.
+						</div>
+						<button type="button" class="secondary small" data-on:click="$tab = 'journal'">Open journal</button>
+					</li>
+					<li>
+						<div>
+							<strong>Reverse it as an accountant.</strong> The mistake and its reversal both stay in the history.
+						</div>
+						if id := v.MemberID("accountant"); id != 0 {
+							<button type="button" class="secondary small" data-on:click={ actAs(id, "journal") }>Act as accountant</button>
+						}
+					</li>
+					<li>
+						<div>
+							<strong>Travel back in time.</strong> On Trial balance, set <em>Books as of</em> to an earlier date.
+						</div>
+						<button type="button" class="secondary small" data-on:click="$tab = 'trial'">Open trial balance</button>
+					</li>
+				</ol>
+			</div>
+			<div class="card">
+				<h2>Who's who</h2>
+				<ul class="people">
+					for _, m := range v.Members {
+						<li>
+							<div class="person">
+								<strong>{ m.Name }</strong>
+								@roleBadge(m.Role)
+							</div>
+							<div class="muted small">{ roleSummary(m.Role) }</div>
+						</li>
+					}
+				</ul>
+			</div>
+			<div class="card">
+				<h2>Three ideas behind it</h2>
+				<ul class="ideas">
+					<li><strong>Double entry.</strong> Every transaction has at least two lines, and debits always equal credits.</li>
+					<li><strong>Append-only.</strong> Posted transactions are never edited or deleted. Mistakes are fixed with a reversal.</li>
+					<li><strong>Derived balances.</strong> Balances are calculated from the entries, so you can see the books on any date.</li>
+				</ul>
+			</div>
+		</div>
+	}
+}
+
+templ postTab(v ledgerView) {
+	@panel(v, "post") {
+		<div class="panel-head">
+			<h1>Post a transaction</h1>
+		</div>
+		@helpBox(v, "post") {
+			<p>Every transaction needs at least two lines, and total debits must equal total credits. Start from a <strong>quick start</strong> or build your own.</p>
+			<p>The <strong>Effect</strong> column shows what each line does: ↑ increases the account, ↓ decreases it. Debit and credit aren't plus and minus: a debit increases assets and expenses, while a credit increases liabilities, equity and revenue.</p>
+			<p class="tip">Tip: for a two-line transaction, type the amount once; it's copied to the second line.</p>
+		}
+		if !v.CanPost() {
+			<p class="locked">{ needs(ledger.RoleToPost) } to post. Switch <strong>Acting as</strong> in the top bar to try it.</p>
+		}
+		<fieldset disabled?={ !v.CanPost() }>
+			if templates := v.Templates(); len(templates) > 0 {
+				<div class="templates">
+					<span class="label">Quick start</span>
+					for _, t := range templates {
+						<button type="button" class="chip" title={ fmt.Sprintf("Debit %s, credit %s", t.Debit.Name, t.Credit.Name) } data-on:click={ t.ClickExpr() }>{ t.Label }</button>
+					}
+				</div>
+			}
+			<div class="form-row">
+				<label>Date <input type="date" data-bind="date"/></label>
+				<label class="grow">Description <input type="text" data-bind="description" placeholder="e.g. October rent"/></label>
+			</div>
+			<div class="table-wrap">
+				<table class="lines">
+					<thead>
+						<tr><th>Account</th><th>Debit / credit</th><th>Amount ($)</th><th>Effect</th><th></th></tr>
+					</thead>
+					<tbody>
+						for i := 0; i < maxLines; i++ {
+							<tr data-show={ fmt.Sprintf("$line_count > %d", i) } style={ shownIf(v.LineCount > i) } data-class:invalid={ "$" + lineSignal(i, "bad") }>
+								<td>
+									<select data-bind={ lineSignal(i, "account") } data-on:change="@post('/ledger/preview')">
+										<option value="">Choose an account…</option>
+										for _, g := range v.PostableByType() {
+											<optgroup label={ g.Label }>
+												for _, a := range g.Accounts {
+													<option value={ fmt.Sprint(a.ID) }>{ a.Code } { a.Name }</option>
+												}
+											</optgroup>
+										}
+									</select>
+								</td>
+								<td>
+									<select data-bind={ lineSignal(i, "dir") } data-on:change="@post('/ledger/preview')">
+										<option value="debit">Debit</option>
+										<option value="credit">Credit</option>
+									</select>
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="decimal"
+										placeholder="0.00"
+										data-bind={ lineSignal(i, "amount") }
+										data-on:input__debounce.250ms={ amountInputExpr(i) }
+										data-on:change="@post('/ledger/preview?format=1')"
+									/>
+								</td>
+								<td class="effect">
+									<span id={ fmt.Sprintf("line-effect-%d", i) } class={ effectClass(v.Preview.Lines[i]) }>{ v.Preview.Lines[i].Text }</span>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="remove"
+										title="Remove this line"
+										aria-label="Remove this line"
+										data-show="$line_count > 2"
+										style={ shownIf(v.LineCount > 2) }
+										data-on:click={ fmt.Sprintf("@post('/ledger/lines/remove/%d')", i) }
+									>×</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+			@postTotals(v.Preview)
+			<div class="actions">
+				<button type="button" class="secondary" data-show={ fmt.Sprintf("$line_count < %d", maxLines) } style={ shownIf(v.LineCount < maxLines) } data-on:click={ fmt.Sprintf("$mirror = false; $line_count = Math.min($line_count + 1, %d)", maxLines) }>+ Add line</button>
+				<button type="button" class="primary" data-on:click="@post('/ledger/post')">Post transaction</button>
+			</div>
+		</fieldset>
+	}
+}
+
+// LinePreview is patched in on its own while someone types: one element per
+// line effect, plus the totals.
+templ LinePreview(p linePreview) {
+	for i, l := range p.Lines {
+		<span id={ fmt.Sprintf("line-effect-%d", i) } class={ effectClass(l) }>{ l.Text }</span>
+	}
+	@postTotals(p)
+}
+
+templ postTotals(p linePreview) {
+	<div id="post-totals" class="totals">
+		<div class="stat"><span class="stat-label">Debits</span><span class="stat-value">{ p.Debits.String() }</span></div>
+		<div class="stat"><span class="stat-label">Credits</span><span class="stat-value">{ p.Credits.String() }</span></div>
+		if text, ok := p.Status(); ok {
+			<span class="pill balanced">{ text }</span>
+		} else if p.Debits == 0 && p.Credits == 0 {
+			<span class="pill neutral">{ text }</span>
+		} else {
+			<span class="pill unbalanced">{ text }</span>
+		}
+	</div>
+}
+
+templ journalTab(v ledgerView) {
+	@panel(v, "journal") {
+		<div class="panel-head">
+			<h1>Journal</h1>
+			<p class="muted">The latest { fmt.Sprint(journalLimit) } transactions, all dates, newest first.</p>
+		</div>
+		@helpBox(v, "journal") {
+			<p>The journal is the ledger's permanent history. Posted transactions can never be edited or deleted.</p>
+			<p>To fix a mistake, <strong>Reverse</strong> it. That posts a new mirror-image transaction that cancels the original, and both stay visible, so you can always see what happened.</p>
+			<p class="tip">Tip: only accountants and owners can reverse, and each transaction can be reversed once.</p>
+		}
+		if len(v.Journal) == 0 {
+			<div class="empty">
+				<p>No transactions yet.</p>
+				<button type="button" class="secondary" data-on:click="$tab = 'post'">Post the first one</button>
+			</div>
+		} else {
+			<div class="table-wrap">
+				<table class="journal">
+					<thead>
+						<tr><th>#</th><th>Date</th><th>Description / account</th><th class="num">Debit</th><th class="num">Credit</th><th>Posted by</th><th></th></tr>
+					</thead>
+					for _, tx := range v.Journal {
+						<tbody>
+							<tr class="tx">
+								<td class="id">{ fmt.Sprint(tx.ID) }</td>
+								<td>{ tx.OccurredOn.Format("Jan 2, 2006") }</td>
+								<td>
+									{ tx.Description }
+									if tx.ReversesID != 0 {
+										<span class="tag">reverses #{ fmt.Sprint(tx.ReversesID) }</span>
+									}
+									if tx.ReversedByID != 0 {
+										<span class="tag warn">reversed by #{ fmt.Sprint(tx.ReversedByID) }</span>
+									}
+								</td>
+								<td></td>
+								<td></td>
+								<td class="muted">{ tx.PostedByName }</td>
+								<td class="row-action">
+									if tx.ReversedByID == 0 {
+										if v.CanReverse() {
+											<button type="button" class="ghost small" data-on:click={ fmt.Sprintf("confirm('Reverse transaction #%d?') && @post('/ledger/reverse/%d')", tx.ID, tx.ID) }>Reverse</button>
+										} else {
+											<button type="button" class="ghost small" disabled title={ needs(ledger.RoleToReverse) }>Reverse</button>
+										}
+									}
+								</td>
+							</tr>
+							for _, l := range tx.Lines {
+								<tr class="line">
+									<td></td>
+									<td></td>
+									<td><span class="code">{ l.AccountCode }</span> { l.AccountName }</td>
+									if l.Direction == ledger.Debit {
+										<td class="num">{ l.Amount.String() }</td>
+										<td></td>
+									} else {
+										<td></td>
+										<td class="num">{ l.Amount.String() }</td>
+									}
+									<td></td>
+									<td></td>
+								</tr>
+							}
+						</tbody>
+					}
+				</table>
+			</div>
+		}
+	}
+}
+
+templ trialTab(v ledgerView) {
+	@panel(v, "trial") {
+		<div class="panel-head panel-head-row">
+			<h1>Trial balance</h1>
+			<label class="inline">
+				Books as of
+				<input type="date" data-bind="as_of" data-on:change="@get('/ledger/view')"/>
+			</label>
+		</div>
+		@helpBox(v, "trial") {
+			<p>Every account's balance on the chosen date, calculated from the entries. Change <strong>Books as of</strong> to travel back in time.</p>
+			<p>Healthy books always satisfy the accounting equation: <strong>Assets = Liabilities + Equity + Net income</strong>, where net income is revenue minus expenses.</p>
+			<p class="tip">Tip: a transaction counts from its accounting date, even if it was entered later.</p>
+		}
+		if len(v.Trial.Lines) == 0 {
+			<div class="empty"><p>No activity on or before { v.AsOf }.</p></div>
+		} else {
+			@accountingEquationView(v)
+			<div class="table-wrap">
+				<table class="trial">
+					<thead>
+						<tr><th>Code</th><th>Account</th><th class="num">Debits</th><th class="num">Credits</th><th class="num">Balance</th></tr>
+					</thead>
+					for _, g := range v.TrialGroups() {
+						<tbody>
+							<tr class="group"><td colspan="5">{ g.Label }</td></tr>
+							for _, l := range g.Lines {
+								<tr>
+									<td class="code">{ l.Code }</td>
+									<td>{ l.Name }</td>
+									<td class="num">{ l.Debits.String() }</td>
+									<td class="num">{ l.Credits.String() }</td>
+									<td class="num">{ l.Balance.String() }</td>
+								</tr>
+							}
+							<tr class="subtotal">
+								<td></td>
+								<td>Total { g.Label }</td>
+								<td></td>
+								<td></td>
+								<td class="num">{ g.Total.String() }</td>
+							</tr>
+						</tbody>
+					}
+				</table>
+			</div>
+		}
+	}
+}
+
+templ accountingEquationView(v ledgerView) {
+	{{ eq := v.Equation() }}
+	<div class="equation">
+		<div class="eq-terms">
+			<div class="stat"><span class="stat-label">Assets</span><span class="stat-value">{ eq.Assets.String() }</span></div>
+			<span class="op">=</span>
+			<div class="stat"><span class="stat-label">Liabilities</span><span class="stat-value">{ eq.Liabilities.String() }</span></div>
+			<span class="op">+</span>
+			<div class="stat"><span class="stat-label">Equity</span><span class="stat-value">{ eq.Equity.String() }</span></div>
+			<span class="op">+</span>
+			<div class="stat"><span class="stat-label">Net income</span><span class="stat-value">{ eq.NetIncome.String() }</span></div>
+		</div>
+		if v.Trial.Balanced() {
+			<span class="pill balanced">Balanced ✓ The books add up.</span>
+		} else {
+			<span class="pill unbalanced">NOT balanced: debit-normal { v.Trial.DebitNormal.String() } vs credit-normal { v.Trial.CreditNormal.String() }</span>
+		}
+	</div>
+}
+
+templ accountsTab(v ledgerView) {
+	@panel(v, "accounts") {
+		<div class="panel-head">
+			<h1>Chart of accounts</h1>
+		</div>
+		@helpBox(v, "accounts") {
+			<p>The chart of accounts lists every bucket money can be recorded in. Each account's <strong>type</strong> decides whether a debit or a credit increases it.</p>
+			<p>An account with children is a <strong>group</strong>, like Facilities above Rent and Utilities. You post to the children, and the group just organizes them. A child must have the same type as its parent.</p>
+			<p class="tip">Tip: adding accounts needs the accountant role or higher. Account codes must be unique.</p>
+		}
+		<div class="table-wrap">
+			<table class="accounts">
+				<thead>
+					<tr><th>Code</th><th>Name</th><th>Type</th><th>Parent</th><th>Status</th></tr>
+				</thead>
+				<tbody>
+					for _, a := range v.Accounts {
+						<tr>
+							<td class="code">{ a.Code }</td>
+							<td>{ a.Name }</td>
+							<td><span class={ "badge", "type-" + a.Type.String() }>{ a.Type.String() }</span></td>
+							<td class="code">{ v.ParentCode(a) }</td>
+							<td class="muted">{ v.AccountStatus(a) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="card add-account" title={ addAccountTitle(v) }>
+			<h2>Add an account</h2>
+			if !v.CanManageAccounts() {
+				<p class="locked">{ needs(ledger.RoleToManageAccounts) } to add accounts.</p>
+			}
+			<fieldset class="form-row" disabled?={ !v.CanManageAccounts() }>
+				<label>Code <input type="text" placeholder="5300" data-bind="acct_code"/></label>
+				<label class="grow">Name <input type="text" placeholder="Insurance" data-bind="acct_name"/></label>
+				<label>
+					Type
+					<select data-bind="acct_type">
+						for _, t := range accountTypes {
+							<option value={ t.String() }>{ t.String() }</option>
+						}
+					</select>
+				</label>
+				<label>
+					Parent (optional)
+					<select data-bind="acct_parent">
+						<option value="">None</option>
+						for _, a := range v.Accounts {
+							<option value={ fmt.Sprint(a.ID) }>{ a.Code } { a.Name }</option>
+						}
+					</select>
+				</label>
+				<button type="button" class="primary" data-on:click="@post('/ledger/accounts')">Add account</button>
+			</fieldset>
+		</div>
+	}
+}
