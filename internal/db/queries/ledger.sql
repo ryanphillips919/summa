@@ -1,64 +1,42 @@
--- name: InsertTransaction :one
-INSERT INTO transactions (organization_id, occurred_on, description, counterparty_id, reverses_id, posted_by)
-VALUES (?, ?, ?, ?, ?, ?) RETURNING *;
+-- Queries for the ledger: accounts, transactions and entries. sqlc turns
+-- each one into a Go function named after "-- name:". ":one" returns a
+-- single row, ":many" returns a list, ":exec" returns nothing.
 
--- name: InsertEntry :exec
-INSERT INTO entries (organization_id, transaction_id, account_id, direction, amount, memo)
-VALUES (?, ?, ?, ?, ?, ?);
+-- CreateAccount adds an account to an organization's chart of accounts.
+-- name: CreateAccount :one
+INSERT INTO accounts (organization_id, name, type) VALUES (?, ?, ?) RETURNING *;
 
--- TransactionTotals is the balance check run before committing a posting.
--- name: TransactionTotals :one
-SELECT count(*) AS entry_count,
-       CAST(COALESCE(SUM(CASE WHEN direction = 'debit'  THEN amount END), 0) AS INTEGER) AS debits,
-       CAST(COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount END), 0) AS INTEGER) AS credits
-FROM entries WHERE transaction_id = ?;
+-- ListAccounts is an organization's chart of accounts, A to Z.
+-- name: ListAccounts :many
+SELECT * FROM accounts WHERE organization_id = ? ORDER BY name;
 
--- TrialBalance returns per-account debits and credits as of a date. Go turns
--- them into balances using the account type (see docs/ledger-rules.md).
--- name: TrialBalance :many
-SELECT a.id, a.code, a.name, a.type,
-       CAST(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount ELSE 0 END) AS INTEGER) AS debits,
-       CAST(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE 0 END) AS INTEGER) AS credits
-FROM accounts a
-JOIN entries e      ON e.organization_id = a.organization_id AND e.account_id = a.id
-JOIN transactions t ON t.id = e.transaction_id
-WHERE a.organization_id = sqlc.arg(organization_id) AND t.occurred_on <= sqlc.arg(as_of)
-GROUP BY a.id ORDER BY a.code;
+-- CreateTransaction saves a transaction's header. Posting is one
+-- CreateTransaction plus one CreateEntry per line, all inside one database
+-- transaction so it all saves or none of it does (the Go code does that).
+-- name: CreateTransaction :one
+INSERT INTO transactions (organization_id, date, description) VALUES (?, ?, ?) RETURNING *;
 
--- name: GetTransaction :one
-SELECT * FROM transactions WHERE organization_id = ? AND id = ?;
+-- CreateEntry saves one line of a transaction.
+-- name: CreateEntry :exec
+INSERT INTO entries (transaction_id, account_id, direction, amount) VALUES (?, ?, ?, ?);
 
--- name: ListTransactionEntries :many
-SELECT * FROM entries WHERE organization_id = ? AND transaction_id = ? ORDER BY id;
+-- ListTransactions is the journal, newest first.
+-- name: ListTransactions :many
+SELECT * FROM transactions WHERE organization_id = ? ORDER BY date DESC, id DESC;
 
--- AccountTotals returns one account's debits and credits as of a date.
--- name: AccountTotals :one
-SELECT CAST(COALESCE(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount END), 0) AS INTEGER) AS debits,
+-- ListEntries returns the lines of one transaction.
+-- name: ListEntries :many
+SELECT * FROM entries WHERE transaction_id = ? ORDER BY id;
+
+-- AccountTotals adds up every account's debits and credits. Balances are
+-- never stored; they're always worked out from the entries like this, and
+-- the Go code turns the two totals into a balance using the account type.
+-- name: AccountTotals :many
+SELECT a.id, a.name, a.type,
+       CAST(COALESCE(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount END), 0) AS INTEGER) AS debits,
        CAST(COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount END), 0) AS INTEGER) AS credits
-FROM entries e
-JOIN transactions t ON t.id = e.transaction_id
-WHERE e.organization_id = sqlc.arg(organization_id)
-  AND e.account_id = sqlc.arg(account_id)
-  AND t.occurred_on <= sqlc.arg(as_of);
-
--- ListRecentTransactions is the journal: newest first, with who posted each
--- transaction and the reversal that undid it, if any.
--- name: ListRecentTransactions :many
-SELECT t.id, t.occurred_on, t.description, t.reverses_id, t.posted_at,
-       u.name AS posted_by_name,
-       r.id AS reversed_by
-FROM transactions t
-JOIN users u ON u.id = t.posted_by
-LEFT JOIN transactions r ON r.organization_id = t.organization_id AND r.reverses_id = t.id
-WHERE t.organization_id = sqlc.arg(organization_id)
-ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT sqlc.arg(max_rows);
-
--- name: ListEntriesForTransactions :many
-SELECT e.transaction_id, e.direction, e.amount, e.memo,
-       a.code AS account_code, a.name AS account_name
-FROM entries e
-JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
-WHERE e.organization_id = sqlc.arg(organization_id)
-  AND e.transaction_id IN (sqlc.slice(transaction_ids))
-ORDER BY e.transaction_id, e.id;
+FROM accounts a
+LEFT JOIN entries e ON e.account_id = a.id
+WHERE a.organization_id = ?
+GROUP BY a.id
+ORDER BY a.name;

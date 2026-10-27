@@ -46,10 +46,9 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Server-sent event streams (/demo/watch, /ledger/watch) stay open for as
-	// long as a tab does, so the timeout only wraps ordinary requests.
+	// Server-sent event streams (/demo/watch) stay open for as long as a tab
+	// does, so the timeout only wraps ordinary requests.
 	r.Mount("/demo", app.demoRoutes())
-	r.Mount("/ledger", app.ledgerRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))
@@ -61,7 +60,7 @@ func newRouter(app *App) http.Handler {
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Summa is running. Try /ledger for the ledger playground, or POST cash movements to /api/analytics/run."))
+		w.Write([]byte("Summa is running. Try /demo, or POST cash movements to /api/analytics/run."))
 	})
 
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
