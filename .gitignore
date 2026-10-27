@@ -24,3 +24,6 @@
 *.temp
 *.swp
 *~
+assets/stellar
+assets/stellar.key
+assets/stellar.config.json
