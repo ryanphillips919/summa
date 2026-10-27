@@ -1,0 +1,23 @@
+package main
+
+import "time"
+
+templ Header() {
+	<header>
+		<nav>
+			<ul>
+				<li><a href="/demo">Demo</a></li>
+				<li><a href="/timeline">Timeline</a></li>
+				<li><a href="/analytics/demo">Analytics</a></li>
+				<li><a href="/ledger">General Ledger</a></li>
+			</ul>
+		</nav>
+	</header>
+}
+
+templ Footer() {
+	{{ build := "v0.5" }}
+	<footer>
+		<p>Build: { build } at { time.Now().Format(time.RFC3339) }</p>
+	</footer>
+}

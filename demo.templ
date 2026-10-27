@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-templ Page(d DemoDocument) {
+templ Page(d DemoDocument, clients int64) {
 	<!DOCTYPE html>
 	<html>
 		<head>
@@ -23,15 +23,24 @@ templ Page(d DemoDocument) {
 		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
 		// giving us real-time collaboration for free
 		<body data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})">
-			<nav>
-				<ul>
-					<li><a href="/demo">Demo</a></li>
-					<li><a href="/timeline">Timeline</a></li>
-				</ul>
-			</nav>
+			@Header()
+			@Online(clients)
 			@Demo(d, nil, 0)
+			<input
+				type="range"
+				min="0"
+				max="64"
+				data-bind="scrub"
+				data-on:input="@get('/demo/scrub', {filterSignals: {include: /^scrub$/}})"
+			/>
+			<button data-on:click="@get('/demo/play', {filterSignals: {include: /^$/}})">Play</button>
+			@Footer()
 		</body>
 	</html>
+}
+
+templ Online(u int64) {
+	<p id="online">{ fmt.Sprint(u) } online</p>
 }
 
 // changed is the set of cells that just changed (nil on a plain render) and rev is the

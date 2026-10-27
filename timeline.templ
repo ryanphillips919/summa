@@ -32,13 +32,9 @@ templ Timeline() {
 		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
 		// giving us real-time collaboration for free
 		<body data-init="@get('/timeline/watch')">
-			<nav>
-				<ul>
-					<li><a href="/demo">Demo</a></li>
-					<li><a href="/timeline">Timeline</a></li>
-				</ul>
-			</nav>
+			@Header()
 			<main id="timeline"></main>
+			@Footer()
 		</body>
 	</html>
 }
