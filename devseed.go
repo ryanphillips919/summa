@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"summa/internal/db"
 	"summa/internal/ledger"
@@ -48,22 +47,23 @@ func seedDevData(ctx context.Context, q *db.Queries, svc *ledger.Service) (int64
 	}
 
 	accounts := map[string]int64{}
-	for _, a := range []struct {
-		code, name, parent string
-		typ                ledger.AccountType
-	}{
-		{"1000", "Cash", "", ledger.Asset},
-		{"1200", "Inventory", "", ledger.Asset},
-		{"2000", "Loans", "", ledger.Liability},
-		{"3000", "Owner Equity", "", ledger.Equity},
-		{"4000", "Bagel Sales", "", ledger.Revenue},
-		{"5000", "Facilities", "", ledger.Expense},
-		{"5100", "Rent", "5000", ledger.Expense},
-		{"5200", "Utilities", "5000", ledger.Expense},
+	for _, a := range []struct{ code, name, accountType, parent string }{
+		{"1000", "Cash", "asset", ""},
+		{"1200", "Inventory", "asset", ""},
+		{"2000", "Loans", "liability", ""},
+		{"3000", "Owner Equity", "equity", ""},
+		{"4000", "Bagel Sales", "revenue", ""},
+		{"5000", "Facilities", "expense", ""},
+		{"5100", "Rent", "expense", "5000"},
+		{"5200", "Utilities", "expense", "5000"},
 	} {
-		created, err := svc.CreateAccount(ctx, ledger.CreateAccountRequest{
-			OrganizationID: org.ID, ActorID: users["owner"],
-			Code: a.code, Name: a.name, Type: a.typ, ParentID: accounts[a.parent],
+		parentID, hasParent := accounts[a.parent]
+		created, err := svc.CreateAccount(ctx, users["owner"], db.CreateAccountParams{
+			OrganizationID: org.ID,
+			Code:           a.code,
+			Name:           a.name,
+			Type:           a.accountType,
+			ParentID:       sql.NullInt64{Int64: parentID, Valid: hasParent},
 		})
 		if err != nil {
 			return 0, fmt.Errorf("seed account %s: %w", a.code, err)
@@ -72,27 +72,25 @@ func seedDevData(ctx context.Context, q *db.Queries, svc *ledger.Service) (int64
 	}
 
 	for _, p := range []struct {
-		day           int
-		desc          string
-		debit, credit string
-		cents         ledger.Amount
+		date, description, debit, credit string
+		cents                            int64
 	}{
-		{1, "Owner investment", "1000", "3000", 1_000_000_00},
-		{2, "Bank loan", "1000", "2000", 500_000_00},
-		{3, "Buy inventory", "1200", "1000", 250_000_00},
-		{4, "Loan repayment", "2000", "1000", 30_000_00},
+		{"2026-10-01", "Owner investment", "1000", "3000", 1_000_000_00},
+		{"2026-10-02", "Bank loan", "1000", "2000", 500_000_00},
+		{"2026-10-03", "Buy inventory", "1200", "1000", 250_000_00},
+		{"2026-10-04", "Loan repayment", "2000", "1000", 30_000_00},
 	} {
-		if _, err := svc.Post(ctx, ledger.PostRequest{
+		_, err := svc.Post(ctx, db.InsertTransactionParams{
 			OrganizationID: org.ID,
-			ActorID:        users["bookkeeper"],
-			OccurredOn:     time.Date(2026, time.October, p.day, 0, 0, 0, 0, time.UTC),
-			Description:    p.desc,
-			Entries: []ledger.Entry{
-				{AccountID: accounts[p.debit], Direction: ledger.Debit, Amount: p.cents},
-				{AccountID: accounts[p.credit], Direction: ledger.Credit, Amount: p.cents},
-			},
-		}); err != nil {
-			return 0, fmt.Errorf("seed transaction %q: %w", p.desc, err)
+			OccurredOn:     p.date,
+			Description:    p.description,
+			PostedBy:       users["bookkeeper"],
+		}, []db.InsertEntryParams{
+			{AccountID: accounts[p.debit], Direction: "debit", Amount: p.cents},
+			{AccountID: accounts[p.credit], Direction: "credit", Amount: p.cents},
+		})
+		if err != nil {
+			return 0, fmt.Errorf("seed transaction %q: %w", p.description, err)
 		}
 	}
 	return org.ID, nil

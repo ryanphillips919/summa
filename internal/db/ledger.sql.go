@@ -7,238 +7,152 @@ package db
 
 import (
 	"context"
-	"database/sql"
-	"strings"
 )
 
-const accountTotals = `-- name: AccountTotals :one
-SELECT CAST(COALESCE(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount END), 0) AS INTEGER) AS debits,
+const accountTotals = `-- name: AccountTotals :many
+SELECT a.id, a.name, a.type,
+       CAST(COALESCE(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount END), 0) AS INTEGER) AS debits,
        CAST(COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount END), 0) AS INTEGER) AS credits
-FROM entries e
-JOIN transactions t ON t.id = e.transaction_id
-WHERE e.organization_id = ?1
-  AND e.account_id = ?2
-  AND t.occurred_on <= ?3
+FROM accounts a
+LEFT JOIN entries e ON e.account_id = a.id
+WHERE a.organization_id = ?
+GROUP BY a.id
+ORDER BY a.name
 `
 
-type AccountTotalsParams struct {
-	OrganizationID int64
-	AccountID      int64
-	AsOf           string
-}
-
 type AccountTotalsRow struct {
+	ID      int64
+	Name    string
+	Type    string
 	Debits  int64
 	Credits int64
 }
 
-// AccountTotals returns one account's debits and credits as of a date.
-func (q *Queries) AccountTotals(ctx context.Context, arg AccountTotalsParams) (AccountTotalsRow, error) {
-	row := q.db.QueryRowContext(ctx, accountTotals, arg.OrganizationID, arg.AccountID, arg.AsOf)
-	var i AccountTotalsRow
-	err := row.Scan(&i.Debits, &i.Credits)
-	return i, err
+// AccountTotals adds up every account's debits and credits. Balances are
+// never stored; they're always worked out from the entries like this, and
+// the Go code turns the two totals into a balance using the account type.
+func (q *Queries) AccountTotals(ctx context.Context, organizationID int64) ([]AccountTotalsRow, error) {
+	rows, err := q.db.QueryContext(ctx, accountTotals, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AccountTotalsRow
+	for rows.Next() {
+		var i AccountTotalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Type,
+			&i.Debits,
+			&i.Credits,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const getTransaction = `-- name: GetTransaction :one
-SELECT id, organization_id, occurred_on, description, counterparty_id, reverses_id, posted_by, posted_at FROM transactions WHERE organization_id = ? AND id = ?
+const createAccount = `-- name: CreateAccount :one
+
+INSERT INTO accounts (organization_id, name, type) VALUES (?, ?, ?) RETURNING id, organization_id, name, type
 `
 
-type GetTransactionParams struct {
+type CreateAccountParams struct {
 	OrganizationID int64
-	ID             int64
+	Name           string
+	Type           string
 }
 
-func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, getTransaction, arg.OrganizationID, arg.ID)
-	var i Transaction
+// Queries for the ledger: accounts, transactions and entries. sqlc turns
+// each one into a Go function named after "-- name:". ":one" returns a
+// single row, ":many" returns a list, ":exec" returns nothing.
+// CreateAccount adds an account to an organization's chart of accounts.
+func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
+	row := q.db.QueryRowContext(ctx, createAccount, arg.OrganizationID, arg.Name, arg.Type)
+	var i Account
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
-		&i.OccurredOn,
-		&i.Description,
-		&i.CounterpartyID,
-		&i.ReversesID,
-		&i.PostedBy,
-		&i.PostedAt,
+		&i.Name,
+		&i.Type,
 	)
 	return i, err
 }
 
-const insertEntry = `-- name: InsertEntry :exec
-INSERT INTO entries (organization_id, transaction_id, account_id, direction, amount, memo)
-VALUES (?, ?, ?, ?, ?, ?)
+const createEntry = `-- name: CreateEntry :exec
+INSERT INTO entries (transaction_id, account_id, direction, amount) VALUES (?, ?, ?, ?)
 `
 
-type InsertEntryParams struct {
-	OrganizationID int64
-	TransactionID  int64
-	AccountID      int64
-	Direction      string
-	Amount         int64
-	Memo           string
+type CreateEntryParams struct {
+	TransactionID int64
+	AccountID     int64
+	Direction     string
+	Amount        int64
 }
 
-func (q *Queries) InsertEntry(ctx context.Context, arg InsertEntryParams) error {
-	_, err := q.db.ExecContext(ctx, insertEntry,
-		arg.OrganizationID,
+// CreateEntry saves one line of a transaction.
+func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) error {
+	_, err := q.db.ExecContext(ctx, createEntry,
 		arg.TransactionID,
 		arg.AccountID,
 		arg.Direction,
 		arg.Amount,
-		arg.Memo,
 	)
 	return err
 }
 
-const insertTransaction = `-- name: InsertTransaction :one
-INSERT INTO transactions (organization_id, occurred_on, description, counterparty_id, reverses_id, posted_by)
-VALUES (?, ?, ?, ?, ?, ?) RETURNING id, organization_id, occurred_on, description, counterparty_id, reverses_id, posted_by, posted_at
+const createTransaction = `-- name: CreateTransaction :one
+INSERT INTO transactions (organization_id, date, description) VALUES (?, ?, ?) RETURNING id, organization_id, date, description
 `
 
-type InsertTransactionParams struct {
+type CreateTransactionParams struct {
 	OrganizationID int64
-	OccurredOn     string
+	Date           string
 	Description    string
-	CounterpartyID sql.NullInt64
-	ReversesID     sql.NullInt64
-	PostedBy       int64
 }
 
-func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionParams) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, insertTransaction,
-		arg.OrganizationID,
-		arg.OccurredOn,
-		arg.Description,
-		arg.CounterpartyID,
-		arg.ReversesID,
-		arg.PostedBy,
-	)
+// CreateTransaction saves a transaction's header. Posting is one
+// CreateTransaction plus one CreateEntry per line, all inside one database
+// transaction so it all saves or none of it does (the Go code does that).
+func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, createTransaction, arg.OrganizationID, arg.Date, arg.Description)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
-		&i.OccurredOn,
+		&i.Date,
 		&i.Description,
-		&i.CounterpartyID,
-		&i.ReversesID,
-		&i.PostedBy,
-		&i.PostedAt,
 	)
 	return i, err
 }
 
-const listEntriesForTransactions = `-- name: ListEntriesForTransactions :many
-SELECT e.transaction_id, e.direction, e.amount, e.memo,
-       a.code AS account_code, a.name AS account_name
-FROM entries e
-JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
-WHERE e.organization_id = ?1
-  AND e.transaction_id IN (/*SLICE:transaction_ids*/?)
-ORDER BY e.transaction_id, e.id
+const listAccounts = `-- name: ListAccounts :many
+SELECT id, organization_id, name, type FROM accounts WHERE organization_id = ? ORDER BY name
 `
 
-type ListEntriesForTransactionsParams struct {
-	OrganizationID int64
-	TransactionIds []int64
-}
-
-type ListEntriesForTransactionsRow struct {
-	TransactionID int64
-	Direction     string
-	Amount        int64
-	Memo          string
-	AccountCode   string
-	AccountName   string
-}
-
-func (q *Queries) ListEntriesForTransactions(ctx context.Context, arg ListEntriesForTransactionsParams) ([]ListEntriesForTransactionsRow, error) {
-	query := listEntriesForTransactions
-	var queryParams []interface{}
-	queryParams = append(queryParams, arg.OrganizationID)
-	if len(arg.TransactionIds) > 0 {
-		for _, v := range arg.TransactionIds {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:transaction_ids*/?", strings.Repeat(",?", len(arg.TransactionIds))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:transaction_ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+// ListAccounts is an organization's chart of accounts, A to Z.
+func (q *Queries) ListAccounts(ctx context.Context, organizationID int64) ([]Account, error) {
+	rows, err := q.db.QueryContext(ctx, listAccounts, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListEntriesForTransactionsRow
+	var items []Account
 	for rows.Next() {
-		var i ListEntriesForTransactionsRow
-		if err := rows.Scan(
-			&i.TransactionID,
-			&i.Direction,
-			&i.Amount,
-			&i.Memo,
-			&i.AccountCode,
-			&i.AccountName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listRecentTransactions = `-- name: ListRecentTransactions :many
-SELECT t.id, t.occurred_on, t.description, t.reverses_id, t.posted_at,
-       u.name AS posted_by_name,
-       r.id AS reversed_by
-FROM transactions t
-JOIN users u ON u.id = t.posted_by
-LEFT JOIN transactions r ON r.organization_id = t.organization_id AND r.reverses_id = t.id
-WHERE t.organization_id = ?1
-ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT ?2
-`
-
-type ListRecentTransactionsParams struct {
-	OrganizationID int64
-	MaxRows        int64
-}
-
-type ListRecentTransactionsRow struct {
-	ID           int64
-	OccurredOn   string
-	Description  string
-	ReversesID   sql.NullInt64
-	PostedAt     string
-	PostedByName string
-	ReversedBy   sql.NullInt64
-}
-
-// ListRecentTransactions is the journal: newest first, with who posted each
-// transaction and the reversal that undid it, if any.
-func (q *Queries) ListRecentTransactions(ctx context.Context, arg ListRecentTransactionsParams) ([]ListRecentTransactionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRecentTransactions, arg.OrganizationID, arg.MaxRows)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListRecentTransactionsRow
-	for rows.Next() {
-		var i ListRecentTransactionsRow
+		var i Account
 		if err := rows.Scan(
 			&i.ID,
-			&i.OccurredOn,
-			&i.Description,
-			&i.ReversesID,
-			&i.PostedAt,
-			&i.PostedByName,
-			&i.ReversedBy,
+			&i.OrganizationID,
+			&i.Name,
+			&i.Type,
 		); err != nil {
 			return nil, err
 		}
@@ -253,17 +167,13 @@ func (q *Queries) ListRecentTransactions(ctx context.Context, arg ListRecentTran
 	return items, nil
 }
 
-const listTransactionEntries = `-- name: ListTransactionEntries :many
-SELECT id, organization_id, transaction_id, account_id, direction, amount, memo FROM entries WHERE organization_id = ? AND transaction_id = ? ORDER BY id
+const listEntries = `-- name: ListEntries :many
+SELECT id, transaction_id, account_id, direction, amount FROM entries WHERE transaction_id = ? ORDER BY id
 `
 
-type ListTransactionEntriesParams struct {
-	OrganizationID int64
-	TransactionID  int64
-}
-
-func (q *Queries) ListTransactionEntries(ctx context.Context, arg ListTransactionEntriesParams) ([]Entry, error) {
-	rows, err := q.db.QueryContext(ctx, listTransactionEntries, arg.OrganizationID, arg.TransactionID)
+// ListEntries returns the lines of one transaction.
+func (q *Queries) ListEntries(ctx context.Context, transactionID int64) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, listEntries, transactionID)
 	if err != nil {
 		return nil, err
 	}
@@ -273,12 +183,10 @@ func (q *Queries) ListTransactionEntries(ctx context.Context, arg ListTransactio
 		var i Entry
 		if err := rows.Scan(
 			&i.ID,
-			&i.OrganizationID,
 			&i.TransactionID,
 			&i.AccountID,
 			&i.Direction,
 			&i.Amount,
-			&i.Memo,
 		); err != nil {
 			return nil, err
 		}
@@ -293,70 +201,25 @@ func (q *Queries) ListTransactionEntries(ctx context.Context, arg ListTransactio
 	return items, nil
 }
 
-const transactionTotals = `-- name: TransactionTotals :one
-SELECT count(*) AS entry_count,
-       CAST(COALESCE(SUM(CASE WHEN direction = 'debit'  THEN amount END), 0) AS INTEGER) AS debits,
-       CAST(COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount END), 0) AS INTEGER) AS credits
-FROM entries WHERE transaction_id = ?
+const listTransactions = `-- name: ListTransactions :many
+SELECT id, organization_id, date, description FROM transactions WHERE organization_id = ? ORDER BY date DESC, id DESC
 `
 
-type TransactionTotalsRow struct {
-	EntryCount int64
-	Debits     int64
-	Credits    int64
-}
-
-// TransactionTotals is the balance check run before committing a posting.
-func (q *Queries) TransactionTotals(ctx context.Context, transactionID int64) (TransactionTotalsRow, error) {
-	row := q.db.QueryRowContext(ctx, transactionTotals, transactionID)
-	var i TransactionTotalsRow
-	err := row.Scan(&i.EntryCount, &i.Debits, &i.Credits)
-	return i, err
-}
-
-const trialBalance = `-- name: TrialBalance :many
-SELECT a.id, a.code, a.name, a.type,
-       CAST(SUM(CASE WHEN e.direction = 'debit'  THEN e.amount ELSE 0 END) AS INTEGER) AS debits,
-       CAST(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE 0 END) AS INTEGER) AS credits
-FROM accounts a
-JOIN entries e      ON e.organization_id = a.organization_id AND e.account_id = a.id
-JOIN transactions t ON t.id = e.transaction_id
-WHERE a.organization_id = ?1 AND t.occurred_on <= ?2
-GROUP BY a.id ORDER BY a.code
-`
-
-type TrialBalanceParams struct {
-	OrganizationID int64
-	AsOf           string
-}
-
-type TrialBalanceRow struct {
-	ID      int64
-	Code    string
-	Name    string
-	Type    string
-	Debits  int64
-	Credits int64
-}
-
-// TrialBalance returns per-account debits and credits as of a date. Go turns
-// them into balances using the account type (see docs/ledger-rules.md).
-func (q *Queries) TrialBalance(ctx context.Context, arg TrialBalanceParams) ([]TrialBalanceRow, error) {
-	rows, err := q.db.QueryContext(ctx, trialBalance, arg.OrganizationID, arg.AsOf)
+// ListTransactions is the journal, newest first.
+func (q *Queries) ListTransactions(ctx context.Context, organizationID int64) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listTransactions, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TrialBalanceRow
+	var items []Transaction
 	for rows.Next() {
-		var i TrialBalanceRow
+		var i Transaction
 		if err := rows.Scan(
 			&i.ID,
-			&i.Code,
-			&i.Name,
-			&i.Type,
-			&i.Debits,
-			&i.Credits,
+			&i.OrganizationID,
+			&i.Date,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}

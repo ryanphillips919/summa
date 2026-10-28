@@ -9,15 +9,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
+
 	"summa/internal/analytics"
 	"summa/internal/db"
-	"summa/internal/ledger"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -49,7 +50,7 @@ func newRouter(app *App) http.Handler {
 	// long as a tab does, so the timeout only wraps ordinary requests.
 	r.Mount("/demo", app.demoRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
-	r.Mount("/ledger", app.ledgerRoutes())
+	//r.Mount("/ledger", app.ledgerRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))
@@ -139,8 +140,6 @@ type App struct {
 
 	sqlDB   *sql.DB
 	queries *db.Queries
-	ledger  *ledger.Service
-	orgID   int64 // one organization for now; see seedDevData
 }
 
 func appInit() (*App, func(), error) {
@@ -166,8 +165,6 @@ func appInit() (*App, func(), error) {
 		return nil, nil, err
 	}
 	queries := db.New(conn)
-	ledgerService := ledger.NewService(conn)
-	orgID, err := seedDevData(ctx, queries, ledgerService)
 	if err != nil {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
@@ -179,7 +176,7 @@ func appInit() (*App, func(), error) {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, ledger: ledgerService, orgID: orgID}, cleanup, nil
+	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries}, cleanup, nil
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
