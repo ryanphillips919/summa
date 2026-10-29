@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Summa Analytics Demo</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-    <script defer src="dashboard.js"></script>
+    <script defer src="/analytics/dashboard.js"></script>    
     <style>
       :root { color: #172033; background: #f4f7fb; font-family: Inter, system-ui, sans-serif; }
       body { margin: 0; }
@@ -20,7 +20,25 @@
       section { margin-top: 18px; padding: 20px; }
       h2 { font-size: 1.1rem; margin: 0 0 4px; }
       #chart { height: 460px; }
+      #sankey { height: 360px; }
       .note { color: #63718a; font-size: .9rem; margin: 0 0 14px; }
+      .view-toggle { display: flex; gap: 8px; margin: 16px 0; }
+      .view-toggle button {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        color: #475569;
+        cursor: pointer;
+        font: inherit;
+        font-size: .9rem;
+        padding: 8px 12px;
+      }
+      .view-toggle button.active {
+        background: #1d4ed8;
+        border-color: #1d4ed8;
+        color: white;
+        font-weight: 700;
+      }
       table { border-collapse: collapse; width: 100%; }
       th, td { border-bottom: 1px solid #e8edf4; padding: 11px 8px; text-align: left; }
       th { color: #63718a; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
@@ -28,25 +46,62 @@
       .amount_outlier { background: #fee2e2; color: #991b1b; }
       .potential_duplicate { background: #fef3c7; color: #92400e; }
       #error { color: #b42318; font-weight: 600; }
-      @media (max-width: 760px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } #chart { height: 380px; } }
+
+      @media (max-width: 760px) {
+        .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #chart { height: 380px; }
+      }
     </style>
   </head>
   <body>
     <main>
       <h1>Cash Flow &amp; Audit Review</h1>
       <p class="subtitle">Demo data, 30-day forecast, and automated expense review</p>
+
       <p id="error" hidden></p>
       <div class="cards" id="summary"></div>
+
       <section>
-        <h2>Daily Cash Flow Forecast</h2>
-        <p class="note">Solid: actual. Dashed: forecast. Shaded: 95% prediction interval. Hover and drag the timeline to inspect dates.</p>
-        <div id="chart" aria-label="Cash flow forecast chart"></div>
+        <h2 id="chart-title">Projected Cash Balance</h2>
+        <p class="note" id="chart-note">
+          Solid: actual cash balance. Dashed: projected cash balance.
+          The gray background marks the forecast period.
+        </p>
+
+        <div class="view-toggle" aria-label="Chart view">
+          <button id="balance-view" class="active" type="button">
+            Cash balance
+          </button>
+          <button id="flow-view" type="button">
+            Daily net cash flow
+          </button>
+        </div>
+
+        <div id="chart" aria-label="Cash balance forecast chart"></div>
       </section>
+
+      <section>
+        <h2>Where Cash Went</h2>
+        <p class="note" id="cash-summary"></p>
+        <div id="sankey" aria-label="Cash flow category diagram"></div>
+      </section>
+
       <section>
         <h2>Audit Review Queue</h2>
-        <p class="note">These entries need a human decision. The system never changes the ledger automatically.</p>
+        <p class="note">
+          These entries need a human decision. The system never changes the
+          ledger automatically.
+        </p>
         <table>
-          <thead><tr><th>Date</th><th>Finding</th><th>Amount</th><th>Description</th><th>Reason</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Finding</th>
+              <th>Amount</th>
+              <th>Description</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
           <tbody id="anomalies"></tbody>
         </table>
       </section>
