@@ -42,9 +42,8 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Summa is running. POST cash movements to /api/analytics/run."))
-	})
+	r.Handle("/analytics/*", http.StripPrefix("/analytics/", http.FileServer(http.Dir("analytics/demo"))))
+	r.Get("/", app.homepageHandler)
 
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
