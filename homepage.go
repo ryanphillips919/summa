@@ -13,6 +13,7 @@ type DashboardData struct {
 	CloseTasks   []CloseTask
 	Reviews      []ReviewItem
 	Aging        []AgingBucket
+	Overdue      []OverdueInvoice
 	Activity     []DashboardActivity
 }
 
@@ -20,6 +21,7 @@ type DashboardMetric struct{ Label, Value, Change, Direction, Tone string }
 type CloseTask struct{ Label, Detail, State, Mark string }
 type ReviewItem struct{ Level, Title, Detail string }
 type AgingBucket struct{ Label, Amount, Customers, Tone string }
+type OverdueInvoice struct{ Customer, Number, Amount string }
 type DashboardActivity struct{ Date, Kind, Description, Amount, Tone string }
 
 func (a *App) homepageHandler(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +53,11 @@ func sampleDashboardData() DashboardData {
 			{Label: "1–30 days", Amount: "$14,200", Customers: "6 customers", Tone: "soon"},
 			{Label: "31–60 days", Amount: "$5,800", Customers: "3 customers", Tone: "late"},
 			{Label: "Over 60 days", Amount: "$1,400", Customers: "1 customer", Tone: "overdue"},
+		},
+		Overdue: []OverdueInvoice{
+			{Customer: "Northwind Dental", Number: "#1037", Amount: "$3,500"},
+			{Customer: "Pinecrest Builders", Number: "#1039", Amount: "$3,275"},
+			{Customer: "Lumen Labs", Number: "#1033", Amount: "$5,525"},
 		},
 		Activity: []DashboardActivity{
 			{Date: "Sep 24", Kind: "Invoice", Description: "INV-2026-089 sent to Acme Retail Group", Amount: "$12,400.00", Tone: "invoice"},

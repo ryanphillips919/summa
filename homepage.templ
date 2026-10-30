@@ -8,6 +8,7 @@ templ HomePage(d DashboardData) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="description" content="Summa accounting dashboard"/>
 			<title>Dashboard · Summa</title>
+			<link rel="icon" href="data:,"/>
 			<link rel="stylesheet" href="/assets/homepage.css"/>
 		</head>
 		<body class="dashboard-page">
@@ -16,114 +17,71 @@ templ HomePage(d DashboardData) {
 					<a class="wordmark" href="/">SUMMA</a>
 					<nav class="primary-nav" aria-label="Primary navigation">
 						<p class="nav-section">Workspace</p>
-						<a class="nav-link active" href="/"><span class="nav-icon">⌂</span>Dashboard</a>
-						<a class="nav-link" href="#activity"><span class="nav-icon">▤</span>Activity</a>
+						<a class="nav-link active" href="/"><span class="nav-icon"><i data-lucide="layout-dashboard"></i></span>Dashboard</a>
+						<a class="nav-link" href="#activity"><span class="nav-icon"><i data-lucide="history"></i></span>Activity</a>
 						<p class="nav-section">Money in</p>
-						<a class="nav-link" href="#receivables"><span class="nav-icon">▤</span>Invoices</a>
-						<a class="nav-link" href="#receivables"><span class="nav-icon">♙</span>Customers</a>
+						<a class="nav-link" href="#receivables"><span class="nav-icon"><i data-lucide="file-text"></i></span>Invoices</a>
+						<a class="nav-link" href="#receivables"><span class="nav-icon"><i data-lucide="users-2"></i></span>Customers</a>
 						<p class="nav-section">Money out</p>
-						<a class="nav-link" href="#review"><span class="nav-icon">▣</span>Bills</a>
-						<a class="nav-link" href="#review"><span class="nav-icon">♧</span>Vendors</a>
+						<a class="nav-link" href="#review"><span class="nav-icon"><i data-lucide="receipt"></i></span>Bills</a>
+						<a class="nav-link" href="#review"><span class="nav-icon"><i data-lucide="truck"></i></span>Vendors</a>
 						<p class="nav-section">Accounting</p>
-						<a class="nav-link" href="/demo"><span class="nav-icon">▥</span>General Journal</a>
-						<a class="nav-link" href="#close"><span class="nav-icon">✓</span>Month-end Close</a>
-						<a class="nav-link" href="#accounts"><span class="nav-icon">▭</span>Chart of Accounts</a>
-						<a class="nav-link" href="/analytics/dashboard.html"><span class="nav-icon">▦</span>Analytics</a>
-						<a class="nav-link" href="#reports"><span class="nav-icon">◫</span>Reports</a>
+						<a class="nav-link" href="/demo"><span class="nav-icon"><i data-lucide="book-open"></i></span>General Journal</a>
+						<a class="nav-link" href="#close"><span class="nav-icon"><i data-lucide="calendar-check-2"></i></span>Month-end Close</a>
+						<a class="nav-link" href="#accounts"><span class="nav-icon"><i data-lucide="git-fork"></i></span>Chart of Accounts</a>
+						<a class="nav-link" href="/analytics/dashboard.html"><span class="nav-icon"><i data-lucide="line-chart"></i></span>Analytics</a>
+						<a class="nav-link" href="#reports"><span class="nav-icon"><i data-lucide="files"></i></span>Reports</a>
 					</nav>
 					<div class="sidebar-footer">
-						<a class="nav-link" href="#settings"><span class="nav-icon">⚙</span>Settings</a>
-						<a class="nav-link" href="#help"><span class="nav-icon">?</span>Help</a>
+						<a class="nav-link" href="#settings"><span class="nav-icon"><i data-lucide="settings"></i></span>Settings</a>
+						<a class="nav-link" href="#help"><span class="nav-icon"><i data-lucide="help-circle"></i></span>Help</a>
 					</div>
 				</aside>
 				<main class="dashboard-main">
 					<header class="dashboard-header">
-						<div>
-							<p class="eyebrow">{ d.Organization }</p>
-							<h1>Good morning, { d.UserName }</h1>
-							<p class="subtitle">Here’s what’s happening with your books today.</p>
-						</div>
-						<div class="header-actions">
-							<button class="period-button" type="button">▣ { d.Period } <span>⌄</span></button>
-							<button class="new-button" type="button">＋ New <span>⌄</span></button>
-						</div>
+						<div><p class="eyebrow">{ d.Organization }</p><h1>Good morning, { d.UserName }</h1><p class="subtitle">Here’s what’s happening with your books today.</p></div>
+						<div class="header-actions"><button class="period-button" type="button"><i data-lucide="calendar"></i> { d.Period } <span><i data-lucide="chevron-down"></i></span></button><button class="new-button" type="button"><i data-lucide="plus"></i> New <span><i data-lucide="chevron-down"></i></span></button></div>
 					</header>
-
 					<section class="metrics" aria-label="Financial summary">
 						for _, metric := range d.Metrics {
-							<article class="metric-card">
-								<p class="metric-label">{ metric.Label }</p>
-								<p class="metric-value">{ metric.Value }</p>
-								<p class={ "metric-change " + metric.Tone }><span>{ metric.Direction }</span>{ metric.Change }</p>
-							</article>
+							<article class="metric-card"><p class="metric-label">{ metric.Label }</p><p class="metric-value">{ metric.Value }</p><p class={ "metric-change " + metric.Tone }><span>{ metric.Direction }</span>{ metric.Change }</p></article>
 						}
 					</section>
-
-					<section class="dashboard-grid">
-						<article class="panel cash-panel">
-							<div class="panel-heading">
-								<div><h2>Cash flow</h2><p>Inflows and outflows by month</p></div>
-								<div class="chart-key"><span><i class="key-bar inflow"></i>In</span><span><i class="key-bar outflow"></i>Out</span></div>
-							</div>
-							<div class="bar-chart" role="img" aria-label="Monthly cash flow bar chart from April through September">
-								<div class="bar-y"><span>$60K</span><span>$40K</span><span>$20K</span><span>$0</span></div>
-								<div class="bars">
-									<div class="month"><div class="bar-pair"><i class="bar in" style="height:55%"></i><i class="bar out" style="height:37%"></i></div><span>Apr</span></div>
-									<div class="month"><div class="bar-pair"><i class="bar in" style="height:62%"></i><i class="bar out" style="height:43%"></i></div><span>May</span></div>
-									<div class="month"><div class="bar-pair"><i class="bar in" style="height:76%"></i><i class="bar out" style="height:51%"></i></div><span>Jun</span></div>
-									<div class="month"><div class="bar-pair"><i class="bar in" style="height:67%"></i><i class="bar out" style="height:46%"></i></div><span>Jul</span></div>
-									<div class="month"><div class="bar-pair"><i class="bar in" style="height:88%"></i><i class="bar out" style="height:58%"></i></div><span>Aug</span></div>
-									<div class="month"><div class="bar-pair"><i class="bar in" style="height:81%"></i><i class="bar out" style="height:49%"></i></div><span>Sep</span></div>
-								</div>
-							</div>
-						</article>
-						<div class="side-panels">
-							<article class="panel close-panel" id="close">
-								<div class="panel-heading"><div><h2>September close</h2><p>2 of 4 tasks complete</p></div><a href="#close-all">View checklist</a></div>
-								<div class="progress"><span></span></div>
-								<div class="task-list">
-									for _, task := range d.CloseTasks {
-										<div class="task"><span class={ "task-state " + task.State }>{ task.Mark }</span><span><strong>{ task.Label }</strong><small>{ task.Detail }</small></span></div>
-									}
-								</div>
-							</article>
-							<article class="panel review-panel" id="review">
-								<div class="panel-heading"><div><h2>Needs review</h2><p>Items that may need attention</p></div><a href="#review-all">View all</a></div>
-								<div class="review-list">
-									for _, review := range d.Reviews {
-										<div class="review-row"><span class={ "review-level " + review.Level }>{ review.Level }</span><span><strong>{ review.Title }</strong><small>{ review.Detail }</small></span></div>
-									}
-								</div>
-							</article>
-						</div>
-					</section>
-
-					<section class="tables-grid">
-						<article class="panel table-panel" id="receivables">
-							<div class="panel-heading"><div><h2>Receivables aging</h2><p>$42,800 outstanding across 22 customers</p></div><a href="#invoices">View invoices</a></div>
-							<div class="aging-grid">
+					<section class="content-columns">
+						<div class="dashboard-column">
+							<article class="panel cash-panel"><div class="panel-heading"><div><h2>Cash flow</h2><p>Inflows and outflows by month</p></div><div class="chart-key"><span><i class="key-bar inflow"></i>In</span><span><i class="key-bar outflow"></i>Out</span></div></div><div class="bar-chart" role="img" aria-label="Monthly cash flow bar chart from April through September"><div class="bar-y"><span>$60K</span><span>$40K</span><span>$20K</span><span>$0</span></div><div class="bars"><div class="month"><div class="bar-pair"><i class="bar in" style="height:55%"></i><i class="bar out" style="height:37%"></i></div><span>Apr</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:62%"></i><i class="bar out" style="height:43%"></i></div><span>May</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:76%"></i><i class="bar out" style="height:51%"></i></div><span>Jun</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:67%"></i><i class="bar out" style="height:46%"></i></div><span>Jul</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:88%"></i><i class="bar out" style="height:58%"></i></div><span>Aug</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:81%"></i><i class="bar out" style="height:49%"></i></div><span>Sep</span></div></div></div></article>
+							<article class="panel table-panel" id="receivables"><div class="panel-heading"><div><h2>Receivables aging</h2><p>$42,800 outstanding across 22 customers</p></div><a href="#invoices">View all</a></div><div class="aging-bars">
 								for _, bucket := range d.Aging {
-									<div class={ "aging-bucket " + bucket.Tone }><span>{ bucket.Label }</span><strong>{ bucket.Amount }</strong><small>{ bucket.Customers }</small></div>
+									<div class="aging-row"><div class="aging-label"><span>{ bucket.Label }</span><strong>{ bucket.Amount }</strong></div><div class="aging-track"><span class={ "aging-fill " + bucket.Tone }></span></div></div>
 								}
-							</div>
-							<p class="aging-note">Amounts are grouped by days past invoice due date.</p>
-						</article>
-						<article class="panel table-panel" id="activity">
-							<div class="panel-heading"><div><h2>Recent activity</h2><p>Latest events across your books</p></div><a href="#all-activity">View all</a></div>
-							<div class="table-wrap">
-								<table>
-									<thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="amount">Amount</th></tr></thead>
-									<tbody>
-										for _, item := range d.Activity {
-											<tr><td>{ item.Date }</td><td><span class={ "activity-badge " + item.Tone }>{ item.Kind }</span></td><td>{ item.Description }</td><td class={ "amount amount-" + item.Tone }>{ item.Amount }</td></tr>
-										}
-									</tbody>
-								</table>
-							</div>
-						</article>
+							</div><div class="overdue-list"><p>Overdue</p>
+								for _, invoice := range d.Overdue {
+									<div class="overdue-row"><span>{ invoice.Customer } · { invoice.Number }</span><strong>{ invoice.Amount }</strong></div>
+								}
+							</div><button class="reminder-button" type="button">Send 3 reminders</button></article>
+						</div>
+						<div class="dashboard-column">
+							<article class="panel close-panel" id="close"><div class="panel-heading"><div><h2>September close</h2><p>2 of 4 tasks complete</p></div><a href="#close-all">View checklist</a></div><div class="progress"><span></span></div><div class="task-list">
+								for _, task := range d.CloseTasks {
+									<div class="task"><span class={ "task-state " + task.State }>{ task.Mark }</span><span><strong>{ task.Label }</strong><small>{ task.Detail }</small></span></div>
+								}
+							</div></article>
+							<article class="panel review-panel" id="review"><div class="panel-heading"><div><h2>Needs review</h2><p>Items that may need attention</p></div><a href="#review-all">View all</a></div><div class="review-list">
+								for _, review := range d.Reviews {
+									<div class="review-row"><span class={ "review-level " + review.Level }>{ review.Level }</span><span><strong>{ review.Title }</strong><small>{ review.Detail }</small></span></div>
+								}
+							</div></article>
+							<article class="panel table-panel" id="activity"><div class="panel-heading"><div><h2>Recent activity</h2><p>Latest events across your books</p></div><a href="#all-activity">View all</a></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="amount">Amount</th></tr></thead><tbody>
+								for _, item := range d.Activity {
+									<tr><td>{ item.Date }</td><td><span class={ "activity-badge " + item.Tone }>{ item.Kind }</span></td><td>{ item.Description }</td><td class={ "amount amount-" + item.Tone }>{ item.Amount }</td></tr>
+								}
+							</tbody></table></div></article>
+						</div>
 					</section>
 				</main>
 			</div>
+			<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+			<script>lucide.createIcons()</script>
 		</body>
 	</html>
 }
