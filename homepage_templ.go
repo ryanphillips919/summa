@@ -29,14 +29,14 @@ func HomePage(d DashboardData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"description\" content=\"Summa accounting dashboard\"><title>Dashboard · Summa</title><link rel=\"icon\" href=\"data:,\"><link rel=\"stylesheet\" href=\"/assets/homepage.css\"></head><body class=\"dashboard-page\"><div class=\"dashboard-shell\"><aside class=\"sidebar\"><a class=\"wordmark\" href=\"/\">SUMMA</a><nav class=\"primary-nav\" aria-label=\"Primary navigation\"><p class=\"nav-section\">Workspace</p><a class=\"nav-link active\" href=\"/\"><span class=\"nav-icon\"><i data-lucide=\"layout-dashboard\"></i></span>Dashboard</a> <a class=\"nav-link\" href=\"#activity\"><span class=\"nav-icon\"><i data-lucide=\"history\"></i></span>Activity</a><p class=\"nav-section\">Money in</p><a class=\"nav-link\" href=\"#receivables\"><span class=\"nav-icon\"><i data-lucide=\"file-text\"></i></span>Invoices</a> <a class=\"nav-link\" href=\"#receivables\"><span class=\"nav-icon\"><i data-lucide=\"users-2\"></i></span>Customers</a><p class=\"nav-section\">Money out</p><a class=\"nav-link\" href=\"#review\"><span class=\"nav-icon\"><i data-lucide=\"receipt\"></i></span>Bills</a> <a class=\"nav-link\" href=\"#review\"><span class=\"nav-icon\"><i data-lucide=\"truck\"></i></span>Vendors</a><p class=\"nav-section\">Accounting</p><a class=\"nav-link\" href=\"/demo\"><span class=\"nav-icon\"><i data-lucide=\"book-open\"></i></span>General Journal</a> <a class=\"nav-link\" href=\"#close\"><span class=\"nav-icon\"><i data-lucide=\"calendar-check-2\"></i></span>Month-end Close</a> <a class=\"nav-link\" href=\"#accounts\"><span class=\"nav-icon\"><i data-lucide=\"git-fork\"></i></span>Chart of Accounts</a> <a class=\"nav-link\" href=\"/analytics/dashboard.html\"><span class=\"nav-icon\"><i data-lucide=\"line-chart\"></i></span>Analytics</a> <a class=\"nav-link\" href=\"#reports\"><span class=\"nav-icon\"><i data-lucide=\"files\"></i></span>Reports</a></nav><div class=\"sidebar-footer\"><a class=\"nav-link\" href=\"#settings\"><span class=\"nav-icon\"><i data-lucide=\"settings\"></i></span>Settings</a> <a class=\"nav-link\" href=\"#help\"><span class=\"nav-icon\"><i data-lucide=\"help-circle\"></i></span>Help</a></div></aside><main class=\"dashboard-main\"><header class=\"dashboard-header\"><div><p class=\"eyebrow\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"description\" content=\"Summa accounting dashboard\"><title>Dashboard · Summa</title><link rel=\"icon\" type=\"img/png\" href=\"/assets/images/summa-mark-primary.png\"><link rel=\"stylesheet\" href=\"/assets/homepage.css\"></head><body class=\"dashboard-page\"><div class=\"dashboard-shell\"><header class=\"mobile-header\"><a class=\"mobile-wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a> <button class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" type=\"button\" aria-label=\"Open navigation menu\" aria-controls=\"mobile-menu\" aria-expanded=\"false\"><i data-lucide=\"menu\"></i></button></header><aside class=\"sidebar\"><a class=\"wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><nav class=\"primary-nav\" aria-label=\"Primary navigation\"><p class=\"nav-section\">Workspace</p><a class=\"nav-link active\" href=\"/\"><span class=\"nav-icon\"><i data-lucide=\"layout-dashboard\"></i></span>Dashboard</a> <a class=\"nav-link\" href=\"#activity\"><span class=\"nav-icon\"><i data-lucide=\"history\"></i></span>Activity</a><p class=\"nav-section\">Money in</p><a class=\"nav-link\" href=\"#receivables\"><span class=\"nav-icon\"><i data-lucide=\"file-text\"></i></span>Invoices</a> <a class=\"nav-link\" href=\"#receivables\"><span class=\"nav-icon\"><i data-lucide=\"users-2\"></i></span>Customers</a><p class=\"nav-section\">Money out</p><a class=\"nav-link\" href=\"#review\"><span class=\"nav-icon\"><i data-lucide=\"receipt\"></i></span>Bills</a> <a class=\"nav-link\" href=\"#review\"><span class=\"nav-icon\"><i data-lucide=\"truck\"></i></span>Vendors</a><p class=\"nav-section\">Accounting</p><a class=\"nav-link\" href=\"/demo\"><span class=\"nav-icon\"><i data-lucide=\"book-open\"></i></span>General Journal</a> <a class=\"nav-link\" href=\"#close\"><span class=\"nav-icon\"><i data-lucide=\"calendar-check-2\"></i></span>Month-end Close</a> <a class=\"nav-link\" href=\"#accounts\"><span class=\"nav-icon\"><i data-lucide=\"git-fork\"></i></span>Chart of Accounts</a> <a class=\"nav-link\" href=\"/analytics/dashboard.html\"><span class=\"nav-icon\"><i data-lucide=\"line-chart\"></i></span>Analytics</a> <a class=\"nav-link\" href=\"#reports\"><span class=\"nav-icon\"><i data-lucide=\"files\"></i></span>Reports</a></nav><div class=\"sidebar-footer\"><a class=\"nav-link\" href=\"#settings\"><span class=\"nav-icon\"><i data-lucide=\"settings\"></i></span>Settings</a> <a class=\"nav-link\" href=\"#help\"><span class=\"nav-icon\"><i data-lucide=\"help-circle\"></i></span>Help</a></div></aside><dialog class=\"mobile-menu\" id=\"mobile-menu\" aria-labelledby=\"mobile-menu-title\"><div class=\"mobile-menu-top\"><span id=\"mobile-menu-title\">Navigation</span><button class=\"mobile-menu-close\" type=\"button\" aria-label=\"Close navigation menu\"><i data-lucide=\"x\"></i></button></div><nav class=\"mobile-nav\" aria-label=\"Mobile navigation\"><a class=\"nav-link active\" href=\"/\"><span class=\"nav-icon\"><i data-lucide=\"layout-dashboard\"></i></span>Dashboard</a> <a class=\"nav-link\" href=\"#activity\"><span class=\"nav-icon\"><i data-lucide=\"history\"></i></span>Activity</a> <a class=\"nav-link\" href=\"#receivables\"><span class=\"nav-icon\"><i data-lucide=\"file-text\"></i></span>Invoices</a> <a class=\"nav-link\" href=\"#receivables\"><span class=\"nav-icon\"><i data-lucide=\"users-2\"></i></span>Customers</a> <a class=\"nav-link\" href=\"#review\"><span class=\"nav-icon\"><i data-lucide=\"receipt\"></i></span>Bills</a> <a class=\"nav-link\" href=\"#review\"><span class=\"nav-icon\"><i data-lucide=\"truck\"></i></span>Vendors</a> <a class=\"nav-link\" href=\"/demo\"><span class=\"nav-icon\"><i data-lucide=\"book-open\"></i></span>General Journal</a> <a class=\"nav-link\" href=\"#close\"><span class=\"nav-icon\"><i data-lucide=\"calendar-check-2\"></i></span>Month-end Close</a> <a class=\"nav-link\" href=\"#accounts\"><span class=\"nav-icon\"><i data-lucide=\"git-fork\"></i></span>Chart of Accounts</a> <a class=\"nav-link\" href=\"/analytics/dashboard.html\"><span class=\"nav-icon\"><i data-lucide=\"line-chart\"></i></span>Analytics</a> <a class=\"nav-link\" href=\"#reports\"><span class=\"nav-icon\"><i data-lucide=\"files\"></i></span>Reports</a></nav></dialog><main class=\"dashboard-main\"><header class=\"dashboard-header\"><div><p class=\"eyebrow\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(d.Organization)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 42, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 62, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -49,7 +49,7 @@ func HomePage(d DashboardData) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(d.UserName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 42, Col: 82}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 62, Col: 82}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -62,7 +62,7 @@ func HomePage(d DashboardData) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(d.Period)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 43, Col: 119}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 63, Col: 119}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -80,7 +80,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(metric.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 47, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 67, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -93,7 +93,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(metric.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 47, Col: 118}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 67, Col: 118}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -128,7 +128,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(metric.Direction)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 47, Col: 192}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 67, Col: 192}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -141,7 +141,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(metric.Change)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 47, Col: 216}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 67, Col: 216}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -164,7 +164,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(bucket.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 55, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 75, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -177,7 +177,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(bucket.Amount)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 55, Col: 109}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 75, Col: 109}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -222,7 +222,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Customer)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 59, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 79, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -235,7 +235,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Number)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 59, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 79, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -248,7 +248,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Amount)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 59, Col: 113}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 79, Col: 113}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -293,7 +293,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(task.Mark)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 66, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 86, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -306,7 +306,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(task.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 66, Col: 116}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 86, Col: 116}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -319,7 +319,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(task.Detail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 66, Col: 147}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 86, Col: 147}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -364,7 +364,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(review.Level)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 71, Col: 94}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 91, Col: 94}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -377,7 +377,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(review.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 71, Col: 131}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 91, Col: 131}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -390,7 +390,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var27 string
 			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(review.Detail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 71, Col: 164}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 91, Col: 164}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 			if templ_7745c5c3_Err != nil {
@@ -413,7 +413,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(item.Date)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 76, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 96, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -448,7 +448,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var31 string
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(item.Kind)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 76, Col: 96}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 96, Col: 96}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -461,7 +461,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var32 string
 			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(item.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 76, Col: 132}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 96, Col: 132}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -496,7 +496,7 @@ func HomePage(d DashboardData) templ.Component {
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(item.Amount)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 76, Col: 195}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `homepage.templ`, Line: 96, Col: 195}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -507,7 +507,7 @@ func HomePage(d DashboardData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</tbody></table></div></article></div></section></main></div><script src=\"https://unpkg.com/lucide@latest/dist/umd/lucide.js\"></script><script>lucide.createIcons()</script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</tbody></table></div></article></div></section></main></div><script src=\"https://unpkg.com/lucide@latest/dist/umd/lucide.js\"></script><script src=\"/assets/mobile-menu.js\"></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
