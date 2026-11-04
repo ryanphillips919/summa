@@ -89,7 +89,7 @@ func (a *App) mountRoutes(r chi.Router) {
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
 	})
 
-	r.Get("/api/analytics/demo", a.demoAnalyticsHandler)
+	r.Get("/api/analytics", a.analyticsHandler)
 	r.Mount("/analytics", a.analyticsRoutes())
 }
 

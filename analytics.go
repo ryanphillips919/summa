@@ -16,12 +16,12 @@ func (app *App) analyticsRoutes() chi.Router {
 	// The short analytics dashboard URL.
 	r.Get("/", app.analyticsPageHandler)
 
-	// Serves dashboard.js and any later analytics-specific browser assets.
+	// Serves analytics.js and any later analytics-specific browser assets.
 	r.Handle(
 		"/*",
 		http.StripPrefix(
 			"/analytics/",
-			http.FileServer(http.Dir("analytics/demo")),
+			http.FileServer(http.Dir("analytics/web")),
 		),
 	)
 
@@ -41,13 +41,13 @@ func (app *App) analyticsPageHandler(
 	}
 }
 
-type analyticsDemoResponse struct {
+type analyticsResponse struct {
 	analytics.Response
 	CashMovements      []analytics.CashMovement `json:"cash_movements"`
 	OpeningCashBalance float64                  `json:"opening_cash_balance"`
 }
 
-func (app *App) demoAnalyticsHandler(
+func (app *App) analyticsHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
@@ -79,7 +79,7 @@ func (app *App) demoAnalyticsHandler(
 
 	w.Header().Set("Content-Type", "application/json")
 
-	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
+	_ = json.NewEncoder(w).Encode(analyticsResponse{
 		Response:           result,
 		CashMovements:      snapshot.Movements,
 		OpeningCashBalance: snapshot.OpeningCashBalance,

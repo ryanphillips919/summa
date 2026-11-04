@@ -7,7 +7,7 @@ templ AnalyticsPage() {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>Summa Analytics</title>
-			<script type="module" src="/analytics/dashboard.js"></script>
+			<script type="module" src="/analytics/analytics.js"></script>
 			<style>
 				:root { color: #172033; background: #f4f7fb; font-family: Inter, system-ui, sans-serif; }
 				body { margin: 0; }
@@ -85,7 +85,7 @@ templ AnalyticsPage() {
 				<section>
 					<h2>Where Cash Went</h2>
 					<p class="note" id="cash-summary"></p>
-					<div id="sankey" aria-label="Cash flow category diagram"></div>
+                    @AnalyticsSankeyChart()
 				</section>
 
 				<section>
@@ -118,4 +118,12 @@ templ AnalyticsCashChart() {
 		option="{}"
 		aria-label="Cash balance forecast chart"
 	></echarts-view>
+}
+
+templ AnalyticsSankeyChart() {
+    <echarts-view
+        id="sankey-chart"
+        option="{}"
+        aria-label="Cash flow category diagram"
+    ></echarts-view>
 }
