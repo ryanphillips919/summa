@@ -145,15 +145,31 @@ func appInit() (*App, func(), error) {
 		shutdownEmbeddedNATS(nc, ns)
 	}
 	return &App{
-		nc:      nc,
-		kv:      kv,
-		sqlDB:   conn,
-		queries: queries,
-		orgID:   orgID,
-		cashDataSource: analytics.DemoCashDataSource{
-			Path: "analytics/data/demo_cash_movements.json",
-		},
+		nc:             nc,
+		kv:             kv,
+		sqlDB:          conn,
+		queries:        queries,
+		orgID:          orgID,
+		cashDataSource: newAnalyticsDataSource(conn, orgID),
 	}, cleanup, nil
+}
+
+func newAnalyticsDataSource(
+	conn *sql.DB,
+	orgID int64,
+) analytics.CashDataSource {
+	if os.Getenv("SUMMA_ANALYTICS_SOURCE") == "database" {
+		return analytics.DatabaseCashDataSource{
+			DB:              conn,
+			OrganizationID:  orgID,
+			ForecastDays:    30,
+			ObservationDays: 60,
+		}
+	}
+
+	return analytics.DemoCashDataSource{
+		Path: "analytics/data/demo_cash_movements.json",
+	}
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
