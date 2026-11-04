@@ -11,12 +11,7 @@ let sankeyChart = null;
 const cashChart = document.getElementById("cash-chart");
 
 function card(label, value) {
-  return `
-    <article class="card">
-      <div class="label">${label}</div>
-      <div class="value">${value}</div>
-    </article>
-  `;
+  return `<article class="card"><div class="label">${label}</div><div class="value">${value}</div></article>`;
 }
 
 function showError(message) {
@@ -25,161 +20,20 @@ function showError(message) {
   error.hidden = false;
 }
 
-function categoryFor(vendor) {
-  const categories = {
-    aws: "Cloud services",
-    "google ads": "Marketing",
-    "freelance contractor": "Contractors",
-    "city utilities": "Utilities",
-    "office depot": "Office supplies",
-    "office warehouse": "Office supplies",
-    "travel hub": "Travel exception",
-  };
+function render(result) {
+  const { summary, daily_cash_flow: actual, forecast, anomalies } = result;
+  document.getElementById("summary").innerHTML = [
+    card("Forecast model", summary.forecast_model),
+    card("Baseline MAE", summary.baseline_validation_mae == null ? "Need more history" : money.format(summary.baseline_validation_mae)),
+    card("Selected-model MAE", summary.selected_model_validation_mae == null ? "Need more history" : money.format(summary.selected_model_validation_mae)),
+    card("Items to review", summary.anomaly_count),
+  ].join("");
 
-  return categories[vendor.trim().toLowerCase()] || "Other operating expense";
-}
-
-function renderSankey(movements) {
-  const cashIn = movements
-    .filter((movement) => movement.amount > 0)
-    .reduce((total, movement) => total + movement.amount, 0);
-
-  const byCategory = new Map();
-
-  movements
-    .filter((movement) => movement.amount < 0)
-    .forEach((movement) => {
-      const category = categoryFor(movement.vendor || "");
-      const total = byCategory.get(category) || 0;
-      byCategory.set(category, total + Math.abs(movement.amount));
-    });
-
-  const cashOut = [...byCategory.values()].reduce(
-    (total, amount) => total + amount,
-    0,
-  );
-
-  const netCash = cashIn - cashOut;
-
-  const links = [
-    { source: "Customer receipts", target: "Cash available", value: cashIn },
-    ...[...byCategory.entries()].map(([category, value]) => ({
-      source: "Cash available",
-      target: category,
-      value,
-    })),
-  ];
-
-  if (netCash > 0) {
-    links.push({
-      source: "Cash available",
-      target: "Net cash retained",
-      value: netCash,
-    });
-  }
-
-  document.getElementById("cash-summary").textContent =
-    `The business received ${money.format(cashIn)}, spent ${money.format(cashOut)} on operations, and retained ${money.format(netCash)} in net cash.`;
-
-  if (sankeyChart) {
-    sankeyChart.dispose();
-  }
-
-  sankeyChart = echarts.init(document.getElementById("sankey"));
-
-  sankeyChart.setOption({
-    tooltip: {
-      trigger: "item",
-      valueFormatter: (value) => money.format(value),
-    },
-    series: [
-      {
-        type: "sankey",
-        data: [...new Set(
-          links.flatMap((link) => [link.source, link.target]),
-        )].map((name) => ({ name })),
-        links,
-        nodeAlign: "justify",
-        layoutIterations: 32,
-        label: { color: "#172033", fontWeight: 600 },
-        lineStyle: {
-          color: "gradient",
-          curveness: 0.5,
-          opacity: 0.45,
-        },
-        emphasis: { focus: "adjacency" },
-        itemStyle: {
-          borderColor: "#ffffff",
-          borderWidth: 1,
-        },
-      },
-    ],
-  });
-}
-
-function buildBalanceData(actual, forecast, openingCashBalance) {
-  let runningActualBalance = openingCashBalance;
-
-  const actualBalances = actual.map((point) => {
-    runningActualBalance += point.net_cash_flow;
-
-    return {
-      date: point.date,
-      cashBalance: runningActualBalance,
-    };
-  });
-
-  let runningForecastBalance = runningActualBalance;
-
-  const forecastBalances = forecast.map((point) => {
-    runningForecastBalance += point.predicted_net_cash_flow;
-
-    return {
-      date: point.date,
-      cashBalance: runningForecastBalance,
-    };
-  });
-
-  return {
-    actualBalances,
-    forecastBalances,
-    lastActualBalance: runningActualBalance,
-  };
-}
-
-function renderChart() {
-  const {
-    daily_cash_flow: actual,
-    forecast,
-    anomalies,
-    opening_cash_balance: openingCashBalance,
-  } = dashboardData;
-
-  const { actualBalances, forecastBalances, lastActualBalance } =
-    buildBalanceData(actual, forecast, openingCashBalance);
-
-  const actualByDate = new Map(
-    actual.map((point) => [point.date, point.net_cash_flow]),
-  );
-
-  const forecastByDate = new Map(
-    forecast.map((point) => [point.date, point.predicted_net_cash_flow]),
-  );
-
-  const actualBalanceByDate = new Map(
-    actualBalances.map((point) => [point.date, point.cashBalance]),
-  );
-
-  const forecastBalanceByDate = new Map(
-    forecastBalances.map((point) => [point.date, point.cashBalance]),
-  );
-
-  const dates = [
-    ...actual.map((point) => point.date),
-    ...forecast.map((point) => point.date),
-  ];
-
-  const lastActualDate = actual[actual.length - 1].date;
+  const actualByDate = new Map(actual.map((point) => [point.date, point.net_cash_flow]));
+  const forecastByDate = new Map(forecast.map((point) => [point.date, point.predicted_net_cash_flow]));
+  const dates = [...actual.map((point) => point.date), ...forecast.map((point) => point.date)];
+  const lower = forecast.map((point) => point.lower_95);
+  const band = forecast.map((point) => point.upper_95 - point.lower_95);
   const anomalyDates = [...new Set(anomalies.map((item) => item.date))];
 
   const balanceView = activeView === "balance";
@@ -294,54 +148,13 @@ function renderChart() {
 
     series: [
       {
-        name: actualLabel,
-        type: "line",
-        smooth: true,
-        symbolSize: 5,
-        data: actualSeries,
-
-        markLine: anomalyDates.length
-          ? {
-              symbol: "none",
-              lineStyle: {
-                color: "#dc2626",
-                type: "dotted",
-              },
-              data: anomalyDates.map((date) => ({
-                xAxis: date,
-              })),
-            }
-          : undefined,
-
-        markArea: forecast.length
-          ? {
-              silent: true,
-              itemStyle: {
-                color: "rgba(148, 163, 184, 0.10)",
-              },
-              label: {
-                show: true,
-                color: "#64748b",
-                formatter: "Forecast period",
-              },
-              data: [[
-                { xAxis: forecast[0].date },
-                { xAxis: forecast[forecast.length - 1].date },
-              ]],
-            }
-          : undefined,
+        name: "Actual cash flow", type: "line", smooth: true, symbolSize: 5,
+        data: dates.map((date) => actualByDate.get(date) ?? null),
+        markLine: anomalyDates.length ? { symbol: "none", lineStyle: { color: "#dc2626", type: "dotted" }, data: anomalyDates.map((date) => ({ xAxis: date })) } : undefined,
       },
-      {
-        name: forecastLabel,
-        type: "line",
-        smooth: true,
-        symbolSize: 5,
-        lineStyle: {
-          type: "dashed",
-          width: 2,
-        },
-        data: forecastSeries,
-      },
+      { name: "Forecast", type: "line", smooth: true, symbolSize: 5, lineStyle: { type: "dashed", width: 2 }, data: dates.map((date) => forecastByDate.get(date) ?? null) },
+      { name: "Confidence base", type: "line", stack: "interval", symbol: "none", lineStyle: { opacity: 0 }, data: [...Array(actual.length).fill(null), ...lower] },
+      { name: "95% interval", type: "line", stack: "interval", symbol: "none", lineStyle: { opacity: 0 }, areaStyle: { color: "#93c5fd", opacity: 0.35 }, data: [...Array(actual.length).fill(null), ...band] },
     ],
   };
 }
@@ -381,23 +194,11 @@ function render(payload) {
   document.getElementById("anomalies").innerHTML = anomalies.map((item) => `
     <tr>
       <td>${item.date}</td>
-      <td>
-        <span class="tag ${item.type}">
-          ${item.type.replace("_", " ")}
-        </span>
-      </td>
+      <td><span class="tag ${item.type}">${item.type.replace("_", " ")}</span></td>
       <td>${money.format(item.amount)}</td>
       <td>${item.description || "-"}</td>
       <td>${item.reason}</td>
-    </tr>
-  `).join("") || `
-    <tr>
-      <td colspan="5">No findings.</td>
-    </tr>
-  `;
-
-  renderChart();
-  renderSankey(movements);
+    </tr>`).join("") || "<tr><td colspan=\"5\">No findings.</td></tr>";
 }
 
 document.getElementById("balance-view").addEventListener("click", () => {
@@ -416,15 +217,8 @@ window.addEventListener("resize", () => {
 
 fetch("/api/analytics/demo")
   .then((response) => {
-    if (!response.ok) {
-      throw new Error(`Could not load Summa analytics (${response.status})`);
-    }
-
+    if (!response.ok) throw new Error(`Could not load analytics-result.json (${response.status})`);
     return response.json();
   })
   .then(render)
-  .catch((error) => {
-    showError(
-      `${error.message}. Make sure the Summa server is running, then refresh.`,
-    );
-  });
+  .catch((error) => showError(`${error.message}. Generate the file with the command in the demo instructions, then refresh.`));
