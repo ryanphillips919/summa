@@ -25,13 +25,32 @@ const elements = {
 let activeView = "balance";
 let analyticsData;
 
-function card(label, value) {
+function card(label, value, detail, tone = "") {
   return `
-    <article class="card">
-      <div class="label">${label}</div>
-      <div class="value">${value}</div>
+    <article class="analytics-card">
+      <p class="analytics-card-label">${label}</p>
+      <p class="analytics-card-value">${value}</p>
+      <p class="analytics-card-detail ${tone}">${detail}</p>
     </article>
   `;
+}
+
+function dateLabel(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${date}T00:00:00`));
+}
+
+function projectedBalances(data, openingCashBalance) {
+  let balance = openingCashBalance;
+  data.daily_cash_flow.forEach((point) => {
+    balance += point.net_cash_flow;
+  });
+  return data.forecast.map((point) => {
+    balance += point.predicted_net_cash_flow;
+    return { date: point.date, balance };
+  });
 }
 
 function showError(message) {
@@ -39,38 +58,43 @@ function showError(message) {
   elements.error.hidden = false;
 }
 
+function escapeHTML(value) {
+  const node = document.createElement("span");
+  node.textContent = value || "-";
+  return node.innerHTML;
+}
+
 function renderSummary(data) {
   const openingCashBalance = Number(data.opening_cash_balance);
-
-  const projectedEndingCash = data.forecast.reduce(
-    (total, point) => total + point.predicted_net_cash_flow,
-    openingCashBalance +
-      data.daily_cash_flow.reduce(
-        (total, point) => total + point.net_cash_flow,
-        0,
-      ),
+  const balances = projectedBalances(data, openingCashBalance);
+  const ending = balances.at(-1);
+  const lowest = balances.reduce(
+    (lowestBalance, point) => 
+      point.balance < lowestBalance.balance ? point : lowestBalance,
+    ending,
   );
+  const reviewCount = data.summary.anomaly_count;
 
   elements.summary.innerHTML = [
-    card("Opening cash balance", money.format(openingCashBalance)),
-    card("Projected ending cash", money.format(projectedEndingCash)),
-    card("Forecast model", data.summary.forecast_model),
-    card("Items to review", data.summary.anomaly_count),
+    card("Cash at start", money.format(openingCashBalance), "Opening balance for this view"),
+    card("Expected cash at end", money.format(ending.balance), `By ${dateLabel(ending.date)}`),
+    card("Lowest expected balance", money.format(lowest.balance), `Expected on ${dateLabel(lowest.date)}`, lowest.balance < 0 ? "attention" : "good"),
+    card("Needs attention", reviewCount ? `${reviewCount} item${reviewCount === 1 ? "" : "s"}` : "All clear", reviewCount ? "Review the items below" : "No unusual entries found", reviewCount ? "attention" : "good"),
   ].join("");
 }
 
 function renderFindings(anomalies) {
   elements.findings.innerHTML = anomalies.map((item) => `
     <tr>
-      <td>${item.date}</td>
+      <td>${escapeHTML(item.date)}</td>
       <td>
         <span class="tag ${item.type}">
-          ${item.type.replace("_", " ")}
+          ${item.type === "amount_outlier" ? "Unusual amount" : "Possible duplicate"}
         </span>
       </td>
       <td>${money.format(item.amount)}</td>
-      <td>${item.description || "-"}</td>
-      <td>${item.reason}</td>
+      <td>${escapeHTML(item.description)}</td>
+      <td>${escapeHTML(item.reason)}</td>
     </tr>
   `).join("") || `
     <tr>
@@ -87,8 +111,8 @@ function renderCharts() {
     : "Daily Cash Flow Forecast";
 
   elements.chartNote.textContent = balanceView
-    ? "Solid: actual cash balance. Dashed: projected cash balance. The gray background marks the forecast period."
-    : "Solid: actual daily net cash flow. Dashed: forecast daily net cash flow. The gray background marks the forecast period.";
+    ? "Solid: recorded cash balance. Dashed: expected cash balance. The shaded area is the forecast period."
+    : "Solid: recorded daily cash flow. Dashed: expected daily cash flow. The shaded area is the forecast period.";
 
   elements.balanceView.classList.toggle("active", balanceView);
   elements.flowView.classList.toggle("active", !balanceView);

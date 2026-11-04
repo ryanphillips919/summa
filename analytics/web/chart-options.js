@@ -98,7 +98,7 @@ export function buildCashChartOption(data, activeView) {
     : dates.map((date) => forecastByDate.get(date) ?? null);
 
   return {
-    color: ["#1d4ed8", "#0891b2"],
+    color: ["#008864", "#4c8ea8"],
 
     tooltip: {
       trigger: "axis",
@@ -176,7 +176,7 @@ export function buildCashChartOption(data, activeView) {
           ? {
               symbol: "none",
               lineStyle: {
-                color: "#dc2626",
+                color: "#c42e29",
                 type: "dotted",
               },
               data: anomalyDates.map((date) => ({ xAxis: date })),
@@ -187,11 +187,11 @@ export function buildCashChartOption(data, activeView) {
           ? {
               silent: true,
               itemStyle: {
-                color: "rgba(148, 163, 184, 0.10)",
+                color: "rgba(76, 142, 168, 0.10)",
               },
               label: {
                 show: true,
-                color: "#64748b",
+                color: "#607390",
                 formatter: "Forecast period",
               },
               data: [[
@@ -277,7 +277,7 @@ export function buildSankey(data) {
           nodeAlign: "justify",
           layoutIterations: 32,
           label: {
-            color: "#172033",
+            color: "#132c52",
             fontWeight: 600,
           },
           lineStyle: {

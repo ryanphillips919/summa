@@ -29,7 +29,36 @@ func AnalyticsPage() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Summa Analytics</title><script type=\"module\" src=\"/analytics/analytics.js\"></script><style>\r\n\t\t\t\t:root { color: #172033; background: #f4f7fb; font-family: Inter, system-ui, sans-serif; }\r\n\t\t\t\tbody { margin: 0; }\r\n\t\t\t\tmain { max-width: 1180px; margin: 0 auto; padding: 36px 24px 56px; }\r\n\t\t\t\th1 { margin: 0; font-size: 2rem; }\r\n\t\t\t\t.subtitle { color: #526176; margin: 8px 0 28px; }\r\n\t\t\t\t.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }\r\n\t\t\t\t.card, section { background: white; border: 1px solid #dce4ef; border-radius: 12px; box-shadow: 0 2px 8px #1720330b; }\r\n\t\t\t\t.card { padding: 17px; }\r\n\t\t\t\t.label { color: #63718a; font-size: .8rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }\r\n\t\t\t\t.value { font-size: 1.4rem; font-weight: 700; margin-top: 8px; }\r\n\t\t\t\tsection { margin-top: 18px; padding: 20px; }\r\n\t\t\t\th2 { font-size: 1.1rem; margin: 0 0 4px; }\r\n\t\t\t\t#cash-chart { display: block; height: 460px; }\r\n\t\t\t\t#sankey { height: 360px; }\r\n\t\t\t\t.note { color: #63718a; font-size: .9rem; margin: 0 0 14px; }\r\n\t\t\t\t.view-toggle { display: flex; gap: 8px; margin: 16px 0; }\r\n\t\t\t\t.view-toggle button {\r\n\t\t\t\t\tbackground: #f8fafc;\r\n\t\t\t\t\tborder: 1px solid #cbd5e1;\r\n\t\t\t\t\tborder-radius: 8px;\r\n\t\t\t\t\tcolor: #475569;\r\n\t\t\t\t\tcursor: pointer;\r\n\t\t\t\t\tfont: inherit;\r\n\t\t\t\t\tfont-size: .9rem;\r\n\t\t\t\t\tpadding: 8px 12px;\r\n\t\t\t\t}\r\n\t\t\t\t.view-toggle button.active {\r\n\t\t\t\t\tbackground: #1d4ed8;\r\n\t\t\t\t\tborder-color: #1d4ed8;\r\n\t\t\t\t\tcolor: white;\r\n\t\t\t\t\tfont-weight: 700;\r\n\t\t\t\t}\r\n\t\t\t\ttable { border-collapse: collapse; width: 100%; }\r\n\t\t\t\tth, td { border-bottom: 1px solid #e8edf4; padding: 11px 8px; text-align: left; }\r\n\t\t\t\tth { color: #63718a; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }\r\n\t\t\t\t.tag { border-radius: 999px; display: inline-block; font-size: .75rem; font-weight: 700; padding: 4px 8px; }\r\n\t\t\t\t.amount_outlier { background: #fee2e2; color: #991b1b; }\r\n\t\t\t\t.potential_duplicate { background: #fef3c7; color: #92400e; }\r\n\t\t\t\t#error { color: #b42318; font-weight: 600; }\r\n\r\n\t\t\t\t@media (max-width: 760px) {\r\n\t\t\t\t\t.cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }\r\n\t\t\t\t\t#cash-chart { height: 380px; }\r\n\t\t\t\t}\r\n\t\t\t</style></head><body><main><h1>Cash Flow &amp; Audit Review</h1><p class=\"subtitle\">Demo data, 30-day forecast, and automated expense review</p><p id=\"error\" hidden></p><div class=\"cards\" id=\"summary\"></div><section><h2 id=\"chart-title\">Projected Cash Balance</h2><p class=\"note\" id=\"chart-note\">Solid: actual cash balance. Dashed: projected cash balance. The gray background marks the forecast period.</p><div class=\"view-toggle\" aria-label=\"Chart view\"><button id=\"balance-view\" class=\"active\" type=\"button\">Cash balance</button> <button id=\"flow-view\" type=\"button\">Daily cash flow</button></div>")
+		templ_7745c5c3_Err = SummaShell(SummaPageMeta{Title: "Analytics · Summa", Description: "Cash planning and review in Summa", ActiveNav: "analytics", Stylesheet: "/assets/analytics.css", ModuleScript: "/analytics/analytics.js"}, AnalyticsContent()).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func AnalyticsContent() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var2 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var2 == nil {
+			templ_7745c5c3_Var2 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"analytics-header\"><div><p class=\"eyebrow\">Cash planning</p><h1>Know what cash is likely to do next.</h1><p class=\"subtitle\">See your cash position, expected changes, and items that deserve a closer look.</p></div></header><p class=\"analytics-error\" id=\"error\" hidden></p><section class=\"analytics-summary\" id=\"summary\" aria-label=\"Cash outlook\"></section><section class=\"analytics-panel analytics-chart-panel\"><div class=\"analytics-panel-heading\"><div><h2 id=\"chart-title\">Projected cash balance</h2><p class=\"note\" id=\"chart-note\">Solid: recorded cash balance. Dashed: expected cash balance. The shaded area is the forecast period.</p></div><div class=\"view-toggle\" aria-label=\"Chart view\"><button id=\"balance-view\" class=\"active\" type=\"button\">Cash balance</button><button id=\"flow-view\" type=\"button\">Daily cash flow</button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -37,7 +66,7 @@ func AnalyticsPage() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</section><section><h2>Where Cash Went</h2><p class=\"note\" id=\"cash-summary\"></p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</section><section class=\"analytics-panel\"><div class=\"analytics-panel-heading\"><div><h2>Where cash moved</h2><p class=\"note\" id=\"cash-summary\"></p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -45,7 +74,7 @@ func AnalyticsPage() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</section><section><h2>Audit Review Queue</h2><p class=\"note\">These entries need a human decision. The system never changes the ledger automatically.</p><table><thead><tr><th>Date</th><th>Finding</th><th>Amount</th><th>Description</th><th>Reason</th></tr></thead> <tbody id=\"anomalies\"></tbody></table></section></main></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</section><section class=\"analytics-panel\"><div class=\"analytics-panel-heading\"><div><h2>Needs attention</h2><p class=\"note\">These are items worth reviewing. Summa never changes your records automatically.</p></div></div><div class=\"analytics-table-wrap\"><table><thead><tr><th>Date</th><th>What we noticed</th><th class=\"amount\">Amount</th><th>Description</th><th>Why it matters</th></tr></thead><tbody id=\"anomalies\"></tbody></table></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -69,9 +98,9 @@ func AnalyticsCashChart() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var2 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var2 == nil {
-			templ_7745c5c3_Var2 = templ.NopComponent
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<echarts-view id=\"cash-chart\" option=\"{}\" aria-label=\"Cash balance forecast chart\"></echarts-view>")
@@ -98,12 +127,12 @@ func AnalyticsSankeyChart() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var3 == nil {
-			templ_7745c5c3_Var3 = templ.NopComponent
+		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var4 == nil {
+			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<echarts-view id=\"sankey-chart\" option=\"{}\" aria-label=\"Cash flow category diagram\"></echarts-view>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<echarts-view id=\"sankey-chart\" option=\"{}\" aria-label=\"Cash movement category diagram\"></echarts-view>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
