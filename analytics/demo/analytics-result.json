@@ -1,0 +1,427 @@
+{
+    "methodology": {
+        "forecast": "rolling-mean baseline compared with linear trend plus weekday seasonality using rolling-origin MAE",
+        "anomalies": "expense amount modified Z-score (MAD threshold 3.5) plus exact duplicate candidates"
+    },
+    "summary": {
+        "movement_count": 43,
+        "observed_from": "2026-07-01",
+        "observed_through": "2026-08-11",
+        "daily_baseline": -197.28,
+        "anomaly_count": 3,
+        "forecast_model": "linear trend with weekday seasonality",
+        "baseline_validation_mae": 795.93,
+        "selected_model_validation_mae": 298.2
+    },
+    "daily_cash_flow": [
+        {
+            "date": "2026-07-01",
+            "net_cash_flow": 1450.0
+        },
+        {
+            "date": "2026-07-02",
+            "net_cash_flow": -180.0
+        },
+        {
+            "date": "2026-07-03",
+            "net_cash_flow": -95.0
+        },
+        {
+            "date": "2026-07-04",
+            "net_cash_flow": 780.0
+        },
+        {
+            "date": "2026-07-05",
+            "net_cash_flow": -215.0
+        },
+        {
+            "date": "2026-07-06",
+            "net_cash_flow": -125.0
+        },
+        {
+            "date": "2026-07-07",
+            "net_cash_flow": -70.0
+        },
+        {
+            "date": "2026-07-08",
+            "net_cash_flow": 1510.0
+        },
+        {
+            "date": "2026-07-09",
+            "net_cash_flow": -182.0
+        },
+        {
+            "date": "2026-07-10",
+            "net_cash_flow": -102.0
+        },
+        {
+            "date": "2026-07-11",
+            "net_cash_flow": 805.0
+        },
+        {
+            "date": "2026-07-12",
+            "net_cash_flow": -218.0
+        },
+        {
+            "date": "2026-07-13",
+            "net_cash_flow": -128.0
+        },
+        {
+            "date": "2026-07-14",
+            "net_cash_flow": -72.0
+        },
+        {
+            "date": "2026-07-15",
+            "net_cash_flow": 1575.0
+        },
+        {
+            "date": "2026-07-16",
+            "net_cash_flow": -179.0
+        },
+        {
+            "date": "2026-07-17",
+            "net_cash_flow": -98.0
+        },
+        {
+            "date": "2026-07-18",
+            "net_cash_flow": 820.0
+        },
+        {
+            "date": "2026-07-19",
+            "net_cash_flow": -220.0
+        },
+        {
+            "date": "2026-07-20",
+            "net_cash_flow": -130.0
+        },
+        {
+            "date": "2026-07-21",
+            "net_cash_flow": -69.0
+        },
+        {
+            "date": "2026-07-22",
+            "net_cash_flow": 1630.0
+        },
+        {
+            "date": "2026-07-23",
+            "net_cash_flow": -185.0
+        },
+        {
+            "date": "2026-07-24",
+            "net_cash_flow": -100.0
+        },
+        {
+            "date": "2026-07-25",
+            "net_cash_flow": 845.0
+        },
+        {
+            "date": "2026-07-26",
+            "net_cash_flow": -222.0
+        },
+        {
+            "date": "2026-07-27",
+            "net_cash_flow": -132.0
+        },
+        {
+            "date": "2026-07-28",
+            "net_cash_flow": -73.0
+        },
+        {
+            "date": "2026-07-29",
+            "net_cash_flow": 1690.0
+        },
+        {
+            "date": "2026-07-30",
+            "net_cash_flow": -188.0
+        },
+        {
+            "date": "2026-07-31",
+            "net_cash_flow": -105.0
+        },
+        {
+            "date": "2026-08-01",
+            "net_cash_flow": 870.0
+        },
+        {
+            "date": "2026-08-02",
+            "net_cash_flow": -225.0
+        },
+        {
+            "date": "2026-08-03",
+            "net_cash_flow": -135.0
+        },
+        {
+            "date": "2026-08-04",
+            "net_cash_flow": -71.0
+        },
+        {
+            "date": "2026-08-05",
+            "net_cash_flow": 1750.0
+        },
+        {
+            "date": "2026-08-06",
+            "net_cash_flow": -190.0
+        },
+        {
+            "date": "2026-08-07",
+            "net_cash_flow": -108.0
+        },
+        {
+            "date": "2026-08-08",
+            "net_cash_flow": 895.0
+        },
+        {
+            "date": "2026-08-09",
+            "net_cash_flow": -228.0
+        },
+        {
+            "date": "2026-08-10",
+            "net_cash_flow": -3200.0
+        },
+        {
+            "date": "2026-08-11",
+            "net_cash_flow": -299.98
+        }
+    ],
+    "forecast": [
+        {
+            "date": "2026-08-12",
+            "predicted_net_cash_flow": 1260.83,
+            "lower_95": -365.88,
+            "upper_95": 2887.55,
+            "cumulative_predicted_cash_flow": 1260.83
+        },
+        {
+            "date": "2026-08-13",
+            "predicted_net_cash_flow": -524.0,
+            "lower_95": -2169.52,
+            "upper_95": 1121.53,
+            "cumulative_predicted_cash_flow": 736.84
+        },
+        {
+            "date": "2026-08-14",
+            "predicted_net_cash_flow": -441.33,
+            "lower_95": -2105.45,
+            "upper_95": 1222.79,
+            "cumulative_predicted_cash_flow": 295.5
+        },
+        {
+            "date": "2026-08-15",
+            "predicted_net_cash_flow": 495.83,
+            "lower_95": -1186.67,
+            "upper_95": 2178.34,
+            "cumulative_predicted_cash_flow": 791.34
+        },
+        {
+            "date": "2026-08-16",
+            "predicted_net_cash_flow": -561.33,
+            "lower_95": -2262.03,
+            "upper_95": 1139.37,
+            "cumulative_predicted_cash_flow": 230.01
+        },
+        {
+            "date": "2026-08-17",
+            "predicted_net_cash_flow": -981.67,
+            "lower_95": -2700.36,
+            "upper_95": 737.03,
+            "cumulative_predicted_cash_flow": -751.66
+        },
+        {
+            "date": "2026-08-18",
+            "predicted_net_cash_flow": -449.16,
+            "lower_95": -2185.67,
+            "upper_95": 1287.34,
+            "cumulative_predicted_cash_flow": -1200.82
+        },
+        {
+            "date": "2026-08-19",
+            "predicted_net_cash_flow": 1163.69,
+            "lower_95": -590.44,
+            "upper_95": 2917.83,
+            "cumulative_predicted_cash_flow": -37.13
+        },
+        {
+            "date": "2026-08-20",
+            "predicted_net_cash_flow": -621.14,
+            "lower_95": -2392.73,
+            "upper_95": 1150.45,
+            "cumulative_predicted_cash_flow": -658.27
+        },
+        {
+            "date": "2026-08-21",
+            "predicted_net_cash_flow": -538.47,
+            "lower_95": -2327.35,
+            "upper_95": 1250.4,
+            "cumulative_predicted_cash_flow": -1196.74
+        },
+        {
+            "date": "2026-08-22",
+            "predicted_net_cash_flow": 398.69,
+            "lower_95": -1407.3,
+            "upper_95": 2204.69,
+            "cumulative_predicted_cash_flow": -798.05
+        },
+        {
+            "date": "2026-08-23",
+            "predicted_net_cash_flow": -658.47,
+            "lower_95": -2481.43,
+            "upper_95": 1164.48,
+            "cumulative_predicted_cash_flow": -1456.53
+        },
+        {
+            "date": "2026-08-24",
+            "predicted_net_cash_flow": -1078.81,
+            "lower_95": -2918.56,
+            "upper_95": 760.95,
+            "cumulative_predicted_cash_flow": -2535.33
+        },
+        {
+            "date": "2026-08-25",
+            "predicted_net_cash_flow": -546.3,
+            "lower_95": -2402.71,
+            "upper_95": 1310.1,
+            "cumulative_predicted_cash_flow": -3081.64
+        },
+        {
+            "date": "2026-08-26",
+            "predicted_net_cash_flow": 1066.55,
+            "lower_95": -806.36,
+            "upper_95": 2939.45,
+            "cumulative_predicted_cash_flow": -2015.09
+        },
+        {
+            "date": "2026-08-27",
+            "predicted_net_cash_flow": -718.28,
+            "lower_95": -2607.55,
+            "upper_95": 1170.98,
+            "cumulative_predicted_cash_flow": -2733.37
+        },
+        {
+            "date": "2026-08-28",
+            "predicted_net_cash_flow": -635.62,
+            "lower_95": -2541.1,
+            "upper_95": 1269.86,
+            "cumulative_predicted_cash_flow": -3368.99
+        },
+        {
+            "date": "2026-08-29",
+            "predicted_net_cash_flow": 301.55,
+            "lower_95": -1620.01,
+            "upper_95": 2223.11,
+            "cumulative_predicted_cash_flow": -3067.44
+        },
+        {
+            "date": "2026-08-30",
+            "predicted_net_cash_flow": -755.62,
+            "lower_95": -2693.12,
+            "upper_95": 1181.89,
+            "cumulative_predicted_cash_flow": -3823.06
+        },
+        {
+            "date": "2026-08-31",
+            "predicted_net_cash_flow": -1175.95,
+            "lower_95": -3129.27,
+            "upper_95": 777.37,
+            "cumulative_predicted_cash_flow": -4999.01
+        },
+        {
+            "date": "2026-09-01",
+            "predicted_net_cash_flow": -643.45,
+            "lower_95": -2612.46,
+            "upper_95": 1325.57,
+            "cumulative_predicted_cash_flow": -5642.45
+        },
+        {
+            "date": "2026-09-02",
+            "predicted_net_cash_flow": 969.41,
+            "lower_95": -1015.17,
+            "upper_95": 2953.99,
+            "cumulative_predicted_cash_flow": -4673.05
+        },
+        {
+            "date": "2026-09-03",
+            "predicted_net_cash_flow": -815.43,
+            "lower_95": -2815.45,
+            "upper_95": 1184.6,
+            "cumulative_predicted_cash_flow": -5488.47
+        },
+        {
+            "date": "2026-09-04",
+            "predicted_net_cash_flow": -732.76,
+            "lower_95": -2748.11,
+            "upper_95": 1282.59,
+            "cumulative_predicted_cash_flow": -6221.23
+        },
+        {
+            "date": "2026-09-05",
+            "predicted_net_cash_flow": 204.41,
+            "lower_95": -1826.15,
+            "upper_95": 2234.97,
+            "cumulative_predicted_cash_flow": -6016.82
+        },
+        {
+            "date": "2026-09-06",
+            "predicted_net_cash_flow": -852.76,
+            "lower_95": -2898.42,
+            "upper_95": 1192.9,
+            "cumulative_predicted_cash_flow": -6869.58
+        },
+        {
+            "date": "2026-09-07",
+            "predicted_net_cash_flow": -1273.09,
+            "lower_95": -3333.74,
+            "upper_95": 787.55,
+            "cumulative_predicted_cash_flow": -8142.68
+        },
+        {
+            "date": "2026-09-08",
+            "predicted_net_cash_flow": -740.59,
+            "lower_95": -2816.11,
+            "upper_95": 1334.93,
+            "cumulative_predicted_cash_flow": -8883.27
+        },
+        {
+            "date": "2026-09-09",
+            "predicted_net_cash_flow": 872.26,
+            "lower_95": -1218.03,
+            "upper_95": 2962.56,
+            "cumulative_predicted_cash_flow": -8011.0
+        },
+        {
+            "date": "2026-09-10",
+            "predicted_net_cash_flow": -912.57,
+            "lower_95": -3017.53,
+            "upper_95": 1192.39,
+            "cumulative_predicted_cash_flow": -8923.57
+        }
+    ],
+    "anomalies": [
+        {
+            "id": "d041",
+            "date": "2026-08-10",
+            "amount": -3200.0,
+            "description": "Unexpected travel charge",
+            "modified_z_score": 43.99,
+            "reason": "Expense amount differs substantially from typical spending.",
+            "type": "amount_outlier"
+        },
+        {
+            "id": "d042",
+            "date": "2026-08-11",
+            "amount": -149.99,
+            "description": "Printer paper",
+            "modified_z_score": null,
+            "reason": "Potential duplicate: same date, amount, and vendor or description.",
+            "type": "potential_duplicate"
+        },
+        {
+            "id": "d043",
+            "date": "2026-08-11",
+            "amount": -149.99,
+            "description": "Printer paper duplicate",
+            "modified_z_score": null,
+            "reason": "Potential duplicate: same date, amount, and vendor or description.",
+            "type": "potential_duplicate"
+        }
+    ]
+}
