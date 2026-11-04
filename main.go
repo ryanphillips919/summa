@@ -70,8 +70,57 @@ func newRouter(app *App) http.Handler {
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
 	})
 
+	r.Get("/api/analytics/demo", app.demoAnalyticsHandler)
+	r.Mount("/analytics", app.analyticsRoutes())
 	r.Mount("/demo", app.demoRoutes())
 	return r
+}
+
+type analyticsDemoResponse struct {
+	analytics.Response
+	CashMovements      []analytics.CashMovement `json:"cash_movements"`
+	OpeningCashBalance float64                  `json:"opening_cash_balance"`
+}
+
+func (app *App) demoAnalyticsHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	snapshot, err := app.cashDataSource.LoadCashSnapshot(r.Context())
+	if err != nil {
+		log.Printf("load analytics demo data: %v", err)
+		writeJSONError(
+			w,
+			http.StatusInternalServerError,
+			"analytics demo data is unavailable",
+		)
+		return
+	}
+
+	request := analytics.Request{
+		CashMovements:      snapshot.Movements,
+		ForecastDays:       snapshot.ForecastDays,
+		OpeningCashBalance: snapshot.OpeningCashBalance,
+	}
+
+	result, err := analytics.Run(r.Context(), request)
+	if err != nil {
+		log.Printf("run analytics demo: %v", err)
+		writeJSONError(
+			w,
+			http.StatusInternalServerError,
+			"analytics demo could not run",
+		)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
+		Response:           result,
+		CashMovements:      snapshot.Movements,
+		OpeningCashBalance: snapshot.OpeningCashBalance,
+	})
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
@@ -81,8 +130,9 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 }
 
 type App struct {
-	nc *nats.Conn
-	kv jetstream.KeyValue
+	nc             *nats.Conn
+	kv             jetstream.KeyValue
+	cashDataSource analytics.CashDataSource
 }
 
 func appInit() (*App, func(), error) {
@@ -100,5 +150,11 @@ func appInit() (*App, func(), error) {
 	cleanup := func() {
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv}, cleanup, nil
+	return &App{
+		nc: nc,
+		kv: kv,
+		cashDataSource: analytics.DemoCashDataSource{
+			Path: "analytics/data/demo_cash_movements.json",
+		},
+	}, cleanup, nil
 }
