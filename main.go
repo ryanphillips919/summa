@@ -13,6 +13,7 @@ import (
 
 	"summa/internal/analytics"
 	"summa/internal/db"
+	"summa/internal/ledger"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -99,6 +100,7 @@ type App struct {
 
 	sqlDB   *sql.DB
 	queries *db.Queries
+	ledger  *ledger.Service
 	orgID   int64 // one organization for now; see seedDevData
 }
 
@@ -125,7 +127,8 @@ func appInit() (*App, func(), error) {
 		return nil, nil, err
 	}
 	queries := db.New(conn)
-	orgID, err := seedDevData(ctx, conn, queries)
+	ledgerService := ledger.NewService(conn)
+	orgID, err := seedDevData(ctx, queries, ledgerService)
 	if err != nil {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
@@ -137,7 +140,7 @@ func appInit() (*App, func(), error) {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, orgID: orgID}, cleanup, nil
+	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, ledger: ledgerService, orgID: orgID}, cleanup, nil
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
