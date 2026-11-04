@@ -1,3 +1,5 @@
+import { echarts } from "./echarts-view.js";
+
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -5,8 +7,8 @@ const money = new Intl.NumberFormat("en-US", {
 
 let activeView = "balance";
 let dashboardData = null;
-let cashChart = null;
 let sankeyChart = null;
+const cashChart = document.getElementById("cash-chart");
 
 function card(label, value) {
   return `
@@ -200,12 +202,6 @@ function renderChart() {
     !balanceView,
   );
 
-  if (cashChart) {
-    cashChart.dispose();
-  }
-
-  cashChart = echarts.init(document.getElementById("chart"));
-
   const actualSeries = balanceView
     ? dates.map((date) => actualBalanceByDate.get(date) ?? null)
     : dates.map((date) => actualByDate.get(date) ?? null);
@@ -228,7 +224,7 @@ function renderChart() {
     ? "Projected cash balance"
     : "Forecast cash flow";
 
-  cashChart.setOption({
+  cashChart.option = {
     color: ["#1d4ed8", "#0891b2"],
 
     tooltip: {
@@ -347,7 +343,7 @@ function renderChart() {
         data: forecastSeries,
       },
     ],
-  });
+  };
 }
 
 function render(payload) {
@@ -415,7 +411,6 @@ document.getElementById("flow-view").addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => {
-  cashChart?.resize();
   sankeyChart?.resize();
 });
 

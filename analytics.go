@@ -28,5 +28,11 @@ func (app *App) analyticsPageHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	http.ServeFile(w, r, "analytics/demo/dashboard.html")
+	if err := AnalyticsPage().Render(r.Context(), w); err != nil {
+		http.Error(
+			w,
+			"could not render analytics page",
+			http.StatusInternalServerError,
+		)
+	}
 }
