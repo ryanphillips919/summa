@@ -8,6 +8,10 @@ GitHub Actions runs automated formatting, testing, and build checks on Ubuntu. G
 
 Developers using Windows can work through WSL or Docker.
 
+## Ledger rules
+
+All code that handles money must follow [docs/ledger-rules.md](docs/ledger-rules.md) (double-entry, append-only, derived balances).
+
 ## Team
 - David Kendall
 - Ryan Phillips

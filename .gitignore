@@ -28,3 +28,6 @@ __pycache__/
 *.temp
 *.swp
 *~
+
+# Claude Code (local notes)
+CLAUDE.md

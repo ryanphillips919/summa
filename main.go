@@ -3,22 +3,26 @@ package main
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
 
 	"summa/internal/analytics"
 	"summa/internal/db"
-	"summa/internal/ledger"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/pressly/goose/v3"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -59,9 +63,8 @@ func newRouter(app *App) http.Handler {
 
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Summa is running. Try /demo, or POST cash movements to /api/analytics/run."))
-	})
+	r.Handle("/analytics/*", http.StripPrefix("/analytics/", http.FileServer(http.Dir("analytics/demo"))))
+	r.Get("/", a.homepageHandler)
 
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -100,7 +103,6 @@ type App struct {
 
 	sqlDB   *sql.DB
 	queries *db.Queries
-	ledger  *ledger.Service
 	orgID   int64 // one organization for now; see seedDevData
 }
 
@@ -127,8 +129,7 @@ func appInit() (*App, func(), error) {
 		return nil, nil, err
 	}
 	queries := db.New(conn)
-	ledgerService := ledger.NewService(conn)
-	orgID, err := seedDevData(ctx, queries, ledgerService)
+	orgID, err := seedDevData(ctx, conn, queries)
 	if err != nil {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
@@ -140,16 +141,46 @@ func appInit() (*App, func(), error) {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, ledger: ledgerService, orgID: orgID}, cleanup, nil
+	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, orgID: orgID}, cleanup, nil
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("create database directory: %w", err)
 	}
-	conn, err := db.Open(ctx, path)
+	// foreign_keys makes SQLite enforce the schema's REFERENCES, and
+	// _txlock=immediate makes concurrent postings queue instead of failing
+	// with SQLITE_BUSY
+	params := url.Values{
+		"_pragma": {"foreign_keys(1)", "journal_mode(WAL)", "busy_timeout(5000)"},
+		"_txlock": {"immediate"},
+	}
+	conn, err := sql.Open("sqlite", "file:"+path+"?"+params.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
+	if err := migrate(ctx, conn); err != nil {
+		conn.Close()
+		return nil, err
+	}
 	return conn, nil
+}
+
+//go:embed internal/db/migrations/*.sql
+var migrations embed.FS
+
+// migrate applies any goose migrations the database hasn't run yet.
+func migrate(ctx context.Context, conn *sql.DB) error {
+	files, err := fs.Sub(migrations, "internal/db/migrations")
+	if err != nil {
+		return err
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, conn, files)
+	if err != nil {
+		return fmt.Errorf("load migrations: %w", err)
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		return fmt.Errorf("run migrations: %w", err)
+	}
+	return nil
 }
