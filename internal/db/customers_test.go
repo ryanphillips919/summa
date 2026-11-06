@@ -2,44 +2,11 @@ package db
 
 import (
 	"database/sql"
-	"path/filepath"
 	"testing"
-
-	"github.com/pressly/goose/v3"
-	_ "modernc.org/sqlite"
 )
 
-// newCustomerTestDB gives each test a fresh database with the project's migrations.
-func newCustomerTestDB(test *testing.T) *sql.DB {
-	test.Helper()
-
-	conn, err := sql.Open("sqlite", filepath.Join(test.TempDir(), "customers.db"))
-	if err != nil {
-		test.Fatalf("open test database: %v", err)
-	}
-	test.Cleanup(func() {
-		if err := conn.Close(); err != nil {
-			test.Errorf("close test database: %v", err)
-		}
-	})
-
-	conn.SetMaxOpenConns(1)
-	if _, err := conn.ExecContext(test.Context(), "PRAGMA foreign_keys = ON"); err != nil {
-		test.Fatalf("enable foreign keys: %v", err)
-	}
-
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		test.Fatalf("set migration dialect: %v", err)
-	}
-	if err := goose.Up(conn, "migrations"); err != nil {
-		test.Fatalf("apply migrations: %v", err)
-	}
-
-	return conn
-}
-
 func TestCustomersBelongToOrganizations(t *testing.T) {
-	conn := newCustomerTestDB(t)
+	conn := newTestDB(t)
 	queries := New(conn)
 
 	firstOrg, err := queries.CreateOrganization(t.Context(), "First organization")
