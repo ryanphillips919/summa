@@ -4,11 +4,22 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
 type Account struct {
 	ID             int64
 	OrganizationID int64
 	Name           string
 	Type           string
+}
+
+type Customer struct {
+	ID             int64
+	OrganizationID int64
+	Name           string
+	Email          sql.NullString
 }
 
 type Entry struct {
