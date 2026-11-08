@@ -140,6 +140,13 @@ func appInit() (*App, func(), error) {
 	}
 	log.Printf("Database ready at %s", dbPath)
 
+	cashDataSource, err := newAnalyticsDataSource(conn, orgID)
+	if err != nil {
+		conn.Close()
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, err
+	}
+
 	cleanup := func() {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
@@ -150,25 +157,33 @@ func appInit() (*App, func(), error) {
 		sqlDB:          conn,
 		queries:        queries,
 		orgID:          orgID,
-		cashDataSource: newAnalyticsDataSource(conn, orgID),
+		cashDataSource: cashDataSource,
 	}, cleanup, nil
 }
 
 func newAnalyticsDataSource(
 	conn *sql.DB,
 	orgID int64,
-) analytics.CashDataSource {
-	if os.Getenv("SUMMA_ANALYTICS_SOURCE") == "database" {
+) (analytics.CashDataSource, error) {
+	switch os.Getenv("SUMMA_ANALYTICS_SOURCE") {
+	case "", "demo":
+		return analytics.DemoCashDataSource{
+			Path: "analytics/data/demo_cash_movements.json",
+		}, nil
+
+	case "database":
 		return analytics.DatabaseCashDataSource{
 			DB:              conn,
 			OrganizationID:  orgID,
 			ForecastDays:    30,
 			ObservationDays: 60,
-		}
-	}
+		}, nil
 
-	return analytics.DemoCashDataSource{
-		Path: "analytics/data/demo_cash_movements.json",
+	default:
+		return nil, fmt.Errorf(
+			"unknown SUMMA_ANALYTICS_SOURCE %q; use demo or database",
+			os.Getenv("SUMMA_ANALYTICS_SOURCE"),
+		)
 	}
 }
 

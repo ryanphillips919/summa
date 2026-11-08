@@ -53,11 +53,11 @@ func (app *App) analyticsHandler(
 ) {
 	snapshot, err := app.cashDataSource.LoadCashSnapshot(r.Context())
 	if err != nil {
-		log.Printf("load analytics demo data: %v", err)
+		log.Printf("load analytics data: %v", err)
 		writeJSONError(
 			w,
 			http.StatusInternalServerError,
-			"analytics demo data is unavailable",
+			"analytics data is unavailable",
 		)
 		return
 	}
@@ -68,11 +68,11 @@ func (app *App) analyticsHandler(
 		OpeningCashBalance: snapshot.OpeningCashBalance,
 	})
 	if err != nil {
-		log.Printf("run analytics demo: %v", err)
+		log.Printf("run analytics: %v", err)
 		writeJSONError(
 			w,
 			http.StatusInternalServerError,
-			"analytics demo could not run",
+			"analytics could not run",
 		)
 		return
 	}
