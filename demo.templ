@@ -22,7 +22,20 @@ templ DemoContent(d DemoDocument, clients int64) {
 	// is called and our backend checks if anything actually changed, if so, update EVERY client watching
 	// giving us real-time collaboration for free.
 	// it used to live on <body>; SummaShell owns <body> now, so it sits on this wrapper instead.
-	<div data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})">
+	//
+	// keydown: when we arrived from /presentation, → / Enter returns to the slide after the
+	// hand-off and ← / Esc returns to the hand-off slide itself. document.referrer is only set
+	// by that navigation, so the keys are inert when someone is just using the journal. The
+	// INPUT guard keeps arrows working inside the scrubber and edit cells.
+	<div
+		data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})"
+		data-on:keydown__window="
+			if (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') {
+				if (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; }
+				else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') { location.href = '/presentation#s5'; }
+			}
+		"
+	>
 		<header class="page-header">
 			<div>
 				<p class="eyebrow">Accounting</p>
