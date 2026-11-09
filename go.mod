@@ -11,6 +11,7 @@ require (
 	github.com/nats-io/nats.go v1.54.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/starfederation/datastar-go v1.2.2
+	golang.org/x/crypto v0.58.0
 	modernc.org/sqlite v1.61.0
 )
 
@@ -40,7 +41,6 @@ require (
 	github.com/sethvargo/go-retry v0.5.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
