@@ -8,6 +8,10 @@ GitHub Actions runs automated formatting, testing, and build checks on Ubuntu. G
 
 Developers using Windows can work through WSL or Docker.
 
+## Ledger rules
+
+All code that handles money must follow [docs/ledger-rules.md](docs/ledger-rules.md) (double-entry, append-only, derived balances).
+
 ## Team
 - David Kendall
 - Ryan Phillips
@@ -113,3 +117,22 @@ better reserved for a bespoke ledger-flow or relationship visualization.
 Run the integration test with `go test ./...`. The container includes Python 3.
 Set `SUMMA_ANALYTICS_PYTHON` or `SUMMA_ANALYTICS_SCRIPT` when non-default paths
 are required.
+
+## Analytics development data
+
+By default, Analytics uses the JSON demo fixture:
+```sh
+go run .
+```
+
+To test the full database-backend analytics path, run Summa with a separate local SQLite database:
+```bash
+SUMMA_DB=data/analytics-sanity.db \
+SUMMA_ANALYTICS_SOURCE=database \
+SUMMA_SEED_ANALYTICS_DEMO=1 \
+go run .
+```
+
+This applies the current migrations and seeds balanced ledger entries derived from the analytics fixture. Open `http://localhost:8080/analytics`. 
+
+The `data/` directory contains local runtime state, including SQLite databases and NATS files. It must not be committed.

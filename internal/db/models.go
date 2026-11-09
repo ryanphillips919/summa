@@ -4,11 +4,22 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
 type Account struct {
 	ID             int64
 	OrganizationID int64
 	Name           string
 	Type           string
+}
+
+type Customer struct {
+	ID             int64
+	OrganizationID int64
+	Name           string
+	Email          sql.NullString
 }
 
 type Entry struct {
@@ -17,6 +28,15 @@ type Entry struct {
 	AccountID     int64
 	Direction     string
 	Amount        int64
+}
+
+type Invoice struct {
+	ID             int64
+	OrganizationID int64
+	CustomerID     int64
+	Number         string
+	IssueDate      string
+	DueDate        string
 }
 
 type Organization struct {
