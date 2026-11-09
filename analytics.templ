@@ -1,0 +1,22 @@
+package main
+
+templ AnalyticsPage() {
+	@SummaShell(SummaPageMeta{Title: "Analytics · Summa", Description: "Cash planning and review in Summa", ActiveNav: "analytics", Stylesheet: "/assets/analytics.css", ModuleScript: "/analytics/analytics.js"}, AnalyticsContent())
+}
+
+templ AnalyticsContent() {
+	<header class="analytics-header"><div><p class="eyebrow">Cash planning</p><h1>Know what cash is likely to do next.</h1><p class="subtitle">See your cash position, expected changes, and items that deserve a closer look.</p></div></header>
+	<p class="analytics-error" id="error" hidden></p>
+	<section class="analytics-summary" id="summary" aria-label="Cash outlook"></section>
+	<section class="analytics-panel analytics-chart-panel"><div class="analytics-panel-heading"><div><h2 id="chart-title">Projected cash balance</h2><p class="note" id="chart-note">Solid: recorded cash balance. Dashed: expected cash balance. The shaded area is the forecast period.</p></div><div class="view-toggle" aria-label="Chart view"><button id="balance-view" class="active" type="button">Cash balance</button><button id="flow-view" type="button">Daily cash flow</button></div></div>@AnalyticsCashChart()</section>
+	<section class="analytics-panel"><div class="analytics-panel-heading"><div><h2>Where cash moved</h2><p class="note" id="cash-summary"></p></div></div>@AnalyticsSankeyChart()</section>
+	<section class="analytics-panel"><div class="analytics-panel-heading"><div><h2>Needs attention</h2><p class="note">These are items worth reviewing. Summa never changes your records automatically.</p></div></div><div class="analytics-table-wrap"><table><thead><tr><th>Date</th><th>What we noticed</th><th class="amount">Amount</th><th>Description</th><th>Why it matters</th></tr></thead><tbody id="anomalies"></tbody></table></div></section>
+}
+
+templ AnalyticsCashChart() {
+	<echarts-view id="cash-chart" option="{}" aria-label="Cash balance forecast chart"></echarts-view>
+}
+
+templ AnalyticsSankeyChart() {
+	<echarts-view id="sankey-chart" option="{}" aria-label="Cash movement category diagram"></echarts-view>
+}
