@@ -7,25 +7,32 @@ import (
 )
 
 templ Page(d DemoDocument, clients int64) {
-	<!DOCTYPE html>
-	<html>
-		<head>
-			<meta charset="utf-8"/>
-			<meta http-equiv="x-ua-compatible" content="ie=edge"/>
-			<title>Summa Ledger Demo</title>
-			<meta name="description" content=""/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<link rel="stylesheet" href="/assets/demo.css"/>
-			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"></script>
-		</head>
-		// data-init is a datastar attribute that executes on first page load OR page changes.
-		// what this means for us is that everytime a user changes some input field, this function
-		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
-		// giving us real-time collaboration for free
-		<body data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})">
-			@Header()
+	@SummaShell(SummaPageMeta{
+		Title:        "General Journal · Summa",
+		Description:  "Real-time collaborative ledger",
+		ActiveNav:    "journal",
+		Stylesheet:   "/assets/demo.css",
+		ModuleScript: "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js",
+	}, DemoContent(d, clients))
+}
+
+templ DemoContent(d DemoDocument, clients int64) {
+	// data-init is a datastar attribute that executes on first page load OR page changes.
+	// what this means for us is that everytime a user changes some input field, this function
+	// is called and our backend checks if anything actually changed, if so, update EVERY client watching
+	// giving us real-time collaboration for free.
+	// it used to live on <body>; SummaShell owns <body> now, so it sits on this wrapper instead.
+	<div data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})">
+		<header class="page-header">
+			<div>
+				<p class="eyebrow">Accounting</p>
+				<h1>General Journal</h1>
+				<p class="subtitle">Double-click a cell to edit. Changes sync to everyone watching.</p>
+			</div>
 			@Online(clients)
-			@Demo(d, nil, 0)
+		</header>
+		@Demo(d, nil, 0)
+		<div class="demo-controls">
 			<input
 				type="range"
 				min="0"
@@ -33,10 +40,9 @@ templ Page(d DemoDocument, clients int64) {
 				data-bind="scrub"
 				data-on:input="@get('/demo/scrub', {filterSignals: {include: /^scrub$/}})"
 			/>
-			<button data-on:click="@get('/demo/play', {filterSignals: {include: /^$/}})">Play</button>
-			@Footer()
-		</body>
-	</html>
+			<button class="button-primary" data-on:click="@get('/demo/play', {filterSignals: {include: /^$/}})">Play</button>
+		</div>
+	</div>
 }
 
 templ Online(u int64) {
@@ -45,19 +51,21 @@ templ Online(u int64) {
 
 // changed is the set of cells that just changed (nil on a plain render) and rev is the
 // NATS KV revision that changed them. Together they drive the flash animation.
+// <section> rather than <main>: SummaShell already renders <main class="summa-main">,
+// and datastar only needs the id to morph.
 templ Demo(d DemoDocument, changed map[string]int64, rev uint64) {
-	<main id="demo">
+	<section id="demo">
 		@TableView(d, changed, rev)
-	</main>
+	</section>
 }
 
 templ DemoEdit(d DemoDocument) {
-	<main id="demo">
+	<section id="demo">
 		@TableEdit(d)
 		// Save sends every cell signal; the server diffs against what it has and only stores the changes
 		<button data-on:click="@post('/demo', {filterSignals: {include: /^r\d+c\d+$/}})">Save</button>
 		<button data-on:click="@get('/demo/cancel', {filterSignals: {include: /^$/}})">Cancel</button>
-	</main>
+	</section>
 }
 
 type DemoDocument struct {
@@ -169,6 +177,8 @@ func changedCols(changed map[string]int64) map[int]bool {
 // one color per revision so every client flashes the same color for the same update.
 // rev * 137 (the golden angle) hops around the hue wheel without repeating for a long time.
 // rev 0 means "plain render, nothing flashing" so we emit nothing at all.
+// NOTE: demo.css falls back to a brand-green flash when --flash is unset; return "" here
+// unconditionally if you'd rather every flash be green instead of per-revision hues.
 func flashColor(rev uint64) string {
 	if rev == 0 {
 		return ""
@@ -178,12 +188,14 @@ func flashColor(rev uint64) string {
 }
 
 templ TableView(d DemoDocument, changed map[string]int64, rev uint64) {
-	<table data-signals={ templ.JSONString(cellSignals(d)) }>
-		<caption>Demo For Real-Time Collaboration for Summa!</caption>
-		@TableHeader(d.d)
-		@TableBodyView(d.r, changed, rev)
-		@TableFooterView(generateSignals(d), changedCols(changed), rev)
-	</table>
+	<div class="table-scroll">
+		<table data-signals={ templ.JSONString(cellSignals(d)) }>
+			<caption>Demo For Real-Time Collaboration for Summa!</caption>
+			@TableHeader(d.d)
+			@TableBodyView(d.r, changed, rev)
+			@TableFooterView(generateSignals(d), changedCols(changed), rev)
+		</table>
+	</div>
 }
 
 templ TableHeader(d []Dates) {
@@ -241,12 +253,14 @@ templ TableFooterView(columns [][]string, cols map[int]bool, rev uint64) {
 // when a user double clicks on a cell datastar morphs into the DOM
 // the same HTML but with input elements users can change
 templ TableEdit(d DemoDocument) {
-	<table data-signals={ templ.JSONString(cellSignals(d)) }>
-		<caption>Demo For Real-Time Collaboration for Summa!</caption>
-		@TableHeader(d.d)
-		@TableBodyEdit(d.r)
-		@TableFooterView(generateSignals(d), nil, 0)
-	</table>
+	<div class="table-scroll">
+		<table data-signals={ templ.JSONString(cellSignals(d)) }>
+			<caption>Demo For Real-Time Collaboration for Summa!</caption>
+			@TableHeader(d.d)
+			@TableBodyEdit(d.r)
+			@TableFooterView(generateSignals(d), nil, 0)
+		</table>
+	</div>
 }
 
 templ TableBodyEdit(rows []Rows) {

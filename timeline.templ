@@ -16,31 +16,37 @@ type Entry struct {
 }
 
 templ Timeline() {
-	<!DOCTYPE html>
-	<html>
-		<head>
-			<meta charset="utf-8"/>
-			<meta http-equiv="x-ua-compatible" content="ie=edge"/>
-			<title>Summa Ledger Timeline</title>
-			<meta name="description" content=""/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<link rel="stylesheet" href="/assets/demo.css"/>
-			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"></script>
-		</head>
-		// data-init is a datastar attribute that executes on first page load OR page changes.
-		// what this means for us is that everytime a user changes some input field, this function
-		// is called and our backend checks if anything actually changed, if so, update EVERY client watching
-		// giving us real-time collaboration for free
-		<body data-init="@get('/timeline/watch')">
-			@Header()
-			<main id="timeline"></main>
-			@Footer()
-		</body>
-	</html>
+	@SummaShell(SummaPageMeta{
+		Title:        "Ledger Timeline · Summa",
+		Description:  "Every change made to the ledger, newest first",
+		ActiveNav:    "journal",
+		Stylesheet:   "/assets/demo.css",
+		ModuleScript: "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js",
+	}, TimelineContent())
 }
 
+templ TimelineContent() {
+	// data-init is a datastar attribute that executes on first page load OR page changes.
+	// what this means for us is that everytime a user changes some input field, this function
+	// is called and our backend checks if anything actually changed, if so, update EVERY client watching
+	// giving us real-time collaboration for free.
+	// it used to live on <body>; SummaShell owns <body> now, so it sits on this wrapper instead.
+	<div data-init="@get('/timeline/watch')">
+		<header class="page-header">
+			<div>
+				<p class="eyebrow">Accounting</p>
+				<h1>Ledger Timeline</h1>
+				<p class="subtitle">Every revision to the journal, newest first.</p>
+			</div>
+		</header>
+		<section id="timeline"></section>
+	</div>
+}
+
+// <section> rather than <main>: SummaShell already renders <main class="summa-main">,
+// and datastar only needs the id to morph.
 templ TimelineEntry(e EntrySystem) {
-	<main id="timeline">
+	<section id="timeline">
 		<ul>
 			// need to iterate backwards here since we want to display from newest to oldest additions
 			for _, v := range slices.Backward(e.entry) {
@@ -53,5 +59,5 @@ templ TimelineEntry(e EntrySystem) {
 				</li>
 			}
 		</ul>
-	</main>
+	</section>
 }
