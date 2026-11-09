@@ -1,6 +1,10 @@
 {
   "forecast_days": 30,
+<<<<<<< HEAD
+  "opening_cash_balance": 4500.00,
+=======
   "opening_cash_balance": 4500,
+>>>>>>> origin/main
   "cash_movements": [
     {"id":"d001","date":"2026-07-01","amount":1450.00,"vendor":"Northwind Studio","description":"Client invoice payment"},
     {"id":"d002","date":"2026-07-02","amount":-180.00,"vendor":"AWS","description":"Cloud hosting"},

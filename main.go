@@ -50,9 +50,11 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Server-sent event streams (/demo/watch) stay open for as long as a tab
-	// does, so the timeout only wraps ordinary requests.
+	// Server-sent event streams (/demo/watch, /timeline/watch, /ledger/watch) stay open for as
+	// long as a tab does, so the timeout only wraps ordinary requests.
 	r.Mount("/demo", app.demoRoutes())
+	r.Mount("/timeline", app.timelineRoutes())
+	//r.Mount("/ledger", app.ledgerRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))
@@ -64,7 +66,6 @@ func newRouter(app *App) http.Handler {
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	r.Get("/", a.homepageHandler)
-
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
@@ -84,6 +85,7 @@ func (a *App) mountRoutes(r chi.Router) {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
+	r.Get("/api/analytics/demo", demoAnalyticsHandler)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
@@ -97,6 +99,42 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+type analyticsDemoResponse struct {
+	analytics.Response
+	CashMovements      []analytics.CashMovement `json:"cash_movements"`
+	OpeningCashBalance float64                  `json:"opening_cash_balance"`
+}
+
+func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
+	fixture, err := os.ReadFile("analytics/data/demo_cash_movements.json")
+	if err != nil {
+		log.Printf("read analytics demo fixture: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is unavailable")
+		return
+	}
+
+	var request analytics.Request
+	if err := json.Unmarshal(fixture, &request); err != nil {
+		log.Printf("decode analytics demo fixture: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is invalid")
+		return
+	}
+
+	result, err := analytics.Run(r.Context(), request)
+	if err != nil {
+		log.Printf("run analytics demo: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "analytics demo could not run")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
+		Response:           result,
+		CashMovements:      request.CashMovements,
+		OpeningCashBalance: request.OpeningCashBalance,
+	})
 }
 
 type App struct {
