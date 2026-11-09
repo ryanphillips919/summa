@@ -70,7 +70,7 @@ func DemoContent(d DemoDocument, clients int64) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div data-init=\"@get('/demo/watch', {filterSignals: {include: /^$/}})\"><header class=\"page-header\"><div><p class=\"eyebrow\">Accounting</p><h1>General Journal</h1><p class=\"subtitle\">Double-click a cell to edit. Changes sync to everyone watching.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div data-init=\"@get('/demo/watch', {filterSignals: {include: /^$/}})\" data-on:keydown__window=\"\n\t\t\tif (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') {\n\t\t\t\tif (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; }\n\t\t\t\telse if (evt.key === 'ArrowLeft' || evt.key === 'Escape') { location.href = '/presentation#s5'; }\n\t\t\t}\n\t\t\"><header class=\"page-header\"><div><p class=\"eyebrow\">Accounting</p><h1>General Journal</h1><p class=\"subtitle\">Double-click a cell to edit. Changes sync to everyone watching.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -122,7 +122,7 @@ func Online(u int64) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(u))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 49, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 62, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -361,7 +361,7 @@ func TableView(d DemoDocument, changed map[string]int64, rev uint64) templ.Compo
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.JSONString(cellSignals(d)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 192, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 205, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
@@ -424,7 +424,7 @@ func TableHeader(d []Dates) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(header.date.Format("Jan, 06"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 208, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 221, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -476,7 +476,7 @@ func TableBodyView(rows []Rows, changed map[string]int64, rev uint64) templ.Comp
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(acc.account)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 219, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 232, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -516,7 +516,7 @@ func TableBodyView(rows []Rows, changed map[string]int64, rev uint64) templ.Comp
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(flashColor(rev))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 227, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 240, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -529,7 +529,7 @@ func TableBodyView(rows []Rows, changed map[string]int64, rev uint64) templ.Comp
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", cellName(i, j)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 229, Col: 140}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 242, Col: 140}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 				if templ_7745c5c3_Err != nil {
@@ -608,7 +608,7 @@ func TableFooterView(columns [][]string, cols map[int]bool, rev uint64) templ.Co
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(flashColor(rev))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 245, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 258, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -665,7 +665,7 @@ func TableEdit(d DemoDocument) templ.Component {
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.JSONString(cellSignals(d)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 257, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 270, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 		if templ_7745c5c3_Err != nil {
@@ -728,7 +728,7 @@ func TableBodyEdit(rows []Rows) templ.Component {
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(acc.account)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 271, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 284, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -746,7 +746,7 @@ func TableBodyEdit(rows []Rows) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(cellName(i, j))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 276, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 289, Col: 53}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 				if templ_7745c5c3_Err != nil {
