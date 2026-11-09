@@ -21,10 +21,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-<<<<<<< HEAD
-=======
 	"github.com/pressly/goose/v3"
->>>>>>> origin/main
 	_ "modernc.org/sqlite"
 )
 
@@ -68,15 +65,7 @@ func newRouter(app *App) http.Handler {
 
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-<<<<<<< HEAD
-	r.Handle("/analytics/demo/*", http.StripPrefix("/analytics/demo", http.FileServer(http.Dir("analytics/demo"))))
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "assets/home.html")
-	})
-=======
 	r.Get("/", a.homepageHandler)
->>>>>>> origin/main
-
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
@@ -152,15 +141,10 @@ type App struct {
 	nc *nats.Conn
 	kv jetstream.KeyValue
 
-<<<<<<< HEAD
-	sqlDB   *sql.DB
-	queries *db.Queries
-=======
 	sqlDB          *sql.DB
 	queries        *db.Queries
 	orgID          int64 // one organization for now; see seedDevData
 	cashDataSource analytics.CashDataSource
->>>>>>> origin/main
 }
 
 func appInit() (*App, func(), error) {
@@ -186,10 +170,7 @@ func appInit() (*App, func(), error) {
 		return nil, nil, err
 	}
 	queries := db.New(conn)
-<<<<<<< HEAD
-=======
 	orgID, err := seedDevData(ctx, conn, queries)
->>>>>>> origin/main
 	if err != nil {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
@@ -208,9 +189,6 @@ func appInit() (*App, func(), error) {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-<<<<<<< HEAD
-	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries}, cleanup, nil
-=======
 	return &App{
 		nc:             nc,
 		kv:             kv,
@@ -245,7 +223,6 @@ func newAnalyticsDataSource(
 			os.Getenv("SUMMA_ANALYTICS_SOURCE"),
 		)
 	}
->>>>>>> origin/main
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
