@@ -63,7 +63,6 @@ func newRouter(app *App) http.Handler {
 
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	r.Handle("/analytics/*", http.StripPrefix("/analytics/", http.FileServer(http.Dir("analytics/demo"))))
 	r.Get("/", a.homepageHandler)
 
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +88,9 @@ func (a *App) mountRoutes(r chi.Router) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
 	})
+
+	r.Get("/api/analytics", a.analyticsHandler)
+	r.Mount("/analytics", a.analyticsRoutes())
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
@@ -101,9 +103,10 @@ type App struct {
 	nc *nats.Conn
 	kv jetstream.KeyValue
 
-	sqlDB   *sql.DB
-	queries *db.Queries
-	orgID   int64 // one organization for now; see seedDevData
+	sqlDB          *sql.DB
+	queries        *db.Queries
+	orgID          int64 // one organization for now; see seedDevData
+	cashDataSource analytics.CashDataSource
 }
 
 func appInit() (*App, func(), error) {
@@ -137,11 +140,51 @@ func appInit() (*App, func(), error) {
 	}
 	log.Printf("Database ready at %s", dbPath)
 
+	cashDataSource, err := newAnalyticsDataSource(conn, orgID)
+	if err != nil {
+		conn.Close()
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, err
+	}
+
 	cleanup := func() {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{nc: nc, kv: kv, sqlDB: conn, queries: queries, orgID: orgID}, cleanup, nil
+	return &App{
+		nc:             nc,
+		kv:             kv,
+		sqlDB:          conn,
+		queries:        queries,
+		orgID:          orgID,
+		cashDataSource: cashDataSource,
+	}, cleanup, nil
+}
+
+func newAnalyticsDataSource(
+	conn *sql.DB,
+	orgID int64,
+) (analytics.CashDataSource, error) {
+	switch os.Getenv("SUMMA_ANALYTICS_SOURCE") {
+	case "", "demo":
+		return analytics.DemoCashDataSource{
+			Path: "analytics/data/demo_cash_movements.json",
+		}, nil
+
+	case "database":
+		return analytics.DatabaseCashDataSource{
+			DB:              conn,
+			OrganizationID:  orgID,
+			ForecastDays:    30,
+			ObservationDays: 60,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf(
+			"unknown SUMMA_ANALYTICS_SOURCE %q; use demo or database",
+			os.Getenv("SUMMA_ANALYTICS_SOURCE"),
+		)
+	}
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
