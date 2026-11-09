@@ -30,6 +30,15 @@ type Entry struct {
 	Amount        int64
 }
 
+type Invoice struct {
+	ID             int64
+	OrganizationID int64
+	CustomerID     int64
+	Number         string
+	IssueDate      string
+	DueDate        string
+}
+
 type Organization struct {
 	ID   int64
 	Name string
