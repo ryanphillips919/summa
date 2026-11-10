@@ -41,12 +41,14 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "receipt", "Bills")
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "truck", "Vendors")
 						<p class="nav-section">Accounting</p>
-						@SummaNavLink(meta.ActiveNav, "journal", "/demo", "book-open", "General Journal")
+						@SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal")
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
 						@SummaNavLink(meta.ActiveNav, "", "/#close", "calendar-check-2", "Month-end Close")
 						@SummaNavLink(meta.ActiveNav, "", "/#accounts", "git-fork", "Chart of Accounts")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")
 						@SummaNavLink(meta.ActiveNav, "", "/#reports", "files", "Reports")
+						<p class="nav-section">Demo</p>
+						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "play-square", "Demo Ledger")
 					</nav>
 					<div class="sidebar-footer">
 						@SummaNavLink(meta.ActiveNav, "", "/#settings", "settings", "Settings")
@@ -57,14 +59,14 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 					<div class="mobile-menu-top"><span id="mobile-menu-title">Navigation</span><button class="mobile-menu-close" type="button" aria-label="Close navigation menu"><i data-lucide="x"></i></button></div>
 					<nav class="mobile-nav" aria-label="Mobile navigation">
 						@SummaNavLink(meta.ActiveNav, "dashboard", "/", "layout-dashboard", "Dashboard")
-						@SummaNavLink(meta.ActiveNav, "journal", "/demo", "book-open", "General Journal")
+						@SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal")
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
 						@SummaNavLink(meta.ActiveNav, "", "/#activity", "history", "Activity")
 						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "file-text", "Invoices")
 						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers")
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "receipt", "Bills")
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "truck", "Vendors")
-						@SummaNavLink(meta.ActiveNav, "journal", "/demo", "book-open", "General Journal")
+						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "play-square", "Demo Ledger")
 						@SummaNavLink(meta.ActiveNav, "", "/#close", "calendar-check-2", "Month-end Close")
 						@SummaNavLink(meta.ActiveNav, "", "/#accounts", "git-fork", "Chart of Accounts")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")

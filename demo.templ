@@ -8,9 +8,9 @@ import (
 
 templ Page(d DemoDocument, clients int64) {
 	@SummaShell(SummaPageMeta{
-		Title:        "General Journal · Summa",
+		Title:        "Demo Ledger · Summa",
 		Description:  "Real-time collaborative ledger",
-		ActiveNav:    "journal",
+		ActiveNav:    "demo",
 		Stylesheet:   "/assets/demo.css",
 		ModuleScript: "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js",
 	}, DemoContent(d, clients))
@@ -39,8 +39,8 @@ templ DemoContent(d DemoDocument, clients int64) {
 		<header class="page-header">
 			<div>
 				<p class="eyebrow">Accounting</p>
-				<h1>General Journal</h1>
-				<p class="subtitle">Double-click a cell to edit. Changes sync to everyone watching.</p>
+				<h1>Demo Ledger</h1>
+				<p class="subtitle">Interactive single-entry prototype. Double-click a cell to edit; changes sync to everyone watching.</p>
 			</div>
 			@Online(clients)
 		</header>
