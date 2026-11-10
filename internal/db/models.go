@@ -39,6 +39,14 @@ type Invoice struct {
 	DueDate        string
 }
 
+type InvoiceLine struct {
+	ID             int64
+	InvoiceID      int64
+	Description    string
+	Quantity       int64
+	UnitPriceCents int64
+}
+
 type Organization struct {
 	ID   int64
 	Name string
