@@ -1,11 +1,7 @@
 package main
 
 import (
-	_ "embed"
-	"context"
 	"fmt"
-	"html/template"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -14,43 +10,7 @@ import (
 
 	"summa/internal/db"
 	"summa/internal/ledger"
-
-	"github.com/a-h/templ"
 )
-
-//go:embed journal.html
-var journalTemplateSource string
-
-var journalHTML = template.Must(template.New("journal").Funcs(template.FuncMap{
-	"money":       formatDollars,
-	"lineContext": lineContext,
-	"emptyLine":   func() JournalFormLine { return JournalFormLine{} },
-}).Parse(journalTemplateSource))
-
-type journalContent struct{ data JournalPageData }
-
-type journalLineContext struct {
-	Line     JournalFormLine
-	Accounts []JournalAccount
-}
-
-func lineContext(line JournalFormLine, accounts []JournalAccount) journalLineContext {
-	return journalLineContext{Line: line, Accounts: accounts}
-}
-
-func (content journalContent) Render(_ context.Context, w io.Writer) error {
-	return journalHTML.Execute(w, content.data)
-}
-
-func JournalPage(data JournalPageData) templ.Component {
-	return SummaShell(SummaPageMeta{
-		Title:        "General Journal · Summa",
-		Description:  "Double-entry accounting journal",
-		ActiveNav:    "journal",
-		Stylesheet:   "/assets/journal.css",
-		ModuleScript: "/assets/journal.js",
-	}, journalContent{data: data})
-}
 
 // JournalPageData is the read model for the real, double-entry general journal.
 // It deliberately contains derived balances and posted entries, never mutable totals.

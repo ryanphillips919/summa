@@ -1,0 +1,222 @@
+package main
+
+import "fmt"
+
+templ JournalPage(data JournalPageData) {
+	@SummaShell(SummaPageMeta{
+		Title:        "General Journal · Summa",
+		Description:  "Double-entry accounting journal",
+		ActiveNav:    "journal",
+		Stylesheet:   "/assets/journal.css",
+		ModuleScript: "/assets/journal.js",
+	}, JournalContent(data))
+}
+
+templ JournalContent(data JournalPageData) {
+	<header class="journal-header">
+		<div>
+			<p class="eyebrow">Accounting</p>
+			<h1>General Journal</h1>
+			<p class="subtitle">A complete, balanced record of every posted business event.</p>
+		</div>
+		<a class="journal-new-button" href="/journal?adjust=1#new-adjustment">
+			<i data-lucide="plus"></i>
+			Record adjustment
+		</a>
+	</header>
+
+	if data.Posted {
+		<p class="journal-notice" role="status">
+			<i data-lucide="check-circle-2"></i>
+			Adjustment posted to the general journal.
+		</p>
+	}
+
+	if data.Form.Open {
+		@JournalAdjustment(data.Form, data.Accounts)
+	}
+
+	<section class="journal-layout">
+		<article class="journal-panel journal-table-panel">
+			<div class="journal-panel-heading">
+				<div>
+					<h2>Posted entries</h2>
+					<p>Entries are append-only. Corrections are recorded as new adjustments.</p>
+				</div>
+				<span class="journal-count">{ fmt.Sprint(len(data.Transactions)) } entries</span>
+			</div>
+
+			if len(data.Transactions) == 0 {
+				<p class="journal-empty">No journal entries have been posted yet.</p>
+			} else {
+				<div class="journal-table-wrap">
+					<table class="journal-table">
+						<thead>
+							<tr>
+								<th>Date</th>
+								<th>Account and description</th>
+								<th class="journal-amount">Debit</th>
+								<th class="journal-amount">Credit</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, transaction := range data.Transactions {
+								<tr class="journal-transaction">
+									<td>
+										<time datetime={ transaction.Date }>{ transaction.Date }</time>
+										<span>JE-{ fmt.Sprint(transaction.ID) }</span>
+									</td>
+									<td colspan="3"><strong>{ transaction.Description }</strong></td>
+								</tr>
+
+								for _, entry := range transaction.Entries {
+									<tr class="journal-entry">
+										<td></td>
+										<td>{ entry.AccountName }</td>
+										if entry.Direction == "debit" {
+											<td class="journal-amount">{ formatDollars(entry.Amount) }</td>
+											<td></td>
+										} else {
+											<td></td>
+											<td class="journal-amount">{ formatDollars(entry.Amount) }</td>
+										}
+									</tr>
+								}
+
+								<tr class="journal-total">
+									<td></td>
+									<td>Balanced total</td>
+									<td class="journal-amount">{ formatDollars(transaction.Total) }</td>
+									<td class="journal-amount">{ formatDollars(transaction.Total) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</article>
+
+		<aside class="journal-panel journal-accounts">
+			<div class="journal-panel-heading">
+				<div>
+					<h2>Account balances</h2>
+					<p>Calculated from posted entries.</p>
+				</div>
+			</div>
+			<ul>
+				for _, account := range data.Accounts {
+					<li>
+						<div>
+							<strong>{ account.Name }</strong>
+							<span>{ account.Type }</span>
+						</div>
+						<b class={ templ.KV("negative", account.Balance < 0) }>
+							{ formatDollars(account.Balance) }
+						</b>
+					</li>
+				}
+			</ul>
+		</aside>
+	</section>
+}
+
+templ JournalAdjustment(form JournalForm, accounts []JournalAccount) {
+	<section class="journal-adjustment" id="new-adjustment" aria-labelledby="adjustment-title">
+		<div class="journal-adjustment-heading">
+			<div>
+				<p class="eyebrow">Advanced</p>
+				<h2 id="adjustment-title">Record journal adjustment</h2>
+				<p>Use this only when a workflow does not create the entry for you. Both sides must balance before it can be posted.</p>
+			</div>
+			<a href="/journal" aria-label="Close adjustment form">
+				<i data-lucide="x"></i>
+			</a>
+		</div>
+
+		if form.Error != "" {
+			<p class="journal-form-error" role="alert">{ form.Error }</p>
+		}
+
+		<form method="post" action="/journal" data-journal-form>
+			<div class="journal-form-fields">
+				<label>
+					Date
+					<input type="date" name="date" value={ form.Date } required/>
+				</label>
+				<label>
+					Description
+					<input
+						type="text"
+						name="description"
+						value={ form.Description }
+						maxlength="250"
+						placeholder="e.g., Correct August utility allocation"
+						required
+					/>
+				</label>
+			</div>
+
+			<div class="journal-lines" data-journal-lines>
+				<div class="journal-line-head">
+					<span>Account</span>
+					<span>Debit</span>
+					<span>Credit</span>
+					<span aria-hidden="true"></span>
+				</div>
+
+				for _, line := range form.Lines {
+					@JournalAdjustmentLine(line, accounts)
+				}
+			</div>
+
+			<div class="journal-form-footer">
+				<button class="journal-add-line" type="button" data-add-line>
+					<i data-lucide="plus"></i>
+					Add line
+				</button>
+
+				<div class="journal-running-total" aria-live="polite">
+					<span>Debits <b data-debit-total>$0.00</b></span>
+					<span>Credits <b data-credit-total>$0.00</b></span>
+					<strong data-balance-state>Enter balanced amounts to post</strong>
+				</div>
+
+				<button class="journal-post-button" type="submit" data-post-adjustment>
+					Post adjustment
+				</button>
+			</div>
+		</form>
+	</section>
+}
+
+templ JournalAdjustmentLine(line JournalFormLine, accounts []JournalAccount) {
+	<div class="journal-line">
+		<label>
+			<span class="sr-only">Account</span>
+			<select name="account_id" required>
+				<option value="">Choose an account</option>
+				for _, account := range accounts {
+					if line.AccountID == fmt.Sprint(account.ID) {
+						<option value={ fmt.Sprint(account.ID) } selected>{ account.Name }</option>
+					} else {
+						<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+					}
+				}
+			</select>
+		</label>
+
+		<label>
+			<span class="sr-only">Debit</span>
+			<input type="text" inputmode="decimal" name="debit" value={ line.Debit } placeholder="0.00" data-debit/>
+		</label>
+
+		<label>
+			<span class="sr-only">Credit</span>
+			<input type="text" inputmode="decimal" name="credit" value={ line.Credit } placeholder="0.00" data-credit/>
+		</label>
+
+		<button class="journal-remove-line" type="button" data-remove-line aria-label="Remove line">
+			<i data-lucide="minus"></i>
+		</button>
+	</div>
+}
