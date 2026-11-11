@@ -36,6 +36,9 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						<p class="nav-section">Money in</p>
 						@SummaNavLink(meta.ActiveNav, "invoices", "/invoices", "file-text", "Invoices")
 						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
+						<p class="nav-section">Money out</p>
+						@SummaNavPlaceholder("receipt", "Bills")
+						@SummaNavPlaceholder("truck", "Vendors")
 						<p class="nav-section">Accounting</p>
 						@SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal")
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
@@ -51,6 +54,8 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
 						@SummaNavLink(meta.ActiveNav, "invoices", "/invoices", "file-text", "Invoices")
 						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
+						@SummaNavPlaceholder("receipt", "Bills")
+						@SummaNavPlaceholder("truck", "Vendors")
 						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "table", "Monthly Ledger")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")
 					</nav>
@@ -67,4 +72,10 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 
 templ SummaNavLink(active, current, href, icon, label string) {
 	<a class={ "nav-link", templ.KV("active", active == current && current != "") } href={ templ.URL(href) }><span class="nav-icon"><i data-lucide={ icon }></i></span>{ label }</a>
+}
+
+// SummaNavPlaceholder retains navigation hierarchy without advertising an
+// unfinished route as a working destination.
+templ SummaNavPlaceholder(icon, label string) {
+	<span class="nav-link"><span class="nav-icon"><i data-lucide={ icon }></i></span>{ label }</span>
 }

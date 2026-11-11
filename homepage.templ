@@ -21,6 +21,28 @@ templ HomePageContent(d DashboardData) {
 	</section>
 	<section class="content-columns">
 		<div class="dashboard-column">
+			<article class="panel cash-panel">
+				<div class="panel-heading"><div><h2>Cash flow</h2><p>Cash received and paid from posted ledger activity.</p></div><a href="/analytics">View forecast</a></div>
+				if len(d.CashFlow) == 0 {
+					<p class="panel-note">Cash activity will appear here after entries are posted.</p>
+				} else {
+					<div class="chart-key"><span><i class="key-bar inflow"></i>Cash in</span><span><i class="key-bar outflow"></i>Cash out</span></div>
+					<div class="bar-chart" role="img" aria-label="Monthly cash received and paid chart">
+						<div class="bar-y"><span>{ formatDollars(d.CashFlowScale) }</span><span>{ formatDollars(d.CashFlowScale / 2) }</span><span>$0.00</span></div>
+						<div class="bars">
+							for _, month := range d.CashFlow {
+								<div class="month">
+									<div class="bar-pair">
+										<i class={ "bar", "in", month.InflowHeight } title={ "Cash in: " + formatDollars(month.Inflow) }></i>
+										<i class={ "bar", "out", month.OutflowHeight } title={ "Cash out: " + formatDollars(month.Outflow) }></i>
+									</div>
+									<span>{ month.Month }</span>
+								</div>
+							}
+						</div>
+					</div>
+				}
+			</article>
 			<article class="panel table-panel">
 				<div class="panel-heading"><div><h2>Monthly financial trends</h2><p>Revenue and expenses from the ledger.</p></div><a href="/demo">Monthly ledger</a></div>
 				<div class="table-wrap">
@@ -54,6 +76,14 @@ templ HomePageContent(d DashboardData) {
 			</article>
 		</div>
 		<div class="dashboard-column">
+			<article class="panel close-panel">
+				<div class="panel-heading"><div><h2>Next actions</h2><p>Keep the books moving with a few focused steps.</p></div></div>
+				<div class="task-list">
+					for _, task := range d.Tasks {
+						<a class="task" href={ templ.URL(task.Href) }><span class={ "task-state", templ.KV("complete", task.Complete) }>{ task.Mark }</span><span><strong>{ task.Label }</strong><small>{ task.Detail }</small></span></a>
+					}
+				</div>
+			</article>
 			<article class="panel table-panel" id="activity">
 				<div class="panel-heading"><div><h2>Recent journal activity</h2><p>Latest posted transactions.</p></div><a href="/journal">View journal</a></div>
 				if len(d.Activity) == 0 {
