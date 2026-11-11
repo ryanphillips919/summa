@@ -68,6 +68,8 @@ func newRouter(app *App) http.Handler {
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	r.Get("/", a.homepageHandler)
+	r.Get("/journal", a.journalHandler)
+	r.Post("/journal", a.journalPostHandler)
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
