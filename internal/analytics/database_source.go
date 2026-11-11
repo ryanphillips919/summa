@@ -34,6 +34,9 @@ func (s DatabaseCashDataSource) LoadCashSnapshot(
 	if err != nil {
 		return CashSnapshot{}, err
 	}
+	if latestDate == "" {
+		return CashSnapshot{ForecastDays: forecastDays}, nil
+	}
 
 	latest, err := time.Parse("2006-01-02", latestDate)
 	if err != nil {
@@ -64,12 +67,17 @@ func (s DatabaseCashDataSource) latestCashDate(
 	ctx context.Context,
 ) (string, error) {
 	const query = `
-SELECT MAX(t.date)
-FROM transactions t
-JOIN entries e ON e.transaction_id = t.id
-JOIN accounts a ON a.id = e.account_id
-WHERE t.organization_id = ?
-  AND a.name = 'Cash'
+SELECT MAX(date) FROM (
+	SELECT t.date
+	FROM transactions t
+	JOIN entries e ON e.transaction_id = t.id
+	JOIN accounts a ON a.id = e.account_id
+	WHERE t.organization_id = ?
+	  AND a.organization_id = t.organization_id
+	  AND a.name = 'Cash' AND a.type = 'asset'
+	GROUP BY t.id, t.date
+	HAVING SUM(CASE e.direction WHEN 'debit' THEN e.amount ELSE -e.amount END) != 0
+)
 `
 
 	var latest sql.NullString
@@ -79,7 +87,7 @@ WHERE t.organization_id = ?
 	}
 
 	if !latest.Valid {
-		return "", fmt.Errorf("no Cash entries found for organization %d", s.OrganizationID)
+		return "", nil
 	}
 
 	return latest.String, nil
@@ -100,7 +108,8 @@ FROM transactions t
 JOIN entries e ON e.transaction_id = t.id
 JOIN accounts a ON a.id = e.account_id
 WHERE t.organization_id = ?
-  AND a.name = 'Cash'
+  AND a.organization_id = t.organization_id
+  AND a.name = 'Cash' AND a.type = 'asset'
   AND t.date < ?
 `
 
@@ -126,17 +135,20 @@ SELECT
 		ELSE -e.amount
 	END) AS cash_cents,
 	t.description,
-	COALESCE(MIN(counterparty.name), '')
+	COALESCE((
+		SELECT GROUP_CONCAT(DISTINCT counterparty.name)
+		FROM entries other_entry
+		JOIN accounts counterparty ON counterparty.id = other_entry.account_id
+		WHERE other_entry.transaction_id = t.id
+		  AND counterparty.organization_id = t.organization_id
+		  AND counterparty.name != 'Cash'
+	), '')
 FROM transactions t
 JOIN entries e ON e.transaction_id = t.id
 JOIN accounts cash ON cash.id = e.account_id
-LEFT JOIN entries other_entry
-	ON other_entry.transaction_id = t.id
-	AND other_entry.account_id != cash.id
-LEFT JOIN accounts counterparty
-	ON counterparty.id = other_entry.account_id
 WHERE t.organization_id = ?
-  AND cash.name = 'Cash'
+  AND cash.organization_id = t.organization_id
+  AND cash.name = 'Cash' AND cash.type = 'asset'
   AND t.date >= ?
 GROUP BY t.id, t.date, t.description
 HAVING cash_cents != 0
@@ -162,7 +174,7 @@ ORDER BY t.date, t.id
 			date        string
 			cents       int64
 			description string
-			vendor      string
+			category    string
 		)
 
 		if err := rows.Scan(
@@ -170,7 +182,7 @@ ORDER BY t.date, t.id
 			&date,
 			&cents,
 			&description,
-			&vendor,
+			&category,
 		); err != nil {
 			return nil, fmt.Errorf("scan cash movement: %w", err)
 		}
@@ -180,7 +192,7 @@ ORDER BY t.date, t.id
 			Date:        date,
 			Amount:      float64(cents) / 100,
 			Description: description,
-			Vendor:      vendor,
+			Category:    category,
 		})
 	}
 

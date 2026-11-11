@@ -8,7 +8,7 @@ package main
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func AnalyticsPage() templ.Component {
+func AnalyticsPage(organization string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,7 +29,7 @@ func AnalyticsPage() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = SummaShell(SummaPageMeta{Title: "Analytics · Summa", Description: "Cash planning and review in Summa", ActiveNav: "analytics", Stylesheet: "/assets/analytics.css", ModuleScript: "/analytics/analytics.js"}, AnalyticsContent()).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaShell(SummaPageMeta{Title: "Analytics · Summa", Description: "Cash planning and review in Summa", ActiveNav: "analytics", Stylesheet: "/assets/analytics.css", ModuleScript: "/analytics/analytics.js"}, AnalyticsContent(organization)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -37,7 +37,7 @@ func AnalyticsPage() templ.Component {
 	})
 }
 
-func AnalyticsContent() templ.Component {
+func AnalyticsContent(organization string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -58,7 +58,20 @@ func AnalyticsContent() templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"analytics-header\"><div><p class=\"eyebrow\">Cash planning</p><h1>Know what cash is likely to do next.</h1><p class=\"subtitle\">See your cash position, expected changes, and items that deserve a closer look.</p></div></header><p class=\"analytics-error\" id=\"error\" hidden></p><section class=\"analytics-summary\" id=\"summary\" aria-label=\"Cash outlook\"></section><section class=\"analytics-panel analytics-chart-panel\"><div class=\"analytics-panel-heading\"><div><h2 id=\"chart-title\">Projected cash balance</h2><p class=\"note\" id=\"chart-note\">Solid: recorded cash balance. Dashed: expected cash balance. The shaded area is the forecast period.</p></div><div class=\"view-toggle\" aria-label=\"Chart view\"><button id=\"balance-view\" class=\"active\" type=\"button\">Cash balance</button><button id=\"flow-view\" type=\"button\">Daily cash flow</button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"analytics-header\"><div><p class=\"eyebrow\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(organization)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `analytics.templ`, Line: 8, Col: 72}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · Cash planning</p><h1>Know what cash is likely to do next.</h1><p class=\"subtitle\">See your cash position, expected changes, and items that deserve a closer look.</p></div></header><p class=\"analytics-error\" id=\"error\" hidden></p><section class=\"analytics-summary\" id=\"summary\" aria-label=\"Cash outlook\"></section><section class=\"analytics-panel analytics-chart-panel\"><div class=\"analytics-panel-heading\"><div><h2 id=\"chart-title\">Projected cash balance</h2><p class=\"note\" id=\"chart-note\">Solid: recorded cash balance. Dashed: expected cash balance. The shaded area is the forecast period.</p></div><div class=\"view-toggle\" aria-label=\"Chart view\"><button id=\"balance-view\" class=\"active\" type=\"button\">Cash balance</button><button id=\"flow-view\" type=\"button\">Daily cash flow</button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -66,7 +79,7 @@ func AnalyticsContent() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</section><section class=\"analytics-panel\"><div class=\"analytics-panel-heading\"><div><h2>Where cash moved</h2><p class=\"note\" id=\"cash-summary\"></p></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</section><section class=\"analytics-panel\"><div class=\"analytics-panel-heading\"><div><h2>Where cash moved</h2><p class=\"note\" id=\"cash-summary\"></p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -74,7 +87,7 @@ func AnalyticsContent() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</section><section class=\"analytics-panel\"><div class=\"analytics-panel-heading\"><div><h2>Needs attention</h2><p class=\"note\">These are items worth reviewing. Summa never changes your records automatically.</p></div></div><div class=\"analytics-table-wrap\"><table><thead><tr><th>Date</th><th>What we noticed</th><th class=\"amount\">Amount</th><th>Description</th><th>Why it matters</th></tr></thead><tbody id=\"anomalies\"></tbody></table></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</section><section class=\"analytics-panel\"><div class=\"analytics-panel-heading\"><div><h2>Needs attention</h2><p class=\"note\">These are items worth reviewing. Summa never changes your records automatically.</p></div></div><div class=\"analytics-table-wrap\"><table><thead><tr><th>Date</th><th>What we noticed</th><th class=\"amount\">Amount</th><th>Description</th><th>Why it matters</th></tr></thead><tbody id=\"anomalies\"></tbody></table></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -98,12 +111,12 @@ func AnalyticsCashChart() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var3 == nil {
-			templ_7745c5c3_Var3 = templ.NopComponent
+		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var4 == nil {
+			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<echarts-view id=\"cash-chart\" option=\"{}\" aria-label=\"Cash balance forecast chart\"></echarts-view>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<echarts-view id=\"cash-chart\" option=\"{}\" aria-label=\"Cash balance forecast chart\"></echarts-view>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -127,12 +140,12 @@ func AnalyticsSankeyChart() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var4 == nil {
-			templ_7745c5c3_Var4 = templ.NopComponent
+		templ_7745c5c3_Var5 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var5 == nil {
+			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<echarts-view id=\"sankey-chart\" option=\"{}\" aria-label=\"Cash movement category diagram\"></echarts-view>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<echarts-view id=\"sankey-chart\" option=\"{}\" aria-label=\"Cash movement category diagram\"></echarts-view>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

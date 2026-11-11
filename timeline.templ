@@ -1,63 +1,47 @@
 package main
 
-import (
-	"slices"
-	"time"
-)
+import "fmt"
 
-type EntrySystem struct {
-	entry []Entry
-}
-
-type Entry struct {
-	created time.Time
-	rev     uint64
-	values  string
-}
-
-templ Timeline() {
+templ TimelinePage(organization string, transactions []JournalTransaction) {
 	@SummaShell(SummaPageMeta{
-		Title:        "Ledger Timeline · Summa",
-		Description:  "Every change made to the ledger, newest first",
-		ActiveNav:    "journal",
-		Stylesheet:   "/assets/demo.css",
+		Title: "Ledger Timeline · Summa", Description: "Posted ledger transactions", ActiveNav: "timeline",
+		Stylesheet:   "/assets/journal.css",
 		ModuleScript: "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js",
-	}, TimelineContent())
+	}, TimelineContent(organization, transactions))
 }
 
-templ TimelineContent() {
-	// data-init is a datastar attribute that executes on first page load OR page changes.
-	// what this means for us is that everytime a user changes some input field, this function
-	// is called and our backend checks if anything actually changed, if so, update EVERY client watching
-	// giving us real-time collaboration for free.
-	// it used to live on <body>; SummaShell owns <body> now, so it sits on this wrapper instead.
-	<div data-init="@get('/timeline/watch')">
-		<header class="page-header">
-			<div>
-				<p class="eyebrow">Accounting</p>
-				<h1>Ledger Timeline</h1>
-				<p class="subtitle">Every revision to the journal, newest first.</p>
-			</div>
-		</header>
-		<section id="timeline"></section>
+templ TimelineContent(organization string, transactions []JournalTransaction) {
+	<div data-init="@get('/timeline/watch', {filterSignals: {include: /^$/}})">
+		<header class="journal-header"><div><p class="eyebrow">{ organization }</p><h1>Ledger timeline</h1><p class="subtitle">Posted transactions, newest first.</p></div><a href="/journal">View journal</a></header>
+		@TimelineEntries(transactions)
 	</div>
 }
 
-// <section> rather than <main>: SummaShell already renders <main class="summa-main">,
-// and datastar only needs the id to morph.
-templ TimelineEntry(e EntrySystem) {
-	<section id="timeline">
-		<ul>
-			// need to iterate backwards here since we want to display from newest to oldest additions
-			for _, v := range slices.Backward(e.entry) {
-				<li>
-					<div>
-						<p>{ v.created.Format("2006-01-02 03:04:05 PM") }</p>
-						<p>{ v.rev }</p>
-						<p>{ v.values }</p>
-					</div>
-				</li>
-			}
-		</ul>
+templ TimelineEntries(transactions []JournalTransaction) {
+	<section class="journal-panel" id="timeline">
+		if len(transactions) == 0 {
+			<p>No posted transactions yet.</p>
+		} else {
+			<div class="journal-table-wrap">
+				<table class="journal-table">
+					<thead><tr><th>Date</th><th>Transaction and accounts</th><th>Amount</th></tr></thead>
+					<tbody>
+						for _, transaction := range transactions {
+							<tr>
+								<td>{ transaction.Date }</td>
+								<td>
+									<a href={ templ.URL(fmt.Sprintf("/journal#transaction-%d", transaction.ID)) }>{ transaction.Description }</a>
+									<br/>
+									for _, entry := range transaction.Entries {
+										<small>{ entry.AccountName } · { entry.Direction } { formatDollars(entry.Amount) } </small>
+									}
+								</td>
+								<td>{ formatDollars(transaction.Total) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
 	</section>
 }

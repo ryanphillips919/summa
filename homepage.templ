@@ -1,45 +1,80 @@
 package main
 
+import "fmt"
+
 templ HomePage(d DashboardData) {
-	@SummaShell(SummaPageMeta{Title: "Dashboard · Summa", Description: "Summa accounting dashboard", ActiveNav: "dashboard", Stylesheet: "/assets/homepage.css"}, HomePageContent(d))
+	@SummaShell(SummaPageMeta{Title: "Dashboard · Summa", Description: "Financial dashboard", ActiveNav: "dashboard", Stylesheet: "/assets/homepage.css"}, HomePageContent(d))
 }
 
 templ HomePageContent(d DashboardData) {
-	<header class="dashboard-header"><div><p class="eyebrow">{ d.Organization }</p><h1>Good morning, { d.UserName }</h1><p class="subtitle">Here’s what’s happening with your books today.</p></div><div class="header-actions"><button class="period-button" type="button"><i data-lucide="calendar"></i> { d.Period } <span><i data-lucide="chevron-down"></i></span></button><button class="new-button" type="button"><i data-lucide="plus"></i> New <span><i data-lucide="chevron-down"></i></span></button></div></header>
+	<header class="dashboard-header">
+		<div><p class="eyebrow">{ d.Organization }</p><h1>Financial dashboard</h1><p class="subtitle">Balances from posted ledger entries.</p></div>
+		<div class="header-actions"><a class="new-button" href="/invoices/new">New invoice</a></div>
+	</header>
 	<section class="metrics" aria-label="Financial summary">
-		for _, metric := range d.Metrics {
-			<article class="metric-card"><p class="metric-label">{ metric.Label }</p><p class="metric-value">{ metric.Value }</p><p class={ "metric-change " + metric.Tone }><span>{ metric.Direction }</span>{ metric.Change }</p></article>
-		}
+		@DashboardMetricCard("Cash position", d.Cash)
+		@DashboardMetricCard("Accounts receivable", d.Receivables)
+		@DashboardMetricCard("Accounts payable", d.Payables)
+		@DashboardMetricCard("Revenue", d.Revenue)
+		@DashboardMetricCard("Expenses", d.Expenses)
+		@DashboardMetricCard("Net income", d.NetIncome)
 	</section>
 	<section class="content-columns">
 		<div class="dashboard-column">
-			<article class="panel cash-panel"><div class="panel-heading"><div><h2>Cash flow</h2><p>Inflows and outflows by month</p></div><div class="chart-key"><span><i class="key-bar inflow"></i>In</span><span><i class="key-bar outflow"></i>Out</span></div></div><div class="bar-chart" role="img" aria-label="Monthly cash flow bar chart from April through September"><div class="bar-y"><span>$60K</span><span>$40K</span><span>$20K</span><span>$0</span></div><div class="bars"><div class="month"><div class="bar-pair"><i class="bar in" style="height:55%"></i><i class="bar out" style="height:37%"></i></div><span>Apr</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:62%"></i><i class="bar out" style="height:43%"></i></div><span>May</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:76%"></i><i class="bar out" style="height:51%"></i></div><span>Jun</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:67%"></i><i class="bar out" style="height:46%"></i></div><span>Jul</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:88%"></i><i class="bar out" style="height:58%"></i></div><span>Aug</span></div><div class="month"><div class="bar-pair"><i class="bar in" style="height:81%"></i><i class="bar out" style="height:49%"></i></div><span>Sep</span></div></div></div></article>
-			<article class="panel table-panel" id="receivables"><div class="panel-heading"><div><h2>Receivables aging</h2><p>$42,800 outstanding across 22 customers</p></div><a href="#invoices">View all</a></div><div class="aging-bars">
-				for _, bucket := range d.Aging {
-					<div class="aging-row"><div class="aging-label"><span>{ bucket.Label }</span><strong>{ bucket.Amount }</strong></div><div class="aging-track"><span class={ "aging-fill " + bucket.Tone }></span></div></div>
+			<article class="panel table-panel">
+				<div class="panel-heading"><div><h2>Monthly financial trends</h2><p>Revenue and expenses from the ledger.</p></div><a href="/demo">Monthly ledger</a></div>
+				<div class="table-wrap">
+					<table>
+						<thead><tr><th>Month</th><th class="amount">Revenue</th><th class="amount">Expenses</th><th class="amount">Net</th></tr></thead>
+						<tbody>
+							for _, month := range d.Trends {
+								<tr><td>{ month.Month }</td><td class="amount">{ formatDollars(month.Revenue) }</td><td class="amount">{ formatDollars(month.Expenses) }</td><td class="amount">{ formatDollars(month.Net) }</td></tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</article>
+			<article class="panel table-panel" id="receivables">
+				<div class="panel-heading"><div><h2>Recent invoices</h2><p>Receivables balance: { formatDollars(d.Receivables) }</p></div><a href="/invoices">View invoices</a></div>
+				<p class="panel-note">Payments are recorded in the ledger; allocation to individual invoices is not available yet.</p>
+				if len(d.Invoices) == 0 {
+					<p>No invoices yet.</p>
+				} else {
+					<div class="table-wrap">
+						<table>
+							<thead><tr><th>Invoice</th><th>Customer</th><th>Status</th><th class="amount">Total</th></tr></thead>
+							<tbody>
+								for _, invoice := range d.Invoices {
+									<tr><td><a href={ templ.URL(fmt.Sprintf("/invoices/%d", invoice.Invoice.ID)) }>{ invoice.Invoice.Number }</a></td><td>{ invoice.Customer }</td><td>{ invoiceStatus(invoice.Invoice) }</td><td class="amount">{ formatDollars(invoice.Total) }</td></tr>
+								}
+							</tbody>
+						</table>
+					</div>
 				}
-			</div><div class="overdue-list"><p>Overdue</p>
-				for _, invoice := range d.Overdue {
-					<div class="overdue-row"><span>{ invoice.Customer } · { invoice.Number }</span><strong>{ invoice.Amount }</strong></div>
-				}
-			</div><button class="reminder-button" type="button">Send 3 reminders</button></article>
+			</article>
 		</div>
 		<div class="dashboard-column">
-			<article class="panel close-panel" id="close"><div class="panel-heading"><div><h2>September close</h2><p>2 of 4 tasks complete</p></div><a href="#close-all">View checklist</a></div><div class="progress"><span></span></div><div class="task-list">
-				for _, task := range d.CloseTasks {
-					<div class="task"><span class={ "task-state " + task.State }>{ task.Mark }</span><span><strong>{ task.Label }</strong><small>{ task.Detail }</small></span></div>
+			<article class="panel table-panel" id="activity">
+				<div class="panel-heading"><div><h2>Recent journal activity</h2><p>Latest posted transactions.</p></div><a href="/journal">View journal</a></div>
+				if len(d.Activity) == 0 {
+					<p>No transactions have been posted yet.</p>
+				} else {
+					<div class="table-wrap">
+						<table>
+							<thead><tr><th>Date</th><th>Description</th><th class="amount">Amount</th></tr></thead>
+							<tbody>
+								for _, item := range d.Activity {
+									<tr><td>{ item.Date }</td><td>{ item.Description }</td><td class="amount">{ formatDollars(item.Total) }</td></tr>
+								}
+							</tbody>
+						</table>
+					</div>
 				}
-			</div></article>
-			<article class="panel review-panel" id="review"><div class="panel-heading"><div><h2>Needs review</h2><p>Items that may need attention</p></div><a href="#review-all">View all</a></div><div class="review-list">
-				for _, review := range d.Reviews {
-					<div class="review-row"><span class={ "review-level " + review.Level }>{ review.Level }</span><span><strong>{ review.Title }</strong><small>{ review.Detail }</small></span></div>
-				}
-			</div></article>
-			<article class="panel table-panel" id="activity"><div class="panel-heading"><div><h2>Recent activity</h2><p>Latest events across your books</p></div><a href="#all-activity">View all</a></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="amount">Amount</th></tr></thead><tbody>
-				for _, item := range d.Activity {
-					<tr><td>{ item.Date }</td><td><span class={ "activity-badge " + item.Tone }>{ item.Kind }</span></td><td>{ item.Description }</td><td class={ "amount amount-" + item.Tone }>{ item.Amount }</td></tr>
-				}
-			</tbody></table></div></article>
+			</article>
 		</div>
 	</section>
+}
+
+templ DashboardMetricCard(label string, cents int64) {
+	<article class="metric-card"><p class="metric-label">{ label }</p><p class="metric-value">{ formatDollars(cents) }</p><p class="metric-change">Posted ledger balance</p></article>
 }

@@ -1,0 +1,11 @@
+.invoice-header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+.invoice-header h1 { margin:.2rem 0; }
+.invoice-header p { color:#536474; }
+.invoice-panel { background:#fff; border:1px solid #dce4e8; border-radius:12px; padding:1.25rem; margin:1rem 0; overflow-x:auto; }
+.invoice-panel table { width:100%; border-collapse:collapse; text-align:left; }
+.invoice-panel th, .invoice-panel td { padding:.75rem; border-bottom:1px solid #e6ecef; }
+.invoice-form { display:flex; flex-wrap:wrap; gap:1rem; align-items:end; }
+.invoice-form label { display:grid; gap:.35rem; min-width:11rem; }
+.invoice-form input, .invoice-form select { padding:.6rem; border:1px solid #b8c8ce; border-radius:6px; background:#fff; }
+.invoice-button { display:inline-block; padding:.65rem 1rem; color:#fff; background:#11625d; border:0; border-radius:7px; text-decoration:none; cursor:pointer; }
+@media (max-width: 650px) { .invoice-header { align-items:flex-start; flex-direction:column; } .invoice-form label { width:100%; } }

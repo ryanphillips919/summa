@@ -23,6 +23,7 @@ type CashMovement struct {
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description,omitempty"`
 	Vendor      string  `json:"vendor,omitempty"`
+	Category    string  `json:"category,omitempty"`
 }
 
 type Request struct {

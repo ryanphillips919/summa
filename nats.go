@@ -47,6 +47,7 @@ func startEmbeddedNATS(storeDir string, enableLogging bool) (*server.Server, *na
 	return ns, nc, nil
 }
 
+// StartKV is retained for the standalone KV example; financial views use SQLite.
 func StartKV(nc *nats.Conn) (jetstream.KeyValue, error) {
 	js, err := jetstream.New(nc)
 	if err != nil {

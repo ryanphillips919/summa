@@ -158,6 +158,28 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 	return i, err
 }
 
+const getTransaction = `-- name: GetTransaction :one
+SELECT id, organization_id, date, description FROM transactions
+WHERE id = ?1 AND organization_id = ?2
+`
+
+type GetTransactionParams struct {
+	TransactionID  int64
+	OrganizationID int64
+}
+
+func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransaction, arg.TransactionID, arg.OrganizationID)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Date,
+		&i.Description,
+	)
+	return i, err
+}
+
 const listAccounts = `-- name: ListAccounts :many
 SELECT id, organization_id, name, type FROM accounts WHERE organization_id = ? ORDER BY name
 `

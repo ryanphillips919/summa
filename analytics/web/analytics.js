@@ -122,12 +122,13 @@ function renderCharts() {
     activeView,
   );
 
-  const sankey = buildSankey(analyticsData.cash_movements);
+  const sankey = buildSankey(analyticsData.cash_movements, analyticsData.opening_cash_balance);
 
   elements.cashSummary.textContent =
     `The business received ${money.format(sankey.cashIn)}, ` +
-    `spent ${money.format(sankey.cashOut)} on operations, and ` +
-    `retained ${money.format(sankey.netCash)} in net cash.`;
+    `paid out ${money.format(sankey.cashOut)}, and ` +
+    `had ${money.format(sankey.netCash)} in net cash flow. ` +
+    `The balance changed from ${money.format(sankey.openingCash)} to ${money.format(sankey.closingCash)}.`;
 
   elements.sankeyChart.option = sankey.option;
 }
@@ -163,13 +164,17 @@ elements.flowView.addEventListener("click", () => {
 
 fetch("/api/analytics")
   .then((response) => {
+    if (response.status === 204) {
+      showError("No cash activity is available yet.");
+      return null;
+    }
     if (!response.ok) {
       throw new Error(`Could not load Summa analytics (${response.status})`);
     }
 
     return response.json();
   })
-  .then(render)
+  .then((data) => { if (data) render(data); })
   .catch((error) => {
     showError(`${error.message}. Make sure the Summa server is running, then refresh.`);
   });

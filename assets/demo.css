@@ -58,6 +58,7 @@ button:hover, .button-secondary:hover { background: #f1f5f8; }
 #demo caption { caption-side: top; color: #122f54; font-size: 1.08rem; font-weight: 700; letter-spacing: -.025em; padding: 20px 22px 13px; text-align: left; }
 #demo th, #demo td { border-bottom: 1px solid #edf1f3; padding: 10px 14px; text-align: right; white-space: nowrap; }
 #demo thead th { border-bottom: 1px solid #dfe7ed; color: #69809c; font-size: .65rem; font-weight: 760; letter-spacing: .04em; padding: 9px 14px; text-transform: uppercase; }
+#demo thead th:first-child { text-align: left; }
 #demo th[scope="row"] { color: #294362; font-size: .78rem; font-weight: 500; text-align: left; }
 #demo td { color: #294362; font-size: .78rem; }
 #demo tbody tr:hover { background: #f7f9fb; }

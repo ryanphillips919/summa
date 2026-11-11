@@ -28,13 +28,10 @@ __pycache__/
 *.temp
 *.swp
 *~
-<<<<<<< HEAD
 assets/stellar
 assets/stellar.key
 assets/stellar.config.json
 assets/stellar.css
-=======
 
 # Claude Code (local notes)
 CLAUDE.md
->>>>>>> origin/main

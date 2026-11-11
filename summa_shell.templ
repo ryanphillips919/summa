@@ -33,27 +33,15 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 					<nav class="primary-nav" aria-label="Primary navigation">
 						<p class="nav-section">Workspace</p>
 						@SummaNavLink(meta.ActiveNav, "dashboard", "/", "layout-dashboard", "Dashboard")
-						@SummaNavLink(meta.ActiveNav, "", "/#activity", "history", "Activity")
 						<p class="nav-section">Money in</p>
-						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "file-text", "Invoices")
-						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers")
-						<p class="nav-section">Money out</p>
-						@SummaNavLink(meta.ActiveNav, "", "/#review", "receipt", "Bills")
-						@SummaNavLink(meta.ActiveNav, "", "/#review", "truck", "Vendors")
+						@SummaNavLink(meta.ActiveNav, "invoices", "/invoices", "file-text", "Invoices")
+						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
 						<p class="nav-section">Accounting</p>
 						@SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal")
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
-						@SummaNavLink(meta.ActiveNav, "", "/#close", "calendar-check-2", "Month-end Close")
-						@SummaNavLink(meta.ActiveNav, "", "/#accounts", "git-fork", "Chart of Accounts")
+						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "table", "Monthly Ledger")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")
-						@SummaNavLink(meta.ActiveNav, "", "/#reports", "files", "Reports")
-						<p class="nav-section">Demo</p>
-						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "play-square", "Demo Ledger")
 					</nav>
-					<div class="sidebar-footer">
-						@SummaNavLink(meta.ActiveNav, "", "/#settings", "settings", "Settings")
-						@SummaNavLink(meta.ActiveNav, "", "/#help", "help-circle", "Help")
-					</div>
 				</aside>
 				<dialog class="mobile-menu" id="mobile-menu" aria-labelledby="mobile-menu-title">
 					<div class="mobile-menu-top"><span id="mobile-menu-title">Navigation</span><button class="mobile-menu-close" type="button" aria-label="Close navigation menu"><i data-lucide="x"></i></button></div>
@@ -61,16 +49,10 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						@SummaNavLink(meta.ActiveNav, "dashboard", "/", "layout-dashboard", "Dashboard")
 						@SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal")
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
-						@SummaNavLink(meta.ActiveNav, "", "/#activity", "history", "Activity")
-						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "file-text", "Invoices")
-						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers")
-						@SummaNavLink(meta.ActiveNav, "", "/#review", "receipt", "Bills")
-						@SummaNavLink(meta.ActiveNav, "", "/#review", "truck", "Vendors")
-						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "play-square", "Demo Ledger")
-						@SummaNavLink(meta.ActiveNav, "", "/#close", "calendar-check-2", "Month-end Close")
-						@SummaNavLink(meta.ActiveNav, "", "/#accounts", "git-fork", "Chart of Accounts")
+						@SummaNavLink(meta.ActiveNav, "invoices", "/invoices", "file-text", "Invoices")
+						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
+						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "table", "Monthly Ledger")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")
-						@SummaNavLink(meta.ActiveNav, "", "/#reports", "files", "Reports")
 					</nav>
 				</dialog>
 				<main class="summa-main">

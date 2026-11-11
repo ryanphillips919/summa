@@ -72,9 +72,55 @@ go build . # build this into a Golang binary for deployment/this is what Docker 
 ```
 
 
-## Analytics starter
+## Northstar development data
 
-For local `go run .`, install the Python requirements into a project virtual environment:
+On a fresh SQLite database, Summa seeds **Northstar Equipment & Supply**, a
+fictional equipment distributor. It creates 12 customers, 16 accounts, 20
+invoices (18 posted and 2 drafts), and 99 balanced ledger transactions dated
+May through October 2026. Each invoice has two lines. The seed uses the invoice
+posting and ledger services; re-opening an existing database does not reseed it.
+If seeding is interrupted, use a fresh development database; seeding does not
+currently resume a partially created dataset.
+
+To start with a new development database without touching an existing one:
+
+```sh
+SUMMA_DB=data/northstar.db go run .
+```
+
+Choose a path that does not already exist. Local SQLite databases and NATS
+state are stored in `data/` and must not be committed. If you intentionally
+reset a database, its local data is lost.
+
+The initial account balances, in dollars, are:
+
+| Account | Balance |
+| --- | ---: |
+| Cash | $111,550.02 |
+| Accounts Receivable | $54,750.00 |
+| Inventory | $36,000.00 |
+| Accounts Payable | $36,000.00 |
+| Loan Payable | $71,000.00 |
+| Sales Revenue | $164,750.00 |
+| Total expenses | $279,449.98 |
+| Net income | -$114,699.98 |
+
+Customer receipts are balanced ledger entries. The schema does not yet
+allocate them to individual invoices, so invoice pages show **Draft** or
+**Posted** rather than claiming that an invoice is paid or outstanding.
+The monthly ledger is read-only; use the general journal for balanced manual
+adjustments. After a journal adjustment or invoice posting, NATS notifies open
+monthly-ledger and timeline views to reload their data from SQLite.
+
+## Analytics
+
+The analytics dashboard reads organization-scoped cash entries from SQLite.
+Posting an invoice changes receivables and revenue, not cash. The engine uses
+up to 60 days of recorded cash movements and the earlier cash balance as its
+opening balance. The JSON demo fixture remains available for isolated tests.
+
+For local `go run .`, install the Python requirements into a project virtual
+environment:
 
 ```sh
 python3 -m venv .venv
@@ -82,57 +128,36 @@ python3 -m venv .venv
 go run .
 ```
 
-The Go client uses this `.venv` by default; `SUMMA_ANALYTICS_PYTHON` overrides it.
+The Go client uses `.venv` by default. Set `SUMMA_ANALYTICS_PYTHON` or
+`SUMMA_ANALYTICS_SCRIPT` to use different paths. `GET /api/analytics` uses the
+ledger. The separate `POST /api/analytics/run` endpoint accepts supplied cash
+movements for isolated engine testing and does not alter the ledger.
 
-Go owns authorization and database access. After it loads organization-scoped
-cash movements, it sends only that data to `analytics/engine.py` over stdin as
-JSON. Python returns JSON for a templ component or Datastar update and has no
-database credentials. The Go client stops the subprocess after 10 seconds.
+The Go client passes only the selected cash movements to `analytics/engine.py`
+over stdin; Python has no database credentials and is stopped after 10 seconds.
+The engine supports 1-90 day forecasts, compares a rolling-mean baseline with
+Holt-Winters when enough data is available, and flags unusual amounts and
+possible duplicates for review. These flags do not change accounting records.
 
-`POST /api/analytics/run` accepts signed cash movements (inflows positive and
-expenses negative):
+The isolated endpoint can also be exercised directly:
 
 ```json
 {
-  "forecast_days": 60,
+  "forecast_days": 30,
+  "opening_cash_balance": 4500,
   "cash_movements": [
-    {"id": "txn-1", "date": "2026-10-01", "amount": 1200, "description": "Invoice payment"},
-    {"id": "txn-2", "date": "2026-10-02", "amount": -185, "vendor": "AWS", "description": "Hosting"}
+    {"id": "txn-1", "date": "2026-10-01", "amount": 1200, "description": "Customer receipt"},
+    {"id": "txn-2", "date": "2026-10-02", "amount": -185, "vendor": "Example Hosting", "description": "Hosting"}
   ]
 }
 ```
 
-The engine supports 1-90 day forecasts. It backtests a 7-day rolling-mean
-baseline against a linear trend with weekday seasonality using rolling-origin
-MAE, then returns the better model and both error values. It flags expense
-amount outliers using median absolute deviation (threshold `3.5`) and potential
-duplicates matching date, amount, and normalized vendor or description. These
-are review signals, not accounting advice. Show the selected method and interval
-in the UI and let a bookkeeper mark a flag reviewed without altering the ledger.
+After changing SQL queries or templates, regenerate and verify:
 
-Use Apache ECharts for the first dashboard: plot observed daily cash flow, the
-selected forecast, a confidence band, and a linked anomaly-review table. D3 is
-better reserved for a bespoke ledger-flow or relationship visualization.
-
-Run the integration test with `go test ./...`. The container includes Python 3.
-Set `SUMMA_ANALYTICS_PYTHON` or `SUMMA_ANALYTICS_SCRIPT` when non-default paths
-are required.
-
-## Analytics development data
-
-By default, Analytics uses the JSON demo fixture:
 ```sh
-go run .
+sqlc generate
+go tool templ generate
+go test ./...
+go vet ./...
+go build ./...
 ```
-
-To test the full database-backend analytics path, run Summa with a separate local SQLite database:
-```bash
-SUMMA_DB=data/analytics-sanity.db \
-SUMMA_ANALYTICS_SOURCE=database \
-SUMMA_SEED_ANALYTICS_DEMO=1 \
-go run .
-```
-
-This applies the current migrations and seeds balanced ledger entries derived from the analytics fixture. Open `http://localhost:8080/analytics`. 
-
-The `data/` directory contains local runtime state, including SQLite databases and NATS files. It must not be committed.

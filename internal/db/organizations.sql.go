@@ -39,3 +39,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	err := row.Scan(&i.ID, &i.Email, &i.Name)
 	return i, err
 }
+
+const getOrganization = `-- name: GetOrganization :one
+SELECT id, name FROM organizations WHERE id = ?
+`
+
+func (q *Queries) GetOrganization(ctx context.Context, id int64) (Organization, error) {
+	row := q.db.QueryRowContext(ctx, getOrganization, id)
+	var i Organization
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}

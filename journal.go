@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -15,6 +16,7 @@ import (
 // JournalPageData is the read model for the real, double-entry general journal.
 // It deliberately contains derived balances and posted entries, never mutable totals.
 type JournalPageData struct {
+	Organization string
 	Transactions []JournalTransaction
 	Accounts     []JournalAccount
 	Form         JournalForm
@@ -154,6 +156,7 @@ func (a *App) journalPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.notifyLedgerChanged()
 	http.Redirect(w, r, "/journal?posted=1", http.StatusSeeOther)
 }
 
@@ -170,20 +173,19 @@ func (a *App) renderJournal(w http.ResponseWriter, r *http.Request, form Journal
 }
 
 func (a *App) journalData(r *http.Request, form JournalForm, posted bool) (JournalPageData, error) {
-	accounts, err := a.queries.ListAccounts(r.Context(), a.orgID)
+	org, err := a.queries.GetOrganization(r.Context(), a.orgID)
 	if err != nil {
 		return JournalPageData{}, err
 	}
-	accountByID := make(map[int64]db.Account, len(accounts))
-	for _, account := range accounts {
-		accountByID[account.ID] = account
+	transactions, err := a.journalTransactions(r.Context())
+	if err != nil {
+		return JournalPageData{}, err
 	}
-
 	totals, err := a.queries.AccountTotals(r.Context(), a.orgID)
 	if err != nil {
 		return JournalPageData{}, err
 	}
-	view := JournalPageData{Form: form, Posted: posted}
+	view := JournalPageData{Organization: org.Name, Form: form, Posted: posted, Transactions: transactions}
 	for _, total := range totals {
 		view.Accounts = append(view.Accounts, JournalAccount{
 			ID: total.ID, Name: total.Name, Type: total.Type,
@@ -191,14 +193,28 @@ func (a *App) journalData(r *http.Request, form JournalForm, posted bool) (Journ
 		})
 	}
 
-	transactions, err := a.queries.ListTransactions(r.Context(), a.orgID)
+	return view, nil
+}
+
+// journalTransactions is shared by the journal, timeline, and dashboard.
+func (a *App) journalTransactions(ctx context.Context) ([]JournalTransaction, error) {
+	accounts, err := a.queries.ListAccounts(ctx, a.orgID)
 	if err != nil {
-		return JournalPageData{}, err
+		return nil, err
 	}
+	accountByID := make(map[int64]db.Account, len(accounts))
+	for _, account := range accounts {
+		accountByID[account.ID] = account
+	}
+	transactions, err := a.queries.ListTransactions(ctx, a.orgID)
+	if err != nil {
+		return nil, err
+	}
+	var result []JournalTransaction
 	for _, transaction := range transactions {
-		entries, err := a.queries.ListEntries(r.Context(), transaction.ID)
+		entries, err := a.queries.ListEntries(ctx, transaction.ID)
 		if err != nil {
-			return JournalPageData{}, err
+			return nil, err
 		}
 		journalTransaction := JournalTransaction{ID: transaction.ID, Date: transaction.Date, Description: transaction.Description}
 		for _, entry := range entries {
@@ -208,9 +224,9 @@ func (a *App) journalData(r *http.Request, form JournalForm, posted bool) (Journ
 				journalTransaction.Total += entry.Amount
 			}
 		}
-		view.Transactions = append(view.Transactions, journalTransaction)
+		result = append(result, journalTransaction)
 	}
-	return view, nil
+	return result, nil
 }
 
 func (a *App) journalServerError(w http.ResponseWriter, err error) {
@@ -249,8 +265,14 @@ func parseCents(value string) (int64, error) {
 
 func formatDollars(cents int64) string {
 	sign := ""
+	amount := uint64(cents)
 	if cents < 0 {
-		sign, cents = "-", -cents
+		sign = "-"
+		amount = uint64(-(cents + 1)) + 1
 	}
-	return fmt.Sprintf("%s$%d.%02d", sign, cents/100, cents%100)
+	dollars := strconv.FormatUint(amount/100, 10)
+	for i := len(dollars) - 3; i > 0; i -= 3 {
+		dollars = dollars[:i] + "," + dollars[i:]
+	}
+	return fmt.Sprintf("%s$%s.%02d", sign, dollars, amount%100)
 }

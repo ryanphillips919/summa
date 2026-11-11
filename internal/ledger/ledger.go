@@ -12,6 +12,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
 
 	"summa/internal/db"
 )
@@ -47,10 +48,22 @@ func PostInTx(ctx context.Context, sqlTx *sql.Tx, transactionParams db.CreateTra
 	// debits must equal credits, to the cent
 	var debits, credits int64
 	for _, e := range entries {
-		if e.Direction == "debit" {
+		if e.Amount <= 0 {
+			return db.Transaction{}, errors.New("entry amounts must be positive")
+		}
+		switch e.Direction {
+		case "debit":
+			if debits > math.MaxInt64-e.Amount {
+				return db.Transaction{}, errors.New("debit total is too large")
+			}
 			debits += e.Amount
-		} else {
+		case "credit":
+			if credits > math.MaxInt64-e.Amount {
+				return db.Transaction{}, errors.New("credit total is too large")
+			}
 			credits += e.Amount
+		default:
+			return db.Transaction{}, errors.New("entry direction must be debit or credit")
 		}
 	}
 	if debits != credits {
@@ -66,8 +79,6 @@ func PostInTx(ctx context.Context, sqlTx *sql.Tx, transactionParams db.CreateTra
 	}
 	for _, e := range entries {
 		e.TransactionID = ledgerTransaction.ID
-		// the database rejects a misspelled direction or a non-positive
-		// amount, which rolls everything back
 		if err := q.CreateEntry(ctx, e); err != nil {
 			return db.Transaction{}, err
 		}

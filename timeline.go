@@ -1,11 +1,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
-	"github.com/nats-io/nats.go/jetstream"
-	"github.com/starfederation/datastar-go/datastar"
 )
 
 func (a *App) timelineRoutes() chi.Router {
@@ -16,27 +16,27 @@ func (a *App) timelineRoutes() chi.Router {
 }
 
 func (a *App) timelineHandler(w http.ResponseWriter, r *http.Request) {
-	Timeline().Render(r.Context(), w)
+	org, err := a.queries.GetOrganization(r.Context(), a.orgID)
+	if err != nil {
+		http.Error(w, "Could not load organization.", http.StatusInternalServerError)
+		return
+	}
+	transactions, err := a.journalTransactions(r.Context())
+	if err != nil {
+		http.Error(w, "Could not load ledger history.", http.StatusInternalServerError)
+		return
+	}
+	if err := TimelinePage(org.Name, transactions).Render(r.Context(), w); err != nil {
+		return
+	}
 }
 
 func (a *App) timelineWatcherHandler(w http.ResponseWriter, r *http.Request) {
-	// I used IncludeHistory here because it includes all the history that nat's KV store has, not just updates since the server began
-	watcher, _ := a.kv.Watch(r.Context(), "demo.update", jetstream.IncludeHistory())
-	defer watcher.Stop()
-	sse := datastar.NewSSE(w, r)
-	var history []Entry
-	for entry := range watcher.Updates() {
-		if entry == nil {
-			continue
+	a.watchLedgerUpdates(w, r, func(ctx context.Context) (templ.Component, error) {
+		transactions, err := a.journalTransactions(ctx)
+		if err != nil {
+			return nil, err
 		}
-		// since we're not storing the timeline data in sqlite yet, we'll just have a local []Entry slice that we'll store the history
-		history = append(history, Entry{
-			created: entry.Created(),
-			rev:     entry.Revision(),
-			values:  string(entry.Value()),
-		})
-		if err := sse.PatchElementTempl(TimelineEntry(EntrySystem{entry: history})); err != nil {
-			return
-		}
-	}
+		return TimelineEntries(transactions), nil
+	})
 }

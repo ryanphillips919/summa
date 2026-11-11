@@ -1,349 +1,60 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-	"time"
-)
+import "summa/internal/ledger"
 
-templ Page(d DemoDocument, clients int64) {
+templ LedgerPage(organization string, document ledger.LedgerDocument) {
 	@SummaShell(SummaPageMeta{
-		Title:        "Demo Ledger · Summa",
-		Description:  "Real-time collaborative ledger",
-		ActiveNav:    "demo",
+		Title: "Monthly Ledger · Summa", Description: "Monthly ledger report", ActiveNav: "demo",
 		Stylesheet:   "/assets/demo.css",
 		ModuleScript: "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js",
-	}, DemoContent(d, clients))
+	}, LedgerContent(organization, document))
 }
 
-templ DemoContent(d DemoDocument, clients int64) {
-	// data-init is a datastar attribute that executes on first page load OR page changes.
-	// what this means for us is that everytime a user changes some input field, this function
-	// is called and our backend checks if anything actually changed, if so, update EVERY client watching
-	// giving us real-time collaboration for free.
-	// it used to live on <body>; SummaShell owns <body> now, so it sits on this wrapper instead.
-	//
-	// keydown: when we arrived from /presentation, → / Enter returns to the slide after the
-	// hand-off and ← / Esc returns to the hand-off slide itself. document.referrer is only set
-	// by that navigation, so the keys are inert when someone is just using the journal. The
-	// INPUT guard keeps arrows working inside the scrubber and edit cells.
+templ LedgerContent(organization string, document ledger.LedgerDocument) {
 	<div
 		data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})"
-		data-on:keydown__window="
-			if (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') {
-				if (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; }
-				else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') { location.href = '/presentation#s5'; }
-			}
-		"
+		data-on:keydown__window="if (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') { if (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; } else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') { location.href = '/presentation#s5'; } }"
 	>
-		<header class="page-header">
-			<div>
-				<p class="eyebrow">Accounting</p>
-				<h1>Demo Ledger</h1>
-				<p class="subtitle">Interactive single-entry prototype. Double-click a cell to edit; changes sync to everyone watching.</p>
-			</div>
-			@Online(clients)
-		</header>
-		@Demo(d, nil, 0)
-		<div class="demo-controls">
-			<input
-				type="range"
-				min="0"
-				max="64"
-				data-bind="scrub"
-				data-on:input="@get('/demo/scrub', {filterSignals: {include: /^scrub$/}})"
-			/>
-			<button class="button-primary" data-on:click="@get('/demo/play', {filterSignals: {include: /^$/}})">Play</button>
+		<header class="page-header"><div><p class="eyebrow">{ organization }</p><h1>Monthly ledger</h1><p class="subtitle">Revenue and expenses from posted entries. Make changes through the journal.</p></div><a href="/journal?adjust=1#new-adjustment">Record an adjustment</a></header>
+		<div id="demo">
+			@MonthlyLedgerTable(document)
 		</div>
 	</div>
 }
 
-templ Online(u int64) {
-	<p id="online">{ fmt.Sprint(u) } online</p>
-}
-
-// changed is the set of cells that just changed (nil on a plain render) and rev is the
-// NATS KV revision that changed them. Together they drive the flash animation.
-// <section> rather than <main>: SummaShell already renders <main class="summa-main">,
-// and datastar only needs the id to morph.
-templ Demo(d DemoDocument, changed map[string]int64, rev uint64) {
-	<section id="demo">
-		@TableView(d, changed, rev)
-	</section>
-}
-
-templ DemoEdit(d DemoDocument) {
-	<section id="demo">
-		@TableEdit(d)
-		// Save sends every cell signal; the server diffs against what it has and only stores the changes
-		<button data-on:click="@post('/demo', {filterSignals: {include: /^r\d+c\d+$/}})">Save</button>
-		<button data-on:click="@get('/demo/cancel', {filterSignals: {include: /^$/}})">Cancel</button>
-	</section>
-}
-
-type DemoDocument struct {
-	d []Dates
-	r []Rows
-}
-
-type Dates struct {
-	date time.Time
-}
-
-type Rows struct {
-	account string
-	data    []int64
-}
-
-func cellName(row, col int) string {
-	return fmt.Sprintf("r%dc%d", row, col)
-}
-
-func generateSignals(d DemoDocument) [][]string {
-	// need an way to generate all the input signals on variable for any given document object
-	// one list per date column: [["$r0c0", "$r1c0"], ["$r0c1", "$r1c1"], ...]
-	result := make([][]string, len(d.d))
-	for col := range d.d {
-		for row := range d.r {
-			result[col] = append(result[col], "$"+cellName(row, col))
-		}
-	}
-	return result
-}
-
-func (d *DemoDocument) setCells(cells map[string]int64) {
-	for i := range d.r {
-		for j := range d.r[i].data {
-			if v, ok := cells[cellName(i, j)]; ok {
-				d.r[i].data[j] = v
-			}
-		}
-	}
-}
-
-// returns only the cells whose incoming value differs from what we have
-func (d *DemoDocument) diffCells(cells map[string]int64) map[string]int64 {
-	changed := map[string]int64{}
-	for i := range d.r {
-		for j, cur := range d.r[i].data {
-			if v, ok := cells[cellName(i, j)]; ok && v != cur {
-				changed[cellName(i, j)] = v
-			}
-		}
-	}
-	return changed
-}
-
-// starting values for every cell signal: {"r0c0": 123, "r0c1": 452, ...}
-// r meaning row, c meaning column
-func cellSignals(d DemoDocument) map[string]int64 {
-	m := map[string]int64{}
-	for row, acc := range d.r {
-		for col, v := range acc.data {
-			m[cellName(row, col)] = v
-		}
-	}
-	return m
-}
-
-// we didn't need this before but what this function does is take an html attribute and turn it into a dynamic way to set them
-// for this specifically datastar has a data-computed attribute that can execute client side javascript on reactive signals
-// so instead of needing to calculate the sum of each column manually for the EBIDTA row, it takes all of the signals and then does
-// $r1c0 + $r2c0 .... as the input into data-computed:total="$r1c0 + $r2c0 + $r3c0"
-// the only problem? if we only use a single signal called total, every column will be summed up....
-// we need to dynamically create a new signal that is set to data-computed, but that depends on how many columns we have...
-// so this is why we need this function that returns a templ.Attributes
-// it'll dynamically generate data-computed:total12="$r0c12 + $r1c12 + $r2c12" etc.
-func footerAttrs(i int, col []string) templ.Attributes {
-	return templ.Attributes{
-		fmt.Sprintf("data-computed:total%d", i): strings.Join(col, " + "),
-		"data-text":                             fmt.Sprintf("$total%d.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", i),
-	}
-}
-
-// --- flash animation helpers ---------------------------------------------------
-// a CSS animation only plays when its class is *added*, and datastar morphs in place,
-// so if the same cell changes twice in a row the class would already be there and
-// nothing would replay. alternating between two class names by revision parity dodges that.
-
-func flashClass(key string, changed map[string]int64, rev uint64) string {
-	if _, ok := changed[key]; !ok {
-		return ""
-	}
-	if rev%2 == 0 {
-		return "flash-a"
-	}
-	return "flash-b"
-}
-
-// which column indexes had at least one changed cell → flash the EBITDA total
-func changedCols(changed map[string]int64) map[int]bool {
-	cols := map[int]bool{}
-	for key := range changed {
-		var r, c int
-		fmt.Sscanf(key, "r%dc%d", &r, &c)
-		cols[c] = true
-	}
-	return cols
-}
-
-// one color per revision so every client flashes the same color for the same update.
-// rev * 137 (the golden angle) hops around the hue wheel without repeating for a long time.
-// rev 0 means "plain render, nothing flashing" so we emit nothing at all.
-// NOTE: demo.css falls back to a brand-green flash when --flash is unset; return "" here
-// unconditionally if you'd rather every flash be green instead of per-revision hues.
-func flashColor(rev uint64) string {
-	if rev == 0 {
-		return ""
-	}
-	hue := (rev * 137) % 360
-	return fmt.Sprintf("--flash: oklch(0.85 0.17 %d)", hue)
-}
-
-templ TableView(d DemoDocument, changed map[string]int64, rev uint64) {
-	<div class="table-scroll">
-		<table data-signals={ templ.JSONString(cellSignals(d)) }>
-			<caption>Demo For Real-Time Collaboration for Summa!</caption>
-			@TableHeader(d.d)
-			@TableBodyView(d.r, changed, rev)
-			@TableFooterView(generateSignals(d), changedCols(changed), rev)
-		</table>
-	</div>
-}
-
-templ TableHeader(d []Dates) {
-	<thead>
-		<tr>
-			// empty row for aesthetic reasons
-			<th scope="col"></th>
-			for _, header := range d {
-				// every header should have a date column like "Oct 09", etc
-				<th scope="col">{ header.date.Format("Jan, 06") }</th>
-			}
-		</tr>
-	</thead>
-}
-
-templ TableBodyView(rows []Rows, changed map[string]int64, rev uint64) {
-	<tbody>
-		for i, acc := range rows {
-			<tr>
-				// list the chart of account type, ie assets, liabilities, equities, expenses etc
-				<th scope="row">{ acc.account }</th>
-				for j := range acc.data {
-					// the actual list, on a single row, ie expenses 123 452 -420 310
-					// we're adding a data-on attribute here to calls the /demo/edit url
-					// on double click, get the DemoEdit templ that replaces the non-changable html
-					// into input fields users can edit/post back to the backend
-					<td
-						class={ flashClass(cellName(i, j), changed, rev) }
-						style={ flashColor(rev) }
-						data-on:dblclick="@get('/demo/edit', {filterSignals: {include: /^$/}})"
-						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", cellName(i, j)) }
-					></td>
+templ MonthlyLedgerTable(document ledger.LedgerDocument) {
+	<section id="ledger-report" class="table-scroll">
+		<table>
+			<caption>Monthly revenue and expenses</caption>
+			<thead>
+				<tr>
+					<th scope="col">Account</th>
+					for _, date := range document.Dates {
+						<th>{ date.Date.Format("Jan 2006") }</th>
+					}
+				</tr>
+			</thead>
+			<tbody>
+				if len(document.Rows) == 0 {
+					<tr><td>No revenue or expense accounts yet.</td></tr>
 				}
-			</tr>
-		}
-	</tbody>
-}
-
-templ TableFooterView(columns [][]string, cols map[int]bool, rev uint64) {
-	<tfoot>
-		<tr>
-			<th scope="row">EBITDA</th>
-			for i, col := range columns {
-				// string of totals will be something like "$r0c0 + $r1c0 + $r2c0 + $r3c0"
-				<td
-					class={ templ.KV("flash-a", cols[i] && rev%2 == 0), templ.KV("flash-b", cols[i] && rev%2 == 1) }
-					style={ flashColor(rev) }
-					{ footerAttrs(i, col)... }
-				></td>
-			}
-		</tr>
-	</tfoot>
-}
-
-// when a user double clicks on a cell datastar morphs into the DOM
-// the same HTML but with input elements users can change
-templ TableEdit(d DemoDocument) {
-	<div class="table-scroll">
-		<table data-signals={ templ.JSONString(cellSignals(d)) }>
-			<caption>Demo For Real-Time Collaboration for Summa!</caption>
-			@TableHeader(d.d)
-			@TableBodyEdit(d.r)
-			@TableFooterView(generateSignals(d), nil, 0)
-		</table>
-	</div>
-}
-
-templ TableBodyEdit(rows []Rows) {
-	<tbody>
-		for i, acc := range rows {
-			<tr>
-				// list the chart of account type, ie assets, liabilities, equities, expenses etc
-				<th scope="row">{ acc.account }</th>
-				for j := range acc.data {
-					// editable version of the cell: a number input bound to the cell's signal,
-					// so typing updates $r0c0 etc and the footer totals recalculate live
-					<td>
-						<input type="number" data-bind={ cellName(i, j) }/>
-					</td>
+				for _, row := range document.Rows {
+					<tr>
+						<th scope="row">{ row.Account.Name }</th>
+						for _, amount := range row.Data {
+							<td>{ formatDollars(amount) }</td>
+						}
+					</tr>
 				}
-			</tr>
-		}
-	</tbody>
-}
-
-// AI generated function to generate some dummy data before we have an actual data to play with
-func dummyDocument() DemoDocument {
-	const columns = 5
-
-	accounts := []struct {
-		name string
-		base int64
-	}{
-		{"Revenue: Product Sales", 48200},
-		{"Revenue: Subscriptions", 21500},
-
-		{"COGS: Materials", -14200},
-		{"COGS: Direct Labor", -9800},
-
-		{"Payroll: Salaries", -14500},
-		{"Payroll: Hourly Wages", -5200},
-
-		{"Facilities: Rent", -3200},
-		{"Facilities: Utilities", -640},
-
-		{"Marketing: Advertising", -2100},
-		{"Marketing: Content", -750},
-
-		{"Technology: Software Subscriptions", -1150},
-		{"Technology: IT Support", -520},
-
-		{"Professional Fees: Accounting", -850},
-		{"Professional Fees: Legal", -1200},
-
-		{"General: Office Supplies", -310},
-		{"General: Insurance", -780},
-
-		{"Travel: Airfare", -620},
-	}
-
-	var doc DemoDocument
-
-	for c := 0; c < columns; c++ {
-		// day 0 of the following month is the last day of this month
-		doc.d = append(doc.d, Dates{date: time.Date(2026, time.July+time.Month(c)+1, 0, 0, 0, 0, 0, time.UTC)})
-	}
-
-	for r, acc := range accounts {
-		row := Rows{account: acc.name}
-		for c := 0; c < columns; c++ {
-			// add 0-19% to the base so the numbers aren't all identical
-			row.data = append(row.data, acc.base+acc.base*int64((c*7+r*3)%20)/100)
-		}
-		doc.r = append(doc.r, row)
-	}
-
-	return doc
+			</tbody>
+			<tfoot>
+				<tr>
+					<th scope="row">Net income</th>
+					for i := range document.Dates {
+						<td>{ formatDollars(monthlyNet(document, i)) }</td>
+					}
+				</tr>
+			</tfoot>
+		</table>
+	</section>
 }

@@ -15,7 +15,7 @@ templ JournalPage(data JournalPageData) {
 templ JournalContent(data JournalPageData) {
 	<header class="journal-header">
 		<div>
-			<p class="eyebrow">Accounting</p>
+			<p class="eyebrow">{ data.Organization }</p>
 			<h1>General Journal</h1>
 			<p class="subtitle">A complete, balanced record of every posted business event.</p>
 		</div>
@@ -61,7 +61,7 @@ templ JournalContent(data JournalPageData) {
 						</thead>
 						<tbody>
 							for _, transaction := range data.Transactions {
-								<tr class="journal-transaction">
+								<tr class="journal-transaction" id={ fmt.Sprintf("transaction-%d", transaction.ID) }>
 									<td>
 										<time datetime={ transaction.Date }>{ transaction.Date }</time>
 										<span>JE-{ fmt.Sprint(transaction.ID) }</span>

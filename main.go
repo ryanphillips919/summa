@@ -21,7 +21,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
@@ -51,12 +50,11 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Server-sent event streams (/demo/watch, /timeline/watch, /ledger/watch) stay open for as
+	// Server-sent event streams (/demo/watch, /timeline/watch) stay open for as
 	// long as a tab does, so the timeout only wraps ordinary requests.
 	r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
 	r.Mount("/demo", app.demoRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
-	//r.Mount("/ledger", app.ledgerRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))
@@ -70,6 +68,13 @@ func (a *App) mountRoutes(r chi.Router) {
 	r.Get("/", a.homepageHandler)
 	r.Get("/journal", a.journalHandler)
 	r.Post("/journal", a.journalPostHandler)
+	r.Get("/customers", a.customersHandler)
+	r.Get("/invoices", a.invoicesHandler)
+	r.Get("/invoices/new", a.newInvoiceHandler)
+	r.Post("/invoices", a.createInvoiceHandler)
+	r.Get("/invoices/{invoiceID}", a.invoiceDetailHandler)
+	r.Post("/invoices/{invoiceID}/lines", a.addInvoiceLineHandler)
+	r.Post("/invoices/{invoiceID}/post", a.postInvoiceHandler)
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
@@ -89,7 +94,6 @@ func (a *App) mountRoutes(r chi.Router) {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
-	r.Get("/api/analytics/demo", demoAnalyticsHandler)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
@@ -105,46 +109,8 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
-type analyticsDemoResponse struct {
-	analytics.Response
-	CashMovements      []analytics.CashMovement `json:"cash_movements"`
-	OpeningCashBalance float64                  `json:"opening_cash_balance"`
-}
-
-func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
-	fixture, err := os.ReadFile("analytics/data/demo_cash_movements.json")
-	if err != nil {
-		log.Printf("read analytics demo fixture: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is unavailable")
-		return
-	}
-
-	var request analytics.Request
-	if err := json.Unmarshal(fixture, &request); err != nil {
-		log.Printf("decode analytics demo fixture: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is invalid")
-		return
-	}
-
-	result, err := analytics.Run(r.Context(), request)
-	if err != nil {
-		log.Printf("run analytics demo: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo could not run")
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
-		Response:           result,
-		CashMovements:      request.CashMovements,
-		OpeningCashBalance: request.OpeningCashBalance,
-	})
-}
-
 type App struct {
-	nc *nats.Conn
-	kv jetstream.KeyValue
-
+	nc             *nats.Conn
 	sqlDB          *sql.DB
 	queries        *db.Queries
 	orgID          int64 // one organization for now; see seedDevData
@@ -155,12 +121,6 @@ func appInit() (*App, func(), error) {
 	ns, nc, err := startEmbeddedNATS("./data/js", true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("starting NATS: %w", err)
-	}
-
-	kv, err := StartKV(nc)
-	if err != nil {
-		shutdownEmbeddedNATS(nc, ns)
-		return nil, nil, fmt.Errorf("starting KV: %w", err)
 	}
 
 	dbPath := os.Getenv("SUMMA_DB")
@@ -195,7 +155,6 @@ func appInit() (*App, func(), error) {
 	}
 	return &App{
 		nc:             nc,
-		kv:             kv,
 		sqlDB:          conn,
 		queries:        queries,
 		orgID:          orgID,
@@ -207,26 +166,9 @@ func newAnalyticsDataSource(
 	conn *sql.DB,
 	orgID int64,
 ) (analytics.CashDataSource, error) {
-	switch os.Getenv("SUMMA_ANALYTICS_SOURCE") {
-	case "", "demo":
-		return analytics.DemoCashDataSource{
-			Path: "analytics/data/demo_cash_movements.json",
-		}, nil
-
-	case "database":
-		return analytics.DatabaseCashDataSource{
-			DB:              conn,
-			OrganizationID:  orgID,
-			ForecastDays:    30,
-			ObservationDays: 60,
-		}, nil
-
-	default:
-		return nil, fmt.Errorf(
-			"unknown SUMMA_ANALYTICS_SOURCE %q; use demo or database",
-			os.Getenv("SUMMA_ANALYTICS_SOURCE"),
-		)
-	}
+	return analytics.DatabaseCashDataSource{
+		DB: conn, OrganizationID: orgID, ForecastDays: 30, ObservationDays: 60,
+	}, nil
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {

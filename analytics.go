@@ -32,7 +32,12 @@ func (app *App) analyticsPageHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	if err := AnalyticsPage().Render(r.Context(), w); err != nil {
+	org, err := app.queries.GetOrganization(r.Context(), app.orgID)
+	if err != nil {
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+	if err := AnalyticsPage(org.Name).Render(r.Context(), w); err != nil {
 		http.Error(
 			w,
 			"could not render analytics page",
@@ -59,6 +64,10 @@ func (app *App) analyticsHandler(
 			http.StatusInternalServerError,
 			"analytics data is unavailable",
 		)
+		return
+	}
+	if len(snapshot.Movements) == 0 {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 

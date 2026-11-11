@@ -32,6 +32,28 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 	return i, err
 }
 
+const getCustomer = `-- name: GetCustomer :one
+SELECT id, organization_id, name, email FROM customers
+WHERE id = ?1 AND organization_id = ?2
+`
+
+type GetCustomerParams struct {
+	CustomerID     int64
+	OrganizationID int64
+}
+
+func (q *Queries) GetCustomer(ctx context.Context, arg GetCustomerParams) (Customer, error) {
+	row := q.db.QueryRowContext(ctx, getCustomer, arg.CustomerID, arg.OrganizationID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Email,
+	)
+	return i, err
+}
+
 const listCustomers = `-- name: ListCustomers :many
 SELECT id, organization_id, name, email FROM customers WHERE organization_id = ? ORDER BY name, id
 `

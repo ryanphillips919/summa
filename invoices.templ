@@ -1,0 +1,171 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/db"
+)
+
+templ CustomersPage(organization string, customers []db.Customer) {
+	@SummaShell(SummaPageMeta{Title: "Customers · Summa", Description: "Customers", ActiveNav: "customers", Stylesheet: "/assets/invoices.css"}, CustomersContent(organization, customers))
+}
+
+templ CustomersContent(organization string, customers []db.Customer) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Customers</h1><p>Customers in your organization.</p></div><a class="invoice-button" href="/invoices">View invoices</a></header>
+	<section class="invoice-panel">
+		if len(customers) == 0 {
+			<p>No customers yet.</p>
+		} else {
+			<table>
+				<thead><tr><th>Name</th><th>Email</th></tr></thead>
+				<tbody>
+					for _, customer := range customers {
+						<tr>
+							<td>{ customer.Name }</td>
+							<td>
+								if customer.Email.Valid {
+									{ customer.Email.String }
+								} else {
+									<span>—</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+templ InvoicesPage(organization string, invoices []InvoiceSummary) {
+	@SummaShell(SummaPageMeta{Title: "Invoices · Summa", Description: "Customer invoices", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, InvoicesContent(organization, invoices))
+}
+
+templ InvoicesContent(organization string, invoices []InvoiceSummary) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Invoices</h1><p>Draft and posted customer invoices.</p></div><a class="invoice-button" href="/invoices/new">New invoice</a></header>
+	<section class="invoice-panel">
+		<p>Payments are recorded in the ledger; payment allocation to individual invoices is not available yet.</p>
+		if len(invoices) == 0 {
+			<p>No invoices yet.</p>
+		} else {
+			<table>
+				<thead><tr><th>Number</th><th>Customer</th><th>Issued</th><th>Due</th><th>Status</th><th>Total</th></tr></thead>
+				<tbody>
+					for _, invoice := range invoices {
+						<tr><td><a href={ templ.URL(fmt.Sprintf("/invoices/%d", invoice.Invoice.ID)) }>{ invoice.Invoice.Number }</a></td><td>{ invoice.Customer }</td><td>{ invoice.Invoice.IssueDate }</td><td>{ invoice.Invoice.DueDate }</td><td>{ invoiceStatus(invoice.Invoice) }</td><td>{ formatDollars(invoice.Total) }</td></tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+templ NewInvoicePage(organization string, customers []db.Customer, today string) {
+	@SummaShell(SummaPageMeta{Title: "New invoice · Summa", Description: "Create an invoice", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, NewInvoiceContent(organization, customers, today))
+}
+
+templ NewInvoiceContent(organization string, customers []db.Customer, today string) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>New invoice</h1><p>Create a draft, then add its line items.</p></div><a href="/invoices">Back to invoices</a></header>
+	<section class="invoice-panel">
+		if len(customers) == 0 {
+			<p>Add a customer before creating an invoice.</p>
+		} else {
+			<form class="invoice-form" method="post" action="/invoices">
+				<label>
+					Customer
+					<select name="customer_id" required>
+						<option value="">Choose a customer</option>
+						for _, customer := range customers {
+							<option value={ fmt.Sprint(customer.ID) }>{ customer.Name }</option>
+						}
+					</select>
+				</label>
+				<label>Invoice number<input name="number" maxlength="100" required/></label>
+				<label>Issue date<input type="date" name="issue_date" value={ today } required/></label>
+				<label>Due date<input type="date" name="due_date" value={ today } required/></label>
+				<button class="invoice-button" type="submit">Create draft</button>
+			</form>
+		}
+	</section>
+}
+
+templ InvoiceDetailPage(data InvoiceDetailData) {
+	@SummaShell(SummaPageMeta{Title: "Invoice · Summa", Description: "Invoice details", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, InvoiceDetailContent(data))
+}
+
+templ InvoiceDetailContent(data InvoiceDetailData) {
+	<header class="invoice-header"><div><p class="eyebrow">{ data.Organization }</p><h1>{ data.Summary.Invoice.Number }</h1><p>{ data.Summary.Customer } · { invoiceStatus(data.Summary.Invoice) }</p></div><a href="/invoices">Back to invoices</a></header>
+	<section class="invoice-panel">
+		<p>Issued { data.Summary.Invoice.IssueDate } · Due { data.Summary.Invoice.DueDate }</p>
+		if len(data.Lines) == 0 {
+			<p>No line items yet.</p>
+		} else {
+			<table>
+				<thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead>
+				<tbody>
+					for _, line := range data.Lines {
+						<tr><td>{ line.Description }</td><td>{ fmt.Sprint(line.Quantity) }</td><td>{ formatDollars(line.UnitPriceCents) }</td><td>{ formatDollars(line.Quantity * line.UnitPriceCents) }</td></tr>
+					}
+				</tbody>
+			</table>
+		}
+		<p><strong>Total: { formatDollars(data.Summary.Total) }</strong></p>
+	</section>
+	if data.Transaction != nil {
+		<section class="invoice-panel">
+			<h2>Ledger transaction</h2>
+			<p><a href={ templ.URL(fmt.Sprintf("/journal#transaction-%d", data.Transaction.ID)) }>JE-{ fmt.Sprint(data.Transaction.ID) }</a> · { data.Transaction.Date } · { data.Transaction.Description }</p>
+			<table>
+				<thead><tr><th>Account</th><th>Direction</th><th>Amount</th></tr></thead>
+				<tbody>
+					for _, entry := range data.Transaction.Entries {
+						<tr><td>{ entry.AccountName }</td><td>{ entry.Direction }</td><td>{ formatDollars(entry.Amount) }</td></tr>
+					}
+				</tbody>
+			</table>
+		</section>
+	} else {
+		<section class="invoice-panel">
+			<h2>Add a line item</h2>
+			<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/invoices/%d/lines", data.Summary.Invoice.ID)) }>
+				<label>Description<input name="description" maxlength="250" required/></label><label>Quantity<input type="number" name="quantity" min="1" step="1" value="1" required/></label><label>Unit price ($)<input name="unit_price" inputmode="decimal" placeholder="0.00" required/></label><button class="invoice-button" type="submit">Add line</button>
+			</form>
+		</section>
+		<section class="invoice-panel">
+			<h2>Post to ledger</h2>
+			<p>Posting debits receivables and credits revenue. The invoice can no longer be edited.</p>
+			<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/invoices/%d/post", data.Summary.Invoice.ID)) }>
+				<label>
+					Receivable account
+					<select name="receivable_account_id" required>
+						<option value="">Choose an asset account</option>
+						for _, account := range data.Accounts {
+							if account.Type == "asset" {
+								if account.Name == "Accounts Receivable" {
+									<option value={ fmt.Sprint(account.ID) } selected>{ account.Name }</option>
+								} else {
+									<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+								}
+							}
+						}
+					</select>
+				</label>
+				<label>
+					Revenue account
+					<select name="revenue_account_id" required>
+						<option value="">Choose a revenue account</option>
+						for _, account := range data.Accounts {
+							if account.Type == "revenue" {
+								if account.Name == "Sales Revenue" {
+									<option value={ fmt.Sprint(account.ID) } selected>{ account.Name }</option>
+								} else {
+									<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+								}
+							}
+						}
+					</select>
+				</label>
+				<button class="invoice-button" type="submit">Post invoice</button>
+			</form>
+		</section>
+	}
+}

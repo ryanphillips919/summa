@@ -1,70 +1,99 @@
 package main
 
-import "net/http"
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
 
-// DashboardData is a presentation-specific view model. For the demo it uses
-// sample data; later its values can be assembled from ledger queries and the
-// analytics service without changing the template.
+	"summa/internal/ledger"
+)
+
+// DashboardData contains values derived from the organization's ledger.
 type DashboardData struct {
-	Organization string
-	UserName     string
-	Period       string
-	Metrics      []DashboardMetric
-	CloseTasks   []CloseTask
-	Reviews      []ReviewItem
-	Aging        []AgingBucket
-	Overdue      []OverdueInvoice
-	Activity     []DashboardActivity
+	Organization                 string
+	Cash, Receivables, Payables  int64
+	Revenue, Expenses, NetIncome int64
+	Trends                       []MonthlyTrend
+	Activity                     []JournalTransaction
+	Invoices                     []InvoiceSummary
 }
 
-type DashboardMetric struct{ Label, Value, Change, Direction, Tone string }
-type CloseTask struct{ Label, Detail, State, Mark string }
-type ReviewItem struct{ Level, Title, Detail string }
-type AgingBucket struct{ Label, Amount, Customers, Tone string }
-type OverdueInvoice struct{ Customer, Number, Amount string }
-type DashboardActivity struct{ Date, Kind, Description, Amount, Tone string }
+type MonthlyTrend struct {
+	Month                  string
+	Revenue, Expenses, Net int64
+}
 
 func (a *App) homepageHandler(w http.ResponseWriter, r *http.Request) {
-	HomePage(sampleDashboardData()).Render(r.Context(), w)
+	data, err := a.loadDashboard(r.Context(), time.Time{})
+	if err != nil {
+		http.Error(w, "could not load dashboard", http.StatusInternalServerError)
+		return
+	}
+	if err := HomePage(data).Render(r.Context(), w); err != nil {
+		fmt.Printf("render dashboard: %v\n", err)
+	}
 }
 
-func sampleDashboardData() DashboardData {
-	return DashboardData{
-		Organization: "Acme Corporation", UserName: "User", Period: "Sep 1, 2026 – Sep 30, 2026",
-		Metrics: []DashboardMetric{
-			{Label: "Cash position", Value: "$125,430", Change: "+12% vs. last month", Direction: "↑", Tone: "positive"},
-			{Label: "Accounts receivable", Value: "$42,800", Change: "8% lower than last month", Direction: "↓", Tone: "positive"},
-			{Label: "Accounts payable", Value: "$28,650", Change: "15% lower than last month", Direction: "↓", Tone: "positive"},
-			{Label: "Net income", Value: "$36,210", Change: "+18% vs. last month", Direction: "↑", Tone: "positive"},
-		},
-		CloseTasks: []CloseTask{
-			{Label: "Reconcile operating checking", Detail: "2 transactions remaining", State: "in-progress", Mark: ""},
-			{Label: "Review outstanding invoices", Detail: "5 invoices need follow-up", State: "in-progress", Mark: ""},
-			{Label: "Post recurring journal entries", Detail: "Completed Sep 23", State: "complete", Mark: "✓"},
-			{Label: "Lock September books", Detail: "Available after checklist is complete", State: "locked", Mark: ""},
-		},
-		Reviews: []ReviewItem{
-			{Level: "High", Title: "Possible duplicate vendor bill", Detail: "Office Warehouse · $149.99"},
-			{Level: "Review", Title: "Unusually large travel expense", Detail: "Travel Hub · $3,200.00"},
-			{Level: "Info", Title: "Three bank transactions unmatched", Detail: "Operating Checking"},
-		},
-		Aging: []AgingBucket{
-			{Label: "Current", Amount: "$21,400", Customers: "12 customers", Tone: "current"},
-			{Label: "1–30 days", Amount: "$14,200", Customers: "6 customers", Tone: "soon"},
-			{Label: "31–60 days", Amount: "$5,800", Customers: "3 customers", Tone: "late"},
-			{Label: "Over 60 days", Amount: "$1,400", Customers: "1 customer", Tone: "overdue"},
-		},
-		Overdue: []OverdueInvoice{
-			{Customer: "Northwind Dental", Number: "#1037", Amount: "$3,500"},
-			{Customer: "Pinecrest Builders", Number: "#1039", Amount: "$3,275"},
-			{Customer: "Lumen Labs", Number: "#1033", Amount: "$5,525"},
-		},
-		Activity: []DashboardActivity{
-			{Date: "Sep 24", Kind: "Invoice", Description: "INV-2026-089 sent to Acme Retail Group", Amount: "$12,400.00", Tone: "invoice"},
-			{Date: "Sep 24", Kind: "Payment", Description: "Customer payment from Ridgewood LLC", Amount: "$7,800.00", Tone: "payment"},
-			{Date: "Sep 23", Kind: "Bill", Description: "AWS Hosting", Amount: "$75.00", Tone: "bill"},
-			{Date: "Sep 22", Kind: "Journal entry", Description: "JE-2026-142 — Month-end accrual", Amount: "—", Tone: "journal"},
-			{Date: "Sep 21", Kind: "Payment", Description: "Vendor payment to Stripe", Amount: "$1,200.00", Tone: "bill"},
-		},
+func (a *App) loadDashboard(ctx context.Context, asOf time.Time) (DashboardData, error) {
+	var result DashboardData
+	org, err := a.queries.GetOrganization(ctx, a.orgID)
+	if err != nil {
+		return result, err
 	}
+	result.Organization = org.Name
+	totals, err := a.queries.AccountTotals(ctx, a.orgID)
+	if err != nil {
+		return result, err
+	}
+	for _, total := range totals {
+		balance := ledger.Balance(total.Type, total.Debits, total.Credits)
+		switch total.Name {
+		case "Cash":
+			result.Cash += balance
+		case "Accounts Receivable":
+			result.Receivables += balance
+		case "Accounts Payable":
+			result.Payables += balance
+		}
+		switch total.Type {
+		case "revenue":
+			result.Revenue += balance
+		case "expense":
+			result.Expenses += balance
+		}
+	}
+	result.NetIncome = result.Revenue - result.Expenses
+
+	document, err := a.monthlyDocument(ctx, asOf)
+	if err != nil {
+		return result, err
+	}
+	for i, date := range document.Dates {
+		trend := MonthlyTrend{Month: date.Date.Format("Jan 2006")}
+		for _, row := range document.Rows {
+			if row.Account.Type == "revenue" {
+				trend.Revenue += row.Data[i]
+			} else if row.Account.Type == "expense" {
+				trend.Expenses -= row.Data[i]
+			}
+		}
+		trend.Net = trend.Revenue - trend.Expenses
+		result.Trends = append(result.Trends, trend)
+	}
+	result.Activity, err = a.journalTransactions(ctx)
+	if err != nil {
+		return result, err
+	}
+	if len(result.Activity) > 5 {
+		result.Activity = result.Activity[:5]
+	}
+	result.Invoices, err = a.invoiceSummaries(ctx)
+	if err != nil {
+		return result, err
+	}
+	if len(result.Invoices) > 5 {
+		result.Invoices = result.Invoices[:5]
+	}
+	return result, nil
 }

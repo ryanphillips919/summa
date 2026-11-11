@@ -30,6 +30,10 @@ INSERT INTO entries (transaction_id, account_id, direction, amount) VALUES (?, ?
 -- name: ListTransactions :many
 SELECT * FROM transactions WHERE organization_id = ? ORDER BY date DESC, id DESC;
 
+-- name: GetTransaction :one
+SELECT * FROM transactions
+WHERE id = sqlc.arg(transaction_id) AND organization_id = sqlc.arg(organization_id);
+
 -- ListEntries returns the lines of one transaction.
 -- name: ListEntries :many
 SELECT * FROM entries WHERE transaction_id = ? ORDER BY id;

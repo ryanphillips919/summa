@@ -183,7 +183,7 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
                     "amount": round(movement["amount"], 2),
                     "description": movement["description"],
                     "modified_z_score": round(score, 2),
-                    "reason": "Expense amount differs substantially from typical spending.",
+                    "reason": "Cash outflow differs substantially from typical activity.",
                     "type": "amount_outlier",
                 })
 
