@@ -19,6 +19,11 @@ from typing import Any
 
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
+MONTHLY_SEASONAL_PERIODS = 30
+MIN_HOLT_WINTERS_DAYS = MONTHLY_SEASONAL_PERIODS * 3
+OUTLIER_MIN_HISTORY = 3
+OUTLIER_MIN_ABSOLUTE_DIFFERENCE = 500.0
+
 
 def parse_date(value: str) -> date:
     """Accept the ISO date or timestamp that Summa's API returns."""
@@ -54,6 +59,7 @@ def validate_request(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], int
             "id": entry.get("id"),
             "description": entry.get("description", ""),
             "vendor": entry.get("vendor", ""),
+            "category": entry.get("category", ""),
         })
     return normalized, horizon
 
@@ -63,38 +69,33 @@ def rolling_mean_prediction(values: list[float]) -> float:
 
 
 def holt_winters_forecast(values: list[float], horizon: int) -> tuple[list[float], float]:
-    """Fit Holt-Winters Exponential Smoothing with weekly seasonality."""
-    try:
-        # Require at least 28 days of data for stable seasonal decomposition
-        if len(values) < 28:
-            raise ValueError("Insufficient data for seasonal Holt-Winters")
-            
-        model = ExponentialSmoothing(
-            values,
-            trend="add",
-            seasonal="add",
-            seasonal_periods=7,
-            initialization_method="estimated"
-        ).fit(optimized=True)
-        
-        forecast_values = model.forecast(horizon)
-        fitted_values = model.fittedvalues
-        residuals = [actual - fitted for actual, fitted in zip(values, fitted_values)]
-        rmse = math.sqrt(statistics.fmean(r * r for r in residuals))
-        
-        return list(forecast_values), rmse
-    except Exception:
-        # Fallback to rolling mean if optimization fails or data is too short
-        recent = values[-7:]
-        mean_val = statistics.fmean(recent)
-        rmse = statistics.stdev(recent) if len(recent) > 1 else 0.0
-        return [mean_val] * horizon, rmse
+    """Fit daily Holt-Winters with an approximate monthly seasonal cycle."""
+    if len(values) < MIN_HOLT_WINTERS_DAYS:
+        raise ValueError("Insufficient data for monthly seasonal Holt-Winters")
+
+    model = ExponentialSmoothing(
+        values,
+        trend="add",
+        seasonal="add",
+        seasonal_periods=MONTHLY_SEASONAL_PERIODS,
+        initialization_method="estimated",
+    ).fit(optimized=True)
+
+    forecast_values = model.forecast(horizon)
+    fitted_values = model.fittedvalues
+    residuals = [actual - fitted for actual, fitted in zip(values, fitted_values)]
+    rmse = math.sqrt(statistics.fmean(residual * residual for residual in residuals))
+    return list(forecast_values), rmse
 
 
 def backtest_mae(values: list[float], model_type: str) -> float | None:
     """One-day rolling-origin validation on the newest observed days."""
     errors = []
-    start_idx = max(28, len(values) - 14) if model_type == "holt_winters" else max(14, len(values) - 14)
+    start_idx = (
+        max(MIN_HOLT_WINTERS_DAYS, len(values) - 14)
+        if model_type == "holt_winters"
+        else max(14, len(values) - 14)
+    )
     
     for index in range(start_idx, len(values)):
         training = values[:index]
@@ -133,21 +134,22 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
     values = [entry["net_cash_flow"] for entry in daily]
     baseline = rolling_mean_prediction(values)
-    
-    # Run model competition between baseline and Holt-Winters
+
+    # Retain the rolling mean for validation and a limited-history fallback.
+    # With enough history, forecast using monthly-seasonal Holt-Winters.
     baseline_mae = backtest_mae(values, "rolling_mean")
     hw_mae = backtest_mae(values, "holt_winters")
-    
-    use_hw = hw_mae is not None and (baseline_mae is None or hw_mae < baseline_mae)
-    model_name = "Holt-Winters Exponential Smoothing (Additive)" if use_hw else "7-day rolling mean"
 
-    # Generate forecast values and error metrics based on the winning model
-    if use_hw:
+    try:
         forecast_values, rmse = holt_winters_forecast(values, horizon)
-    else:
+        model_name = "Holt-Winters (monthly seasonality)"
+        selected_mae = hw_mae
+    except Exception:
         recent = values[-7:]
         forecast_values = [baseline] * horizon
         rmse = statistics.stdev(recent) if len(recent) > 1 else 0.0
+        model_name = "7-day rolling mean (limited history fallback)"
+        selected_mae = baseline_mae
 
     forecast = []
     running_total = 0.0
@@ -166,49 +168,86 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
             "cumulative_predicted_cash_flow": round(running_total, 2),
         })
 
-    # Audit amount outliers only among outflows
+    # Group duplicates first. A single finding represents the suspected pair;
+    # duplicates are excluded from amount checks to avoid duplicate findings.
     expenses = [movement for movement in movements if movement["amount"] < 0]
-    amounts = [abs(movement["amount"]) for movement in expenses]
-    center = statistics.median(amounts) if amounts else 0.0
-    mad = median_absolute_deviation(amounts, center) if amounts else 0.0
-    
-    anomalies = []
-    if mad > 0:
-        for movement in expenses:
-            score = 0.6745 * (abs(movement["amount"]) - center) / mad
-            if abs(score) >= 3.5:
-                anomalies.append({
-                    "id": movement["id"],
-                    "date": movement["date"].isoformat(),
-                    "amount": round(movement["amount"], 2),
-                    "description": movement["description"],
-                    "modified_z_score": round(score, 2),
-                    "reason": "Cash outflow differs substantially from typical activity.",
-                    "type": "amount_outlier",
-                })
-
     duplicates: defaultdict[tuple[str, float, str], list[dict[str, Any]]] = defaultdict(list)
     for movement in expenses:
-        descriptor = canonical_text(movement["vendor"] or movement["description"])
+        descriptor = canonical_text(
+            movement["vendor"] or movement["category"] or movement["description"]
+        )
         if descriptor:
             duplicates[(movement["date"].isoformat(), round(abs(movement["amount"]), 2), descriptor)].append(movement)
+
+    anomalies = []
+    duplicate_ids: set[str] = set()
     for matches in duplicates.values():
         if len(matches) > 1:
-            for movement in matches:
-                anomalies.append({
-                    "id": movement["id"], 
-                    "date": movement["date"].isoformat(),
-                    "amount": round(movement["amount"], 2), 
-                    "description": movement["description"],
-                    "modified_z_score": None,
-                    "reason": "Potential duplicate: same date, amount, and vendor or description.",
-                    "type": "potential_duplicate",
-                })
+            first = matches[0]
+            related_ids = [str(movement["id"]) for movement in matches if movement["id"] is not None]
+            duplicate_ids.update(related_ids)
+            anomalies.append({
+                "id": first["id"],
+                "related_ids": related_ids,
+                "date": first["date"].isoformat(),
+                "amount": round(first["amount"], 2),
+                "description": first["description"],
+                "category": first["category"],
+                "modified_z_score": None,
+                "reason": f"{len(matches)} matching outflows share the same date, amount, and category.",
+                "type": "potential_duplicate",
+            })
+
+    # Compare expenses to their own account/category, not every other cost in
+    # the business. This keeps routine payroll and supplier payments clean.
+    by_category: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+    for movement in expenses:
+        category = canonical_text(movement["category"] or movement["vendor"] or "Uncategorized")
+        by_category[category].append(movement)
+
+    for category_expenses in by_category.values():
+        if len(category_expenses) < OUTLIER_MIN_HISTORY:
+            continue
+        amounts = [abs(movement["amount"]) for movement in category_expenses]
+        center = statistics.median(amounts)
+        mad = median_absolute_deviation(amounts, center)
+        for movement in category_expenses:
+            movement_id = str(movement["id"])
+            amount = abs(movement["amount"])
+            if movement_id in duplicate_ids or amount <= center:
+                continue
+            score = None if mad == 0 else 0.6745 * (amount - center) / mad
+            is_outlier = (
+                score is not None and score >= 3.5
+            ) or (
+                mad == 0
+                and amount >= center * 2
+                and amount - center >= OUTLIER_MIN_ABSOLUTE_DIFFERENCE
+            )
+            if not is_outlier:
+                continue
+            category_label = movement["category"] or "this category"
+            anomalies.append({
+                "id": movement["id"],
+                "related_ids": [movement_id] if movement["id"] is not None else [],
+                "date": movement["date"].isoformat(),
+                "amount": round(movement["amount"], 2),
+                "description": movement["description"],
+                "category": movement["category"],
+                "modified_z_score": round(score, 2) if score is not None else None,
+                "reason": (
+                    f"{abs(movement['amount']):,.2f} is unusually high for "
+                    f"{category_label} (typical outflow: {center:,.2f})."
+                ),
+                "type": "amount_outlier",
+            })
+
+    anomalies.sort(key=lambda item: (item["date"], item["type"]), reverse=True)
 
     return {
         "methodology": {
-            "forecast": "rolling-mean baseline compared with Holt-Winters Exponential Smoothing using rolling-origin MAE",
-            "anomalies": "expense amount modified Z-score (MAD threshold 3.5) plus exact duplicate candidates",
+            "forecast": "monthly-seasonal Holt-Winters; a 7-day rolling mean is retained only as a limited-history fallback and validation reference",
+            "anomalies": "category-aware expense review: high outflows versus category history plus grouped exact duplicate candidates",
         },
         "summary": {
             "movement_count": len(movements),
@@ -218,7 +257,8 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
             "anomaly_count": len(anomalies),
             "forecast_model": model_name,
             "baseline_validation_mae": round(baseline_mae, 2) if baseline_mae is not None else None,
-            "selected_model_validation_mae": round((hw_mae if use_hw else baseline_mae), 2) if (hw_mae if use_hw else baseline_mae) is not None else None,
+            "holt_winters_validation_mae": round(hw_mae, 2) if hw_mae is not None else None,
+            "selected_model_validation_mae": round(selected_mae, 2) if selected_mae is not None else None,
         },
         "daily_cash_flow": [
             {"date": entry["date"].isoformat(), "net_cash_flow": entry["net_cash_flow"]}

@@ -167,7 +167,7 @@ func newAnalyticsDataSource(
 	orgID int64,
 ) (analytics.CashDataSource, error) {
 	return analytics.DatabaseCashDataSource{
-		DB: conn, OrganizationID: orgID, ForecastDays: 30, ObservationDays: 60,
+		DB: conn, OrganizationID: orgID, ForecastDays: 30, ObservationDays: 120,
 	}, nil
 }
 

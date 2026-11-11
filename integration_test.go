@@ -408,7 +408,7 @@ func TestNorthstarAnalyticsEndpoint(t *testing.T) {
 			repairs++
 		}
 	}
-	if duplicates != 2 || repairs != 1 {
+	if duplicates != 1 || repairs != 1 {
 		t.Errorf("analytics duplicates = %d, repair outliers = %d, anomalies = %+v", duplicates, repairs, data.Anomalies)
 	}
 }

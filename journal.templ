@@ -61,7 +61,7 @@ templ JournalContent(data JournalPageData) {
 						</thead>
 						<tbody>
 							for _, transaction := range data.Transactions {
-								<tr class="journal-transaction" id={ fmt.Sprintf("transaction-%d", transaction.ID) }>
+								<tr class="journal-transaction" id={ fmt.Sprintf("entry-%d", transaction.ID) }>
 									<td>
 										<time datetime={ transaction.Date }>{ transaction.Date }</time>
 										<span>JE-{ fmt.Sprint(transaction.ID) }</span>

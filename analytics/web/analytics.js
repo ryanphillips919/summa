@@ -93,7 +93,10 @@ function renderFindings(anomalies) {
         </span>
       </td>
       <td>${money.format(item.amount)}</td>
-      <td>${escapeHTML(item.description)}</td>
+      <td>
+        <strong>${escapeHTML(item.description)}</strong>
+        ${renderJournalLinks(item)}
+      </td>
       <td>${escapeHTML(item.reason)}</td>
     </tr>
   `).join("") || `
@@ -103,6 +106,21 @@ function renderFindings(anomalies) {
   `;
 }
 
+function renderJournalLinks(item) {
+  const ids = item.related_ids?.length ? item.related_ids : [item.id];
+  const links = ids.filter(Boolean).map((id) => `
+    <a class="analytics-journal-link" href="/journal#entry-${encodeURIComponent(id)}">
+      JE-${escapeHTML(String(id))}
+    </a>
+  `);
+  if (!links.length) return "";
+
+  const label = item.type === "potential_duplicate" && links.length > 1
+    ? `Related entries (${links.length})`
+    : "View journal entry";
+  return `<div class="analytics-journal-links"><span>${label}</span>${links.join("")}</div>`;
+}
+
 function renderCharts() {
   const balanceView = activeView === "balance";
 
@@ -110,9 +128,11 @@ function renderCharts() {
     ? "Projected Cash Balance"
     : "Daily Cash Flow Forecast";
 
-  elements.chartNote.textContent = balanceView
+  const forecastModel = analyticsData.summary.forecast_model || "Forecast";
+  const chartDescription = balanceView
     ? "Solid: recorded cash balance. Dashed: expected cash balance. The shaded area is the forecast period."
     : "Solid: recorded daily cash flow. Dashed: expected daily cash flow. The shaded area is the forecast period.";
+  elements.chartNote.textContent = `${chartDescription} Model: ${forecastModel}.`;
 
   elements.balanceView.classList.toggle("active", balanceView);
   elements.flowView.classList.toggle("active", !balanceView);
