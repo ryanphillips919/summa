@@ -134,6 +134,30 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	return i, err
 }
 
+const getAccount = `-- name: GetAccount :one
+SELECT id, organization_id, name, type FROM accounts
+WHERE id = ?1
+  AND organization_id = ?2
+`
+
+type GetAccountParams struct {
+	AccountID      int64
+	OrganizationID int64
+}
+
+// GetAccount returns one account in an organization.
+func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account, error) {
+	row := q.db.QueryRowContext(ctx, getAccount, arg.AccountID, arg.OrganizationID)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Type,
+	)
+	return i, err
+}
+
 const listAccounts = `-- name: ListAccounts :many
 SELECT id, organization_id, name, type FROM accounts WHERE organization_id = ? ORDER BY name
 `

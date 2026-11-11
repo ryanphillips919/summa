@@ -2,8 +2,8 @@
 // types sqlc generates in internal/db, so names match the tables: directions
 // are "debit" or "credit", and account types are "asset", "expense", etc.
 //
-//   - ledger.go is the engine. Post is the only way money enters the books,
-//     and Balance turns an account's totals into its balance.
+//   - ledger.go is the engine. Post and PostInTx save entries, and Balance
+//     turns an account's totals into its balance.
 //   - ledger-o1.go shows the books as a spreadsheet (accounts by month)
 //     and saves each cell edit as a transaction through Post.
 package ledger
@@ -20,7 +20,25 @@ import (
 // and saves inside one database transaction, so either all of it is stored
 // or none of it is. Entries need only AccountID, Direction and Amount; Post
 // fills in TransactionID.
-func Post(ctx context.Context, conn *sql.DB, t db.CreateTransactionParams, entries []db.CreateEntryParams) (db.Transaction, error) {
+func Post(ctx context.Context, conn *sql.DB, transactionParams db.CreateTransactionParams, entries []db.CreateEntryParams) (db.Transaction, error) {
+	// if anything below fails, Rollback undoes it all; after Commit it does
+	// nothing
+	sqlTx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return db.Transaction{}, err
+	}
+	defer sqlTx.Rollback()
+
+	ledgerTransaction, err := PostInTx(ctx, sqlTx, transactionParams, entries)
+	if err != nil {
+		return db.Transaction{}, err
+	}
+	return ledgerTransaction, sqlTx.Commit()
+}
+
+// PostInTx writes a balanced ledger transaction inside a caller-owned SQL
+// transaction. The caller commits or rolls back the transaction.
+func PostInTx(ctx context.Context, sqlTx *sql.Tx, transactionParams db.CreateTransactionParams, entries []db.CreateEntryParams) (db.Transaction, error) {
 	// money always moves from somewhere to somewhere: one line for each side
 	if len(entries) < 2 {
 		return db.Transaction{}, errors.New("a transaction needs at least 2 entries")
@@ -39,29 +57,22 @@ func Post(ctx context.Context, conn *sql.DB, t db.CreateTransactionParams, entri
 		return db.Transaction{}, errors.New("debits must equal credits")
 	}
 
-	// if anything below fails, Rollback undoes it all; after Commit it does
-	// nothing
-	tx, err := conn.BeginTx(ctx, nil)
-	if err != nil {
-		return db.Transaction{}, err
-	}
-	defer tx.Rollback()
-	q := db.New(tx)
+	q := db.New(sqlTx)
 
 	// save the transaction first so its entries have an ID to point at
-	saved, err := q.CreateTransaction(ctx, t)
+	ledgerTransaction, err := q.CreateTransaction(ctx, transactionParams)
 	if err != nil {
 		return db.Transaction{}, err
 	}
 	for _, e := range entries {
-		e.TransactionID = saved.ID
+		e.TransactionID = ledgerTransaction.ID
 		// the database rejects a misspelled direction or a non-positive
 		// amount, which rolls everything back
 		if err := q.CreateEntry(ctx, e); err != nil {
 			return db.Transaction{}, err
 		}
 	}
-	return saved, tx.Commit()
+	return ledgerTransaction, nil
 }
 
 // Balance turns an account's debit and credit totals (from AccountTotals)
