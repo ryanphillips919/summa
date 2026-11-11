@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go/jetstream"
+	qrcode "github.com/skip2/go-qrcode"
 	"github.com/starfederation/datastar-go/datastar"
 )
 
@@ -17,6 +18,7 @@ import (
 var (
 	doc     = dummyDocument()
 	clients atomic.Int64
+	editing atomic.Bool
 )
 
 func (a *App) demoRoutes() chi.Router {
@@ -28,6 +30,9 @@ func (a *App) demoRoutes() chi.Router {
 	r.Get("/watch", a.demoWatcherHandler)
 	r.Get("/scrub", a.demoScrubHandler)
 	r.Get("/play", a.demoPlayHandler)
+	r.Post("/start", a.demoSetEditing(true))
+	r.Post("/stop", a.demoSetEditing(false))
+	r.Get("/qr", a.demoQRHandler)
 	return r
 }
 
@@ -47,16 +52,14 @@ func (a *App) demoPostHandler(w http.ResponseWriter, r *http.Request) {
 	if len(changed) == 0 {
 		// nothing changed → no KV write, so no watcher push. we have to
 		// exit edit mode ourselves
-		datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0))
+		datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0), datastar.WithModeReplace())
 		return
 	}
 	doc.setCells(changed)
 	data, _ := json.Marshal(changed)
 	rev, _ := a.kv.Put(r.Context(), "demo.update", data)
 	fmt.Printf("demo.update @ %d -> %s\n", rev, data)
-	// deliberately no patch here: the watcher will push Demo(doc, changed, rev)
-	// to every client including this one, so there's exactly one render and one flash
-	w.WriteHeader(http.StatusNoContent)
+	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, changed, rev), datastar.WithModeReplace())
 }
 
 func (a *App) demoEditHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +67,7 @@ func (a *App) demoEditHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) demoCancelHandler(w http.ResponseWriter, r *http.Request) {
-	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0))
+	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0), datastar.WithModeReplace())
 }
 
 // this is the function that lets us update all clients in real-time!
@@ -87,6 +90,7 @@ func (a *App) demoWatcherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer watcher.Stop()
 	sse := datastar.NewSSE(w, r)
+	sse.MarshalAndPatchSignals(map[string]bool{"open": editing.Load()})
 	clients.Add(1)
 	a.kv.Put(r.Context(), "demo.clients", nil)
 	defer func() {
@@ -103,8 +107,13 @@ func (a *App) demoWatcherHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			continue
 		}
+		if entry.Key() == "demo.editing" {
+			sse.MarshalAndPatchSignals(map[string]bool{"open": editing.Load()})
+			continue
+		}
 		var changed map[string]int64
 		json.Unmarshal(entry.Value(), &changed)
+		sse.MarshalAndPatchSignals(changed)
 		if err := sse.PatchElementTempl(Demo(doc, changed, entry.Revision())); err != nil {
 			return
 		}
@@ -153,4 +162,17 @@ func (a *App) demoPlayHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (a *App) demoSetEditing(open bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		editing.Store(open)
+		a.kv.Put(r.Context(), "demo.editing", nil)
+	}
+}
+
+func (a *App) demoQRHandler(w http.ResponseWriter, r *http.Request) {
+	png, _ := qrcode.Encode("http://"+r.Host+"/demo", qrcode.Medium, 512)
+	w.Header().Set("Content-Type", "image/png")
+	w.Write(png)
 }

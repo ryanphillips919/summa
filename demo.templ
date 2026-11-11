@@ -29,6 +29,7 @@ templ DemoContent(d DemoDocument, clients int64) {
 	// INPUT guard keeps arrows working inside the scrubber and edit cells.
 	<div
 		data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})"
+		data-signals:open="false"
 		data-on:keydown__window="
 			if (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') {
 				if (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; }
@@ -44,8 +45,27 @@ templ DemoContent(d DemoDocument, clients int64) {
 			</div>
 			@Online(clients)
 		</header>
+		<input type="password" placeholder="admin" data-bind:admin/>
+		<div
+			style="
+		display: none;
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 50;
+		background: #fff;
+		padding: 16px;
+	"
+			data-signals:qr="true"
+			data-show="$qr && $admin === 'gradmin'"
+		>
+			<button data-on:click="$qr = false">×</button>
+			<p>Scan QR code or join from app.summabooks.com/demo !</p>
+			<img src="/demo/qr" alt="Scan to join the demo"/>
+		</div>
 		@Demo(d, nil, 0)
-		<div class="demo-controls">
+		<div class="demo-controls" style="display: none" data-show="$admin === 'gradmin'">
 			<input
 				type="range"
 				min="0"
@@ -54,6 +74,8 @@ templ DemoContent(d DemoDocument, clients int64) {
 				data-on:input="@get('/demo/scrub', {filterSignals: {include: /^scrub$/}})"
 			/>
 			<button class="button-primary" data-on:click="@get('/demo/play', {filterSignals: {include: /^$/}})">Play</button>
+			<button data-on:click="@post('/demo/start', {filterSignals: {include: /^$/}})">Start</button>
+			<button data-on:click="@post('/demo/stop', {filterSignals: {include: /^$/}})">Stop</button>
 		</div>
 	</div>
 }
@@ -73,7 +95,11 @@ templ Demo(d DemoDocument, changed map[string]int64, rev uint64) {
 }
 
 templ DemoEdit(d DemoDocument) {
-	<section id="demo">
+	<section
+		id="demo"
+		data-ignore-morph
+		data-effect="($open || $admin === 'gradmin') || @get('/demo/cancel', {filterSignals: {include: /^$/}})"
+	>
 		@TableEdit(d)
 		// Save sends every cell signal; the server diffs against what it has and only stores the changes
 		<button data-on:click="@post('/demo', {filterSignals: {include: /^r\d+c\d+$/}})">Save</button>
@@ -238,7 +264,7 @@ templ TableBodyView(rows []Rows, changed map[string]int64, rev uint64) {
 					<td
 						class={ flashClass(cellName(i, j), changed, rev) }
 						style={ flashColor(rev) }
-						data-on:dblclick="@get('/demo/edit', {filterSignals: {include: /^$/}})"
+						data-on:dblclick="($open || $admin === 'gradmin') && @get('/demo/edit', {filterSignals: {include: /^$/}})"
 						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", cellName(i, j)) }
 					></td>
 				}
