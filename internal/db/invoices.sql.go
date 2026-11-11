@@ -7,11 +7,12 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createInvoice = `-- name: CreateInvoice :one
 INSERT INTO invoices (organization_id, customer_id, number, issue_date, due_date)
-VALUES (?, ?, ?, ?, ?) RETURNING id, organization_id, customer_id, number, issue_date, due_date
+VALUES (?, ?, ?, ?, ?) RETURNING id, organization_id, customer_id, number, issue_date, due_date, posted_transaction_id
 `
 
 type CreateInvoiceParams struct {
@@ -38,12 +39,40 @@ func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (I
 		&i.Number,
 		&i.IssueDate,
 		&i.DueDate,
+		&i.PostedTransactionID,
+	)
+	return i, err
+}
+
+const getInvoice = `-- name: GetInvoice :one
+SELECT id, organization_id, customer_id, number, issue_date, due_date, posted_transaction_id FROM invoices
+WHERE id = ?1
+  AND organization_id = ?2
+`
+
+type GetInvoiceParams struct {
+	InvoiceID      int64
+	OrganizationID int64
+}
+
+// GetInvoice returns one invoice in an organization.
+func (q *Queries) GetInvoice(ctx context.Context, arg GetInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRowContext(ctx, getInvoice, arg.InvoiceID, arg.OrganizationID)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.CustomerID,
+		&i.Number,
+		&i.IssueDate,
+		&i.DueDate,
+		&i.PostedTransactionID,
 	)
 	return i, err
 }
 
 const listInvoices = `-- name: ListInvoices :many
-SELECT id, organization_id, customer_id, number, issue_date, due_date FROM invoices WHERE organization_id = ? ORDER BY issue_date DESC, id DESC
+SELECT id, organization_id, customer_id, number, issue_date, due_date, posted_transaction_id FROM invoices WHERE organization_id = ? ORDER BY issue_date DESC, id DESC
 `
 
 func (q *Queries) ListInvoices(ctx context.Context, organizationID int64) ([]Invoice, error) {
@@ -62,6 +91,7 @@ func (q *Queries) ListInvoices(ctx context.Context, organizationID int64) ([]Inv
 			&i.Number,
 			&i.IssueDate,
 			&i.DueDate,
+			&i.PostedTransactionID,
 		); err != nil {
 			return nil, err
 		}
@@ -74,4 +104,35 @@ func (q *Queries) ListInvoices(ctx context.Context, organizationID int64) ([]Inv
 		return nil, err
 	}
 	return items, nil
+}
+
+const markInvoicePosted = `-- name: MarkInvoicePosted :one
+UPDATE invoices
+SET posted_transaction_id = ?1
+WHERE id = ?2
+  AND organization_id = ?3
+  AND posted_transaction_id IS NULL
+RETURNING id, organization_id, customer_id, number, issue_date, due_date, posted_transaction_id
+`
+
+type MarkInvoicePostedParams struct {
+	TransactionID  sql.NullInt64
+	InvoiceID      int64
+	OrganizationID int64
+}
+
+// MarkInvoicePosted links an invoice to its ledger transaction exactly once.
+func (q *Queries) MarkInvoicePosted(ctx context.Context, arg MarkInvoicePostedParams) (Invoice, error) {
+	row := q.db.QueryRowContext(ctx, markInvoicePosted, arg.TransactionID, arg.InvoiceID, arg.OrganizationID)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.CustomerID,
+		&i.Number,
+		&i.IssueDate,
+		&i.DueDate,
+		&i.PostedTransactionID,
+	)
+	return i, err
 }

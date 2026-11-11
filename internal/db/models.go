@@ -31,12 +31,13 @@ type Entry struct {
 }
 
 type Invoice struct {
-	ID             int64
-	OrganizationID int64
-	CustomerID     int64
-	Number         string
-	IssueDate      string
-	DueDate        string
+	ID                  int64
+	OrganizationID      int64
+	CustomerID          int64
+	Number              string
+	IssueDate           string
+	DueDate             string
+	PostedTransactionID sql.NullInt64
 }
 
 type InvoiceLine struct {

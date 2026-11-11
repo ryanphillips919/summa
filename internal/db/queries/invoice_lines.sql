@@ -1,9 +1,11 @@
--- CreateInvoiceLine adds a line only to an invoice in the given organization.
+-- CreateInvoiceLine adds a line only to an unposted invoice in the given organization.
 -- name: CreateInvoiceLine :one
 INSERT INTO invoice_lines (invoice_id, description, quantity, unit_price_cents)
 SELECT invoices.id, sqlc.arg(description), sqlc.arg(quantity), sqlc.arg(unit_price_cents)
 FROM invoices
-WHERE invoices.id = sqlc.arg(invoice_id) AND invoices.organization_id = sqlc.arg(organization_id)
+WHERE invoices.id = sqlc.arg(invoice_id)
+  AND invoices.organization_id = sqlc.arg(organization_id)
+  AND invoices.posted_transaction_id IS NULL
 RETURNING *;
 
 -- ListInvoiceLines returns one organization's lines for one invoice.

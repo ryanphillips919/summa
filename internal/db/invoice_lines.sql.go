@@ -13,7 +13,9 @@ const createInvoiceLine = `-- name: CreateInvoiceLine :one
 INSERT INTO invoice_lines (invoice_id, description, quantity, unit_price_cents)
 SELECT invoices.id, ?1, ?2, ?3
 FROM invoices
-WHERE invoices.id = ?4 AND invoices.organization_id = ?5
+WHERE invoices.id = ?4
+  AND invoices.organization_id = ?5
+  AND invoices.posted_transaction_id IS NULL
 RETURNING id, invoice_id, description, quantity, unit_price_cents
 `
 
@@ -25,7 +27,7 @@ type CreateInvoiceLineParams struct {
 	OrganizationID int64
 }
 
-// CreateInvoiceLine adds a line only to an invoice in the given organization.
+// CreateInvoiceLine adds a line only to an unposted invoice in the given organization.
 func (q *Queries) CreateInvoiceLine(ctx context.Context, arg CreateInvoiceLineParams) (InvoiceLine, error) {
 	row := q.db.QueryRowContext(ctx, createInvoiceLine,
 		arg.Description,

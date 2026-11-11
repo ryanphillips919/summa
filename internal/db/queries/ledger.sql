@@ -10,6 +10,12 @@ INSERT INTO accounts (organization_id, name, type) VALUES (?, ?, ?) RETURNING *;
 -- name: ListAccounts :many
 SELECT * FROM accounts WHERE organization_id = ? ORDER BY name;
 
+-- GetAccount returns one account in an organization.
+-- name: GetAccount :one
+SELECT * FROM accounts
+WHERE id = sqlc.arg(account_id)
+  AND organization_id = sqlc.arg(organization_id);
+
 -- CreateTransaction saves a transaction's header. Posting is one
 -- CreateTransaction plus one CreateEntry per line, all inside one database
 -- transaction so it all saves or none of it does (the Go code does that).
