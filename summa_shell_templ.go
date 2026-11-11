@@ -98,7 +98,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</head><body><div class=\"summa-shell\"><header class=\"mobile-header\"><a class=\"mobile-wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><button class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" type=\"button\" aria-label=\"Open navigation menu\" aria-controls=\"mobile-menu\" aria-expanded=\"false\"><i data-lucide=\"menu\"></i></button></header><aside class=\"sidebar\"><a class=\"wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><nav class=\"primary-nav\" aria-label=\"Primary navigation\"><p class=\"nav-section\">Workspace</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</head><body><script>\n\t\t\t\t{\n\t\t\t\t\tconst stops = [\n\t\t\t\t\t\t\"/presentation#s5\",\n\t\t\t\t\t\t\"/\",\n\t\t\t\t\t\t\"/analytics\",\n\t\t\t\t\t\t\"/demo\",\n\t\t\t\t\t\t\"/timeline\",\n\t\t\t\t\t\t\"/presentation#s6\",\n\t\t\t\t\t];\n\t\t\t\t\tconst i = stops.indexOf(location.pathname);\n\t\t\t\t\tif (sessionStorage.tour && i > 0)\n\t\t\t\t\t\taddEventListener(\"keydown\", (e) => {\n\t\t\t\t\t\t\tif (e.target.tagName === \"INPUT\") return;\n\t\t\t\t\t\t\tif (e.key === \"ArrowRight\" || e.key === \"Enter\")\n\t\t\t\t\t\t\t\tlocation.href = stops[i + 1];\n\t\t\t\t\t\t\tif (e.key === \"ArrowLeft\" || e.key === \"Escape\")\n\t\t\t\t\t\t\t\tlocation.href = stops[i - 1];\n\t\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t</script><div class=\"summa-shell\"><header class=\"mobile-header\"><a class=\"mobile-wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><button class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" type=\"button\" aria-label=\"Open navigation menu\" aria-controls=\"mobile-menu\" aria-expanded=\"false\"><i data-lucide=\"menu\"></i></button></header><aside class=\"sidebar\"><a class=\"wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><nav class=\"primary-nav\" aria-label=\"Primary navigation\"><p class=\"nav-section\">Workspace</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -292,7 +292,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.URL(href)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 85, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 106, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {
@@ -319,7 +319,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.NewAttributeExpression(icon).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 85, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 106, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -332,7 +332,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 85, Col: 171}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 106, Col: 171}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {

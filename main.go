@@ -51,12 +51,9 @@ func newRouter(app *App) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Server-sent event streams (/demo/watch, /timeline/watch, /ledger/watch) stay open for as
-	// long as a tab does, so the timeout only wraps ordinary requests.
 	r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
 	r.Mount("/demo", app.demoRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
-	//r.Mount("/ledger", app.ledgerRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))

@@ -20,7 +20,7 @@ var presenters = []string{"David Kendall", "Ryan Phillips", "Sawyer Evans", "Gra
 // VERIFY: these are the unfinished core-scope items from the proposal, assigned arbitrarily.
 // Reassign to match who actually owns what.
 var semesterGoals = map[string]string{
-	"David Kendall":  "Excel / CSV import into the ledger and Analytics",
+	"David Kendall":  "Excel / CSV import into the ledger",
 	"Ryan Phillips":  "Owner, editor and viewer roles",
 	"Sawyer Evans":   "Balance sheet, P&L and cash flow views",
 	"Graham Taggart": "Diff any two versions of the books, REST export",
@@ -36,7 +36,7 @@ const liveSlide = 5
 func deckKeys() string {
 	return fmt.Sprintf(`
 		const cur = Math.round(scrollY / innerHeight) + 1;
-		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { location.href = '/demo'; }
+		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { sessionStorage.tour = 1; location.href = '/'; }
 		else if (evt.key === 'ArrowRight' || evt.key === 'Enter') { scrollBy({top: innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'ArrowLeft') { scrollBy({top: -innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'Home') { scrollTo({top: 0, behavior: 'smooth'}); }
@@ -347,12 +347,11 @@ templ Slide3() {
 		<h2>A working ledger you can edit together</h2>
 		<div class="two-up">
 			<ul>
-				// VERIFY each bullet against main
 				<li><strong>General Journal:</strong> edit an entry and every open browser updates instantly</li>
 				<li><strong>Timeline:</strong> every change recorded, with who and when</li>
 				<li><strong>Dashboard:</strong> balances and activity computed from the ledger</li>
 			</ul>
-			<figure class="shot"><img src="/assets/images/present/dashboard.png" alt="Summa dashboard"/><figcaption>The dashboard, running on seeded books</figcaption></figure>
+			<figure class="shot"><img src="/assets/images/summa-tour.gif" alt="Summa dashboard"/><figcaption>The dashboard, running on seeded books</figcaption></figure>
 		</div>
 	}
 }
@@ -361,14 +360,16 @@ templ Slide3() {
 templ Slide4() {
 	@Frame(4, "demo", "") {
 		<p class="eyebrow">Demo</p>
-		<h2>A month in the life of the books</h2>
+		<h2>Four stops, and you edit the books at the third</h2>
 		<ol>
-			// VERIFY drivers and steps
-			<li><strong>Two people, one journal:</strong> David and Ryan open the General Journal; one edits, the other watches it land</li>
-			<li><strong>Who changed that?</strong> Sawyer scrubs back through the history and finds the edit on the Timeline</li>
-			<li><strong>The result:</strong> Graham shows the Dashboard reflecting the new numbers</li>
+			// VERIFY who drives each stop. Order must match the stops array in SummaShell.
+			<li><strong>Dashboard:</strong> David opens the books the way an owner sees them</li>
+			<li><strong>Analytics:</strong> Ryan shows the forecasts and audit flags</li>
+			<li><strong>General Journal:</strong> Graham puts up a QR code. Scan it, change a number, and watch the whole room update</li>
+			<li><strong>Timeline:</strong> Sawyer finds the edits you just made, each one a numbered revision</li>
 		</ol>
-		<p class="note">Live: every edit, sync and history entry you see. Seeded: the starting chart of accounts and the month of transactions.</p>
+		// VERIFY this line against main before presenting; it is the "what is real" statement
+		<p class="note">Live: every edit, sync and revision you see. Seeded: the starting numbers. Mocked for now: the dashboard charts.</p>
 	}
 }
 
@@ -378,7 +379,7 @@ templ Slide5() {
 	@Frame(5, "demo", "title") {
 		<p class="eyebrow">Live</p>
 		<h1>Let's see it</h1>
-		<p class="lede">Same app, same server as these slides. Two browsers, one ledger.</p>
+		<p class="lede">Summa presented from the same server as these slides.</p>
 	}
 }
 
@@ -386,16 +387,15 @@ templ Slide5() {
 templ Slide6() {
 	@Frame(6, "engineering", "") {
 		<p class="eyebrow">Engineering</p>
-		<h2>One Go server owns the truth</h2>
+		<h2>Hypermedia is <em>really</em> fast</h2>
 		<div class="two-up">
 			<ul>
-				// VERIFY against the real request path (POST handler, NATS subject, SSE watch endpoint)
-				<li><strong>Single writer:</strong> every edit is an HTTP POST to one Go server, so the ledger can never fork</li>
-				<li><strong>Push, not poll:</strong> NATS fans each change out, and Datastar streams it to browsers over SSE</li>
-				<li><strong>Small footprint:</strong> SQLite on disk, templ rendering HTML on the server, almost no hand-written JavaScript</li>
+				<li><strong>Single writer:</strong> Edits are pooled using NATS kv and saved to SQLite in batches, avoiding multiple writer issues. SQLite can handle 100,000 transactions per second anyway!</li>
+				<li><strong>Real Time:</strong> NATS KV Watcher notices changes client side and re-renders the entire page in real-time.</li>
+				<li><strong>Single Process:</strong> Everything is in the same process meaning no latency, networking issues, random microservice failures. Go is really fast!</li>
 			</ul>
 			// TODO: add architecture.png (browser → POST → Go server → SQLite / NATS → SSE → browsers)
-			<figure class="shot"><img src="/assets/images/present/architecture.png" alt="Summa architecture diagram"/><figcaption>An edit's round trip</figcaption></figure>
+			<figure class="shot"><img src="/assets/images/architecture.gif" alt="Summa architecture diagram"/><figcaption>An edit's round trip</figcaption></figure>
 		</div>
 	}
 }
@@ -403,12 +403,12 @@ templ Slide6() {
 templ Slide7() {
 	@Frame(7, "engineering", "") {
 		<p class="eyebrow">Engineering</p>
-		<h2>What was hard, and what we chose</h2>
+		<h2>Difficulties and Lessons</h2>
 		<ul>
-			// VERIFY: swap in the team's real war stories
-			<li><strong>Concurrent edits:</strong> one authoritative server ordering every change beat merging edits on the client</li>
-			<li><strong>Staying balanced:</strong> debits must equal credits after every edit, so validation lives on the server, not in the page</li>
-			<li><strong>Lesson:</strong> hypermedia over SSE gave us real-time without a frontend framework, and four people in one repo meant agreeing on shared layout and CSS early</li>
+			<li><strong>Python?:</strong> Figuring out where python's role should be is tricky and difficult</li>
+			<li><strong>To NATS or Not to NATS:</strong> Best places to use NATS vs when to use SQLite instead?</li>
+			<li><strong>Datastar:</strong> Keep the front-end simple and re-render HTML whenever changes happen instead of keeping client-server state in sync.</li>
+			<li><strong>Accounting:</strong> Keeping strong rules for double-entry accounting is a must.</li>
 		</ul>
 	}
 }

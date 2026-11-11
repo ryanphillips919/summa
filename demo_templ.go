@@ -71,7 +71,7 @@ func DemoContent(d DemoDocument, clients int64) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</header><input type=\"password\" placeholder=\"admin\" data-bind:admin><div style=\"\n\t\tdisplay: none;\n\t\tposition: fixed;\n\t\ttop: 50%;\n\t\tleft: 50%;\n\t\ttransform: translate(-50%, -50%);\n\t\tz-index: 50;\n\t\tbackground: #fff;\n\t\tpadding: 16px;\n\t\" data-signals:qr=\"true\" data-show=\"$qr && $admin === 'gradmin'\"><button data-on:click=\"$qr = false\">×</button><p>Scan QR code or join from app.summabooks.com/demo</p><img src=\"/demo/qr\" alt=\"Scan to join the demo\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</header><input type=\"password\" placeholder=\"admin\" data-bind:admin><div style=\"\n\t\tdisplay: none;\n\t\tposition: fixed;\n\t\ttop: 50%;\n\t\tleft: 50%;\n\t\ttransform: translate(-50%, -50%);\n\t\tz-index: 50;\n\t\tbackground: #fff;\n\t\tpadding: 16px;\n\t\" data-signals:qr=\"true\" data-show=\"$qr && $admin === 'gradmin'\"><button data-on:click=\"$qr = false\">×</button><p>Scan QR code or join from app.summabooks.com/demo !</p><img src=\"/demo/qr\" alt=\"Scan to join the demo\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

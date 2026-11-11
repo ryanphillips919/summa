@@ -172,7 +172,7 @@ func (a *App) demoSetEditing(open bool) http.HandlerFunc {
 }
 
 func (a *App) demoQRHandler(w http.ResponseWriter, r *http.Request) {
-	png, _ := qrcode.Encode("http://"+r.Host+"/demo", qrcode.Medium, 512)
+	png, _ := qrcode.Encode("https://"+r.Host+"/demo", qrcode.Medium, 512)
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(png)
 }
