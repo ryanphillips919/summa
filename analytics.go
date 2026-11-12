@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 
 	"summa/internal/analytics"
 
@@ -13,10 +16,8 @@ import (
 func (app *App) analyticsRoutes() chi.Router {
 	r := chi.NewRouter()
 
-	// The short analytics dashboard URL.
 	r.Get("/", app.analyticsPageHandler)
 
-	// Serves analytics.js and any later analytics-specific browser assets.
 	r.Handle(
 		"/*",
 		http.StripPrefix(
@@ -52,32 +53,20 @@ type analyticsResponse struct {
 	OpeningCashBalance float64                  `json:"opening_cash_balance"`
 }
 
+// analyticsCache retains the latest ledger-derived response. The mutex also
+// ensures that concurrent first requests do not start multiple Python models.
+type analyticsCache struct {
+	mu       sync.Mutex
+	response *analyticsResponse
+}
+
 func (app *App) analyticsHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	snapshot, err := app.cashDataSource.LoadCashSnapshot(r.Context())
+	response, available, err := app.loadAnalyticsResponse(r.Context())
 	if err != nil {
-		log.Printf("load analytics data: %v", err)
-		writeJSONError(
-			w,
-			http.StatusInternalServerError,
-			"analytics data is unavailable",
-		)
-		return
-	}
-	if len(snapshot.Movements) == 0 {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	result, err := analytics.Run(r.Context(), analytics.Request{
-		CashMovements:      snapshot.Movements,
-		ForecastDays:       snapshot.ForecastDays,
-		OpeningCashBalance: snapshot.OpeningCashBalance,
-	})
-	if err != nil {
-		log.Printf("run analytics: %v", err)
+		log.Printf("load analytics: %v", err)
 		writeJSONError(
 			w,
 			http.StatusInternalServerError,
@@ -86,11 +75,64 @@ func (app *App) analyticsHandler(
 		return
 	}
 
+	if !available {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
 
-	_ = json.NewEncoder(w).Encode(analyticsResponse{
+func (app *App) loadAnalyticsResponse(
+	ctx context.Context,
+) (analyticsResponse, bool, error) {
+	app.analyticsCache.mu.Lock()
+	defer app.analyticsCache.mu.Unlock()
+
+	if app.analyticsCache.response != nil {
+		return *app.analyticsCache.response, true, nil
+	}
+
+	snapshot, err := app.cashDataSource.LoadCashSnapshot(ctx)
+	if err != nil {
+		return analyticsResponse{}, false, err
+	}
+	if len(snapshot.Movements) == 0 {
+		return analyticsResponse{}, false, nil
+	}
+
+	result, err := analytics.Run(ctx, analytics.Request{
+		CashMovements:      snapshot.Movements,
+		ForecastDays:       snapshot.ForecastDays,
+		OpeningCashBalance: snapshot.OpeningCashBalance,
+	})
+	if err != nil {
+		return analyticsResponse{}, false, err
+	}
+
+	response := analyticsResponse{
 		Response:           result,
 		CashMovements:      snapshot.Movements,
 		OpeningCashBalance: snapshot.OpeningCashBalance,
-	})
+	}
+	app.analyticsCache.response = &response
+
+	return response, true, nil
+}
+
+func (app *App) invalidateAnalyticsCache() {
+	app.analyticsCache.mu.Lock()
+	defer app.analyticsCache.mu.Unlock()
+	app.analyticsCache.response = nil
+}
+
+// warmAnalyticsCache runs after app startup, so a presenter normally reaches
+// Analytics after its response is already available.
+func (app *App) warmAnalyticsCache() {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if _, _, err := app.loadAnalyticsResponse(ctx); err != nil {
+		log.Printf("warm analytics cache: %v", err)
+	}
 }

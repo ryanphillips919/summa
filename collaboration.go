@@ -17,6 +17,8 @@ func (a *App) ledgerSubject() string {
 
 // Notifications contain no financial data; listeners reload it from SQLite.
 func (a *App) notifyLedgerChanged() {
+	a.invalidateAnalyticsCache()
+
 	if a.nc == nil {
 		return
 	}

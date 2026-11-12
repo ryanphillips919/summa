@@ -68,7 +68,10 @@ def rolling_mean_prediction(values: list[float]) -> float:
     return statistics.fmean(values[-7:])
 
 
-def holt_winters_forecast(values: list[float], horizon: int) -> tuple[list[float], float]:
+def holt_winters_forecast(
+    values: list[float],
+    horizon: int,
+) -> tuple[list[float], float, float]:
     """Fit daily Holt-Winters with an approximate monthly seasonal cycle."""
     if len(values) < MIN_HOLT_WINTERS_DAYS:
         raise ValueError("Insufficient data for monthly seasonal Holt-Winters")
@@ -83,37 +86,17 @@ def holt_winters_forecast(values: list[float], horizon: int) -> tuple[list[float
 
     forecast_values = model.forecast(horizon)
     fitted_values = model.fittedvalues
-    residuals = [actual - fitted for actual, fitted in zip(values, fitted_values)]
-    rmse = math.sqrt(statistics.fmean(residual * residual for residual in residuals))
-    return list(forecast_values), rmse
+    residuals = [
+        actual - fitted
+        for actual, fitted in zip(values, fitted_values)
+    ]
+    rmse = math.sqrt(statistics.fmean(
+        residual * residual
+        for residual in residuals
+    ))
+    fit_mae = statistics.fmean(abs(residual) for residual in residuals)
 
-
-def backtest_mae(values: list[float], model_type: str) -> float | None:
-    """One-day rolling-origin validation on the newest observed days."""
-    errors = []
-    start_idx = (
-        max(MIN_HOLT_WINTERS_DAYS, len(values) - 14)
-        if model_type == "holt_winters"
-        else max(14, len(values) - 14)
-    )
-    
-    for index in range(start_idx, len(values)):
-        training = values[:index]
-        if model_type == "rolling_mean":
-            predicted = rolling_mean_prediction(training)
-        elif model_type == "holt_winters":
-            try:
-                hw_preds, _ = holt_winters_forecast(training, 1)
-                predicted = hw_preds[0]
-            except Exception:
-                return None
-        else:
-            return None
-            
-        errors.append(abs(values[index] - predicted))
-        
-    return statistics.fmean(errors) if errors else None
-
+    return list(forecast_values), rmse, fit_mae
 
 def canonical_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().casefold())
@@ -134,23 +117,20 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
     values = [entry["net_cash_flow"] for entry in daily]
     baseline = rolling_mean_prediction(values)
-
-    # Retain the rolling mean for validation and a limited-history fallback.
-    # With enough history, forecast using monthly-seasonal Holt-Winters.
-    baseline_mae = backtest_mae(values, "rolling_mean")
-    hw_mae = backtest_mae(values, "holt_winters")
+    forecast_fit_mae = None
 
     try:
-        forecast_values, rmse = holt_winters_forecast(values, horizon)
+        forecast_values, rmse, forecast_fit_mae = holt_winters_forecast(
+            values,
+            horizon,
+        )
         model_name = "Holt-Winters (monthly seasonality)"
-        selected_mae = hw_mae
     except Exception:
         recent = values[-7:]
         forecast_values = [baseline] * horizon
         rmse = statistics.stdev(recent) if len(recent) > 1 else 0.0
         model_name = "7-day rolling mean (limited history fallback)"
-        selected_mae = baseline_mae
-
+   
     forecast = []
     running_total = 0.0
     for offset, predicted in enumerate(forecast_values, start=1):
@@ -246,7 +226,7 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "methodology": {
-            "forecast": "monthly-seasonal Holt-Winters; a 7-day rolling mean is retained only as a limited-history fallback and validation reference",
+            "forecast": "monthly-seasonal Holt-Winters fitted once per ledger revision; a 7-day rolling mean is retained only as a limited-history fallback",
             "anomalies": "category-aware expense review: high outflows versus category history plus grouped exact duplicate candidates",
         },
         "summary": {
@@ -256,9 +236,7 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
             "daily_baseline": round(baseline, 2),
             "anomaly_count": len(anomalies),
             "forecast_model": model_name,
-            "baseline_validation_mae": round(baseline_mae, 2) if baseline_mae is not None else None,
-            "holt_winters_validation_mae": round(hw_mae, 2) if hw_mae is not None else None,
-            "selected_model_validation_mae": round(selected_mae, 2) if selected_mae is not None else None,
+            "forecast_fit_mae": round(forecast_fit_mae, 2) if forecast_fit_mae is not None else None,
         },
         "daily_cash_flow": [
             {"date": entry["date"].isoformat(), "net_cash_flow": entry["net_cash_flow"]}

@@ -38,6 +38,8 @@ func run() error {
 	}
 	defer cleanup()
 
+	go app.warmAnalyticsCache()
+
 	log.Println("Embedded NATS ready")
 	log.Println("Summa running on http://localhost:8080")
 	return http.ListenAndServe(":8080", newRouter(app))
@@ -115,6 +117,7 @@ type App struct {
 	queries        *db.Queries
 	orgID          int64 // one organization for now; see seedDevData
 	cashDataSource analytics.CashDataSource
+	analyticsCache analyticsCache
 }
 
 func appInit() (*App, func(), error) {

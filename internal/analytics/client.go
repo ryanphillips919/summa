@@ -67,9 +67,7 @@ type Response struct {
 		DailyBaseline   float64  `json:"daily_baseline"`
 		AnomalyCount    int      `json:"anomaly_count"`
 		ForecastModel   string   `json:"forecast_model"`
-		BaselineMAE     *float64 `json:"baseline_validation_mae"`
-		HoltWintersMAE  *float64 `json:"holt_winters_validation_mae"`
-		SelectedMAE     *float64 `json:"selected_model_validation_mae"`
+		ForecastFitMAE  *float64 `json:"forecast_fit_mae"`
 	} `json:"summary"`
 
 	DailyCashFlow []DailyCashFlowPoint `json:"daily_cash_flow"`
