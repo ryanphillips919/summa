@@ -65,8 +65,18 @@ func newRouter(app *App) http.Handler {
 	return r
 }
 
+// revalidate makes browsers check with the server before reusing a cached
+// asset, so CSS/JS edits show up on every page without a hard refresh.
+// Unchanged files still come back as a cheap 304 Not Modified.
+func revalidate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (a *App) mountRoutes(r chi.Router) {
-	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	r.Handle("/assets/*", revalidate(http.StripPrefix("/assets/", http.FileServer(http.Dir("assets")))))
 	r.Get("/", a.homepageHandler)
 	r.Get("/journal", a.journalHandler)
 	r.Post("/journal", a.journalPostHandler)
