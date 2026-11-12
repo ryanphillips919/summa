@@ -8,6 +8,8 @@ GitHub Actions runs automated formatting, testing, and build checks on Ubuntu. G
 
 Developers using Windows can work through WSL or Docker.
 
+For the disposable AWS demo, see [docs/aws-deployment.md](docs/aws-deployment.md).
+
 ## Ledger rules
 
 All code that handles money must follow [docs/ledger-rules.md](docs/ledger-rules.md) (double-entry, append-only, derived balances).
