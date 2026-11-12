@@ -110,7 +110,20 @@ Resources:
           curl --fail --silent http://127.0.0.1:8080/health >/dev/null
           install -d -m 0700 /etc/cloudflared
           umask 077
-          aws ssm get-parameter --name /summa/cloudflare/tunnel-token --with-decryption --region '${AWS::Region}' --query Parameter.Value --output text > /etc/cloudflared/token
+          aws ssm get-parameter --name /summa/cloudflare/tunnel-token --with-decryption --region '${AWS::Region}' --query Parameter.Value --output text | python3 -c '
+          import base64, json, re, sys
+          matches = []
+          for candidate in re.findall(r"[A-Za-z0-9+/]{40,}={0,2}", sys.stdin.read()):
+              try:
+                  decoded = json.loads(base64.b64decode(candidate, validate=True))
+                  if isinstance(decoded, dict) and all(key in decoded for key in ("a", "t", "s")):
+                      matches.append(candidate)
+              except (ValueError, UnicodeError):
+                  pass
+          if len(matches) != 1:
+              sys.exit("Expected exactly one valid tunnel token in Parameter Store")
+          sys.stdout.write(matches[0])
+          ' > /etc/cloudflared/token
           test -s /etc/cloudflared/token
           cat > /etc/systemd/system/cloudflared.service <<'SERVICE'
           [Unit]

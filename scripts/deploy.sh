@@ -4,6 +4,10 @@ source "$(dirname "$0")/aws-common.sh"
 started=$SECONDS
 require_aws
 command -v python3 >/dev/null || { echo "Python 3 is required." >&2; exit 1; }
+connector_check=api
+if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" || -z "${CLOUDFLARE_TUNNEL_ID:-}" || -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+  connector_check=manual
+fi
 
 if stack_exists; then
   check_stack_tag
@@ -13,6 +17,16 @@ if stack_exists; then
   fi
   echo "The demo stack already exists. Checking its current health."
 else
+  if [[ "$connector_check" == manual ]]; then
+    if [[ "${SUMMA_CONNECTOR_VERIFIED_CLEAR:-}" == yes ]]; then
+      echo "Using the operator's confirmation that summa-ec2 has no other active connectors."
+    elif [[ "${SUMMA_ALLOW_UNVERIFIED_CONNECTORS:-}" == yes ]]; then
+      echo "The operator authorized deployment without checking the existing connector count."
+    else
+      echo "Check that the summa-ec2 tunnel has no active connectors in the Cloudflare dashboard, then set SUMMA_CONNECTOR_VERIFIED_CLEAR=yes. See docs/aws-deployment.md." >&2
+      exit 1
+    fi
+  fi
   : "${SUMMA_SUBNET_ID:?Set SUMMA_SUBNET_ID to a public subnet ID; see docs/aws-deployment.md}"
   subnet=$(aws ec2 describe-subnets --subnet-ids "$SUMMA_SUBNET_ID" --query 'Subnets[0].VpcId' --output text)
   [[ "$subnet" == vpc-* ]] || { echo "Could not determine the subnet's VPC." >&2; exit 1; }
@@ -21,8 +35,10 @@ else
   }
   digest=$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag=demo --query 'imageDetails[0].imageDigest' --output text)
   [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Publish the demo image first; see docs/aws-deployment.md." >&2; exit 1; }
-  count=$(python3 "$ROOT_DIR/scripts/cloudflare-connectors.py" --verify-stored-token)
-  [[ "$count" == 0 ]] || { echo "The existing summa-ec2 tunnel has $count active connector(s). Stop and investigate them before deploying." >&2; exit 1; }
+  if [[ "$connector_check" == api ]]; then
+    count=$(python3 "$ROOT_DIR/scripts/cloudflare-connectors.py" --verify-stored-token)
+    [[ "$count" == 0 ]] || { echo "The existing summa-ec2 tunnel has $count active connector(s). Stop and investigate them before deploying." >&2; exit 1; }
+  fi
   echo "Existing running or starting EC2 instances in account $ACCOUNT_ID, region $AWS_REGION:"
   aws ec2 describe-instances --filters 'Name=instance-state-name,Values=pending,running' --query 'Reservations[].Instances[].[InstanceId,State.Name,Tags[?Key==`Name`].Value|[0]]' --output table
   image="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPOSITORY@$digest"
@@ -44,7 +60,7 @@ for attempt in $(seq 1 60); do
 done
 [[ "$managed" == Online ]] || { echo "Instance did not become available in Systems Manager." >&2; exit 1; }
 command_id=$(aws ssm send-command --instance-ids "$instance" --document-name AWS-RunShellScript \
-  --parameters 'commands=["systemctl is-active --quiet cloudflared && curl --fail --silent http://127.0.0.1:8080/health >/dev/null"]' \
+  --parameters 'commands=["systemctl is-active --quiet cloudflared && test -s /run/cloudflared-summa.pid && curl --fail --silent http://127.0.0.1:8080/health >/dev/null"]' \
   --query 'Command.CommandId' --output text)
 command_status=Pending
 for attempt in $(seq 1 60); do
@@ -57,7 +73,11 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 [[ "$command_status" == Success ]] || { echo "Instance health check did not succeed (status: $command_status)." >&2; exit 1; }
-count=$(connector_count)
-[[ "$count" == 1 ]] || { echo "Expected one active summa-ec2 connector; found $count. Check the tunnel before using the app." >&2; exit 1; }
-echo "Summa is healthy at https://app.summabooks.app (Cloudflare Access sign-in may be required)."
+if [[ "$connector_check" == api ]]; then
+  count=$(connector_count)
+  [[ "$count" == 1 ]] || { echo "Expected one active summa-ec2 connector; found $count. Check the tunnel before using the app." >&2; exit 1; }
+else
+  echo "Cloudflare connector count was not checked through the API; confirm the tunnel status in the dashboard."
+fi
+echo "Summa is healthy on the instance. Verify https://app.summabooks.app separately (Cloudflare Access sign-in may be required)."
 echo "Elapsed: $((SECONDS - started)) seconds."

@@ -59,7 +59,7 @@ Northstar demo. Stop using the environment before destroying it.
    active connectors. This deployment expects the existing **remotely managed**
    tunnel to route `app.summabooks.app` to `http://127.0.0.1:8080` and the
    existing Access application to protect it. It does not change either.
-5. In the same Cloudflare account, create a separate, read-only API token with
+5. For automatic connector checks, use a separate, read-only API token with
    account **Cloudflare Tunnel: Read** permission. Set the account ID and the
    existing `summa-ec2` tunnel ID from the dashboard. Enter the token with
    hidden input so it does not go into shell history:
@@ -75,6 +75,14 @@ Northstar demo. Stop using the environment before destroying it.
    The last command prints the number of active connectors. Deploy refuses to
    create a new server unless that number is zero. Store the API token securely
    according to your team's practices; enter it again in each new shell.
+   Alternatively, inspect `summa-ec2` in the Cloudflare dashboard and verify
+   that it has no active connectors. Only after verifying this, set
+   `SUMMA_CONNECTOR_VERIFIED_CLEAR=yes` in the deploying shell. The script then
+   uses your confirmation instead of the API check; it cannot detect connectors
+   started elsewhere or automatically confirm the expected tunnel after boot.
+   If you intentionally accept the possibility of other active connectors, use
+   `SUMMA_ALLOW_UNVERIFIED_CONNECTORS=yes` instead. Traffic could reach a
+   different server; verify the public application after deployment.
 6. Obtain the **existing tunnel token** from the Cloudflare dashboard using an
    authorized account. This is different from the read-only API token. Store it
    once in the same AWS region, using hidden input:
@@ -85,8 +93,10 @@ Northstar demo. Stop using the environment before destroying it.
 
    This creates `/summa/cloudflare/tunnel-token` as a SecureString with the AWS
    managed `aws/ssm` KMS key. It deliberately does not overwrite an existing
-   parameter. The instance role can read only this named parameter. Deploy
-   checks that the stored token identifies the specified account and tunnel.
+   parameter. Startup accepts the token alone or embedded in the Cloudflare
+   install command, provided exactly one token is present. The instance role
+   can read only this named parameter. With API credentials, deploy checks that
+   the stored token identifies the specified account and tunnel.
    Never commit either token or put it in a command line. The parameter is
    preserved when the stack is deleted.
 7. Create the reusable ECR repository once, after approval for any AWS charges:
@@ -117,11 +127,13 @@ digest; it does not silently replace a running demo when the tag changes.
 ./scripts/deploy.sh
 ```
 
-The script checks credentials, the stored token, ECR and tunnel connectors,
+The script checks credentials, the stored token and ECR, and checks tunnel
+connectors using the API or your explicit confirmation,
 then creates the fixed `summa-demo` CloudFormation stack. EC2 installs Docker,
 Compose and cloudflared, starts the image, and signals CloudFormation only
 after localhost `/health` responds and cloudflared establishes a connection.
-The script checks Systems Manager and the tunnel again before printing the URL.
+The script checks Systems Manager and, when API credentials are supplied, the
+tunnel again before printing the URL.
 Sign in through Cloudflare Access to visit `https://app.summabooks.app`.
 
 If the stack already exists, the script checks its health without changing or

@@ -3,6 +3,7 @@
 import json
 import os
 import base64
+import re
 import subprocess
 import sys
 import urllib.error
@@ -42,7 +43,17 @@ if sys.argv[1:] == ["--verify-stored-token"]:
              "--with-decryption", "--query", "Parameter.Value", "--output", "text"],
             check=True, capture_output=True, text=True,
         ).stdout.strip()
-        decoded = json.loads(base64.b64decode(stored))
+        matches = []
+        for candidate in re.findall(r"[A-Za-z0-9+/]{40,}={0,2}", stored):
+            try:
+                decoded_candidate = json.loads(base64.b64decode(candidate, validate=True))
+                if isinstance(decoded_candidate, dict) and all(k in decoded_candidate for k in ("a", "t", "s")):
+                    matches.append(decoded_candidate)
+            except (ValueError, UnicodeError):
+                pass
+        if len(matches) != 1:
+            sys.exit("The stored parameter must contain exactly one valid tunnel token.")
+        decoded = matches[0]
         if decoded.get("a") != account or decoded.get("t") != tunnel:
             sys.exit("The stored tunnel token does not match the specified Cloudflare account and tunnel.")
     except (subprocess.SubprocessError, ValueError, OSError):
