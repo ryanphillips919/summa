@@ -48,12 +48,12 @@ func seedDevData(ctx context.Context, conn *sql.DB, q *db.Queries) (int64, error
 	}
 
 	var customers []db.Customer
-	for _, name := range []string{
+	for i, name := range []string{
 		"Summit Hospitality", "Canyon Medical", "Evergreen Schools", "Mesa Office Group",
 		"Aspen Hotel Group", "Clearview Clinics", "Cedar Community College", "Redstone Facilities",
 		"Pioneer Office Services", "Willow Care Center", "Silver Creek Lodge", "Westgate Manufacturing",
 	} {
-		customer, err := q.CreateCustomer(ctx, db.CreateCustomerParams{OrganizationID: org.ID, Name: name})
+		customer, err := q.CreateCustomer(ctx, db.CreateCustomerParams{OrganizationID: org.ID, Name: name, Email: sql.NullString{String: fmt.Sprintf("customer%02d@example.com", i+1), Valid: true}})
 		if err != nil {
 			return 0, fmt.Errorf("seed customer %q: %w", name, err)
 		}

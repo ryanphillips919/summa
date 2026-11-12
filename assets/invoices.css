@@ -7,5 +7,6 @@
 .invoice-form { display:flex; flex-wrap:wrap; gap:1rem; align-items:end; }
 .invoice-form label { display:grid; gap:.35rem; min-width:11rem; }
 .invoice-form input, .invoice-form select { padding:.6rem; border:1px solid #b8c8ce; border-radius:6px; background:#fff; }
+.form-error { color:#a12727; }
 .invoice-button { display:inline-block; padding:.65rem 1rem; color:#fff; background:#11625d; border:0; border-radius:7px; text-decoration:none; cursor:pointer; }
 @media (max-width: 650px) { .invoice-header { align-items:flex-start; flex-direction:column; } .invoice-form label { width:100%; } }

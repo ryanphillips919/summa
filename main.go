@@ -71,6 +71,7 @@ func (a *App) mountRoutes(r chi.Router) {
 	r.Get("/journal", a.journalHandler)
 	r.Post("/journal", a.journalPostHandler)
 	r.Get("/customers", a.customersHandler)
+	r.Post("/customers", a.createCustomerHandler)
 	r.Get("/invoices", a.invoicesHandler)
 	r.Get("/invoices/new", a.newInvoiceHandler)
 	r.Post("/invoices", a.createInvoiceHandler)

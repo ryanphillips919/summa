@@ -106,6 +106,9 @@ func TestNorthstarSeed(t *testing.T) {
 		if customer.OrganizationID != app.orgID {
 			t.Errorf("customer belongs to organization %d", customer.OrganizationID)
 		}
+		if !customer.Email.Valid || !strings.HasSuffix(customer.Email.String, "@example.com") {
+			t.Errorf("seed customer %q has unexpected email %q", customer.Name, customer.Email.String)
+		}
 		customerIDs[customer.ID] = true
 	}
 	accounts, err := app.queries.ListAccounts(ctx, app.orgID)
@@ -616,5 +619,48 @@ func TestEmptyOrganizationViews(t *testing.T) {
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/analytics", nil))
 	if response.Code != http.StatusNoContent {
 		t.Errorf("empty analytics status = %d, want 204", response.Code)
+	}
+}
+
+func TestCustomerCreation(t *testing.T) {
+	app := newNorthstarTestApp(t)
+	router := newRouter(app)
+	post := func(form url.Values) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/customers", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+		return response
+	}
+	for _, form := range []url.Values{{"name": {"  "}}, {"name": {"Invalid Email"}, "email": {"not-an-email"}}} {
+		response := post(form)
+		if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "role=\"alert\"") {
+			t.Fatalf("invalid customer: status %d, body %s", response.Code, response.Body.String())
+		}
+	}
+	for _, form := range []url.Values{{"name": {"  Example Customer  "}, "email": {"  billing@example.com  "}}, {"name": {"No Email"}}} {
+		response := post(form)
+		if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/customers" {
+			t.Fatalf("create customer: status %d, location %q", response.Code, response.Header().Get("Location"))
+		}
+	}
+	customers, err := app.queries.ListCustomers(t.Context(), app.orgID)
+	if err != nil || len(customers) != 14 {
+		t.Fatalf("customers = %d, error = %v", len(customers), err)
+	}
+	for _, customer := range customers {
+		if customer.Name == "Example Customer" && (!customer.Email.Valid || customer.Email.String != "billing@example.com") {
+			t.Errorf("incorrect email: %+v", customer)
+		}
+		if customer.Name == "No Email" && customer.Email.Valid {
+			t.Errorf("optional email was saved: %+v", customer)
+		}
+	}
+	for _, path := range []string{"/customers", "/invoices/new"} {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Example Customer") {
+			t.Errorf("GET %s: status %d, customer missing", path, response.Code)
+		}
 	}
 }

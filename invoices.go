@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,10 @@ func (a *App) invoiceSummaries(ctx context.Context) ([]InvoiceSummary, error) {
 }
 
 func (a *App) customersHandler(w http.ResponseWriter, r *http.Request) {
+	a.renderCustomers(w, r, "", "", "", http.StatusOK)
+}
+
+func (a *App) renderCustomers(w http.ResponseWriter, r *http.Request, name, email, message string, status int) {
 	org, err := a.queries.GetOrganization(r.Context(), a.orgID)
 	if err != nil {
 		http.Error(w, "Could not load organization.", http.StatusInternalServerError)
@@ -72,9 +77,41 @@ func (a *App) customersHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not load customers.", http.StatusInternalServerError)
 		return
 	}
-	if err := CustomersPage(org.Name, customers).Render(r.Context(), w); err != nil {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	if err := CustomersPage(org.Name, customers, name, email, message).Render(r.Context(), w); err != nil {
 		fmt.Printf("render customers: %v\n", err)
 	}
+}
+
+func (a *App) createCustomerHandler(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Could not read the customer form.", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	message := ""
+	if name == "" || len(name) > 200 {
+		message = "Enter a customer name of up to 200 characters."
+	} else if email != "" {
+		address, err := mail.ParseAddress(email)
+		if err != nil || address.Address != email || len(email) > 254 {
+			message = "Enter a valid email address."
+		}
+	}
+	if message != "" {
+		a.renderCustomers(w, r, name, email, message, http.StatusBadRequest)
+		return
+	}
+	_, err := a.queries.CreateCustomer(r.Context(), db.CreateCustomerParams{
+		OrganizationID: a.orgID, Name: name, Email: sql.NullString{String: email, Valid: email != ""},
+	})
+	if err != nil {
+		http.Error(w, "Could not create customer.", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/customers", http.StatusSeeOther)
 }
 
 func (a *App) invoicesHandler(w http.ResponseWriter, r *http.Request) {

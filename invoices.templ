@@ -5,12 +5,23 @@ import (
 	"summa/internal/db"
 )
 
-templ CustomersPage(organization string, customers []db.Customer) {
-	@SummaShell(SummaPageMeta{Title: "Customers · Summa", Description: "Customers", ActiveNav: "customers", Stylesheet: "/assets/invoices.css"}, CustomersContent(organization, customers))
+templ CustomersPage(organization string, customers []db.Customer, name, email, message string) {
+	@SummaShell(SummaPageMeta{Title: "Customers · Summa", Description: "Customers", ActiveNav: "customers", Stylesheet: "/assets/invoices.css"}, CustomersContent(organization, customers, name, email, message))
 }
 
-templ CustomersContent(organization string, customers []db.Customer) {
+templ CustomersContent(organization string, customers []db.Customer, name, email, message string) {
 	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Customers</h1><p>Customers in your organization.</p></div><a class="invoice-button" href="/invoices">View invoices</a></header>
+	<section class="invoice-panel" id="add-customer">
+		<h2>Add a customer</h2>
+		if message != "" {
+			<p class="form-error" role="alert">{ message }</p>
+		}
+		<form class="invoice-form" method="post" action="/customers">
+			<label>Name<input name="name" value={ name } maxlength="200" required/></label>
+			<label>Email (optional)<input type="email" name="email" value={ email } maxlength="254"/></label>
+			<button class="invoice-button" type="submit">Add customer</button>
+		</form>
+	</section>
 	<section class="invoice-panel">
 		if len(customers) == 0 {
 			<p>No customers yet.</p>
@@ -67,7 +78,7 @@ templ NewInvoiceContent(organization string, customers []db.Customer, today stri
 	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>New invoice</h1><p>Create a draft, then add its line items.</p></div><a href="/invoices">Back to invoices</a></header>
 	<section class="invoice-panel">
 		if len(customers) == 0 {
-			<p>Add a customer before creating an invoice.</p>
+			<p><a href="/customers#add-customer">Add a customer</a> before creating an invoice.</p>
 		} else {
 			<form class="invoice-form" method="post" action="/invoices">
 				<label>
