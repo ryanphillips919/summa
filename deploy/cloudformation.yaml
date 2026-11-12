@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Disposable Summa demo server (the tunnel and image are managed separately).
+Parameters:
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  ImageUri:
+    Type: String
+    AllowedPattern: '[0-9]{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/summa@sha256:[a-f0-9]{64}'
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Summa demo outbound connections only
+      VpcId: !Ref VpcId
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: SummaDeployment
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/summa/cloudflare/tunnel-token
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: !Sub arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/summa
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+  Server:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: t3.small
+      IamInstanceProfile: !Ref InstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetId
+          GroupSet: [!Ref SecurityGroup]
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - {Key: Name, Value: summa-demo}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -Eeuo pipefail
+          signal() {
+            result=$?
+            trap - EXIT
+            /opt/aws/bin/cfn-signal -e "$result" --stack '${AWS::StackName}' --resource Server --region '${AWS::Region}' || true
+            exit "$result"
+          }
+          trap signal EXIT
+          dnf install -y docker aws-cfn-bootstrap
+          curl -fsSL https://pkg.cloudflare.com/cloudflared.repo -o /etc/yum.repos.d/cloudflared.repo
+          dnf install -y cloudflared
+          install -d -m 0755 /usr/local/lib/docker/cli-plugins /opt/summa
+          curl -fsSL https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+          systemctl enable --now docker
+          aws ecr get-login-password --region '${AWS::Region}' | docker login --username AWS --password-stdin '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com' >/dev/null
+          cat > /opt/summa/compose.yaml <<'COMPOSE'
+          services:
+            summa:
+              image: ${ImageUri}
+              restart: unless-stopped
+              ports:
+                - "127.0.0.1:8080:8080"
+              volumes:
+                - summa-data:/app/data
+          volumes:
+            summa-data:
+          COMPOSE
+          docker compose -f /opt/summa/compose.yaml up -d
+          for i in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8080/health >/dev/null
+          install -d -m 0700 /etc/cloudflared
+          umask 077
+          aws ssm get-parameter --name /summa/cloudflare/tunnel-token --with-decryption --region '${AWS::Region}' --query Parameter.Value --output text > /etc/cloudflared/token
+          test -s /etc/cloudflared/token
+          cat > /etc/systemd/system/cloudflared.service <<'SERVICE'
+          [Unit]
+          Description=Cloudflare Tunnel for Summa
+          After=network-online.target docker.service
+          Wants=network-online.target
+          [Service]
+          ExecStartPre=/usr/bin/rm -f /run/cloudflared-summa.pid
+          ExecStart=/usr/bin/cloudflared tunnel --pidfile /run/cloudflared-summa.pid run --token-file /etc/cloudflared/token
+          Restart=on-failure
+          RestartSec=5
+          [Install]
+          WantedBy=multi-user.target
+          SERVICE
+          systemctl daemon-reload
+          systemctl enable --now cloudflared
+          for i in $(seq 1 90); do
+            if test -s /run/cloudflared-summa.pid && systemctl is-active --quiet cloudflared; then break; fi
+            sleep 2
+          done
+          test -s /run/cloudflared-summa.pid
+          systemctl is-active --quiet cloudflared
+          curl --fail --silent http://127.0.0.1:8080/health >/dev/null
+Outputs:
+  InstanceId:
+    Value: !Ref Server
