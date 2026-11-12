@@ -70,12 +70,12 @@ templ InvoicesContent(organization string, invoices []InvoiceSummary) {
 	</section>
 }
 
-templ NewInvoicePage(organization string, customers []db.Customer, today string) {
-	@SummaShell(SummaPageMeta{Title: "New invoice · Summa", Description: "Create an invoice", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, NewInvoiceContent(organization, customers, today))
+templ NewInvoicePage(organization string, customers []db.Customer, today, nextNumber string) {
+	@SummaShell(SummaPageMeta{Title: "New invoice · Summa", Description: "Create an invoice", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, NewInvoiceContent(organization, customers, today, nextNumber))
 }
 
-templ NewInvoiceContent(organization string, customers []db.Customer, today string) {
-	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>New invoice</h1><p>Create a draft, then add its line items.</p></div><a href="/invoices">Back to invoices</a></header>
+templ NewInvoiceContent(organization string, customers []db.Customer, today, nextNumber string) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>New invoice</h1><p>Create a draft, then add its line items.</p></div><a class="invoice-button secondary" href="/invoices">Back to invoices</a></header>
 	<section class="invoice-panel">
 		if len(customers) == 0 {
 			<p><a href="/customers#add-customer">Add a customer</a> before creating an invoice.</p>
@@ -90,7 +90,11 @@ templ NewInvoiceContent(organization string, customers []db.Customer, today stri
 						}
 					</select>
 				</label>
-				<label>Invoice number<input name="number" maxlength="100" required/></label>
+				<div class="invoice-field">
+					<span class="invoice-field-label">Invoice number</span>
+					<output class="invoice-number-preview" aria-describedby="invoice-number-hint">{ nextNumber }</output>
+					<span class="invoice-field-hint" id="invoice-number-hint">Assigned automatically</span>
+				</div>
 				<label>Issue date<input type="date" name="issue_date" value={ today } required/></label>
 				<label>Due date<input type="date" name="due_date" value={ today } required/></label>
 				<button class="invoice-button" type="submit">Create draft</button>
@@ -104,7 +108,7 @@ templ InvoiceDetailPage(data InvoiceDetailData) {
 }
 
 templ InvoiceDetailContent(data InvoiceDetailData) {
-	<header class="invoice-header"><div><p class="eyebrow">{ data.Organization }</p><h1>{ data.Summary.Invoice.Number }</h1><p>{ data.Summary.Customer } · { invoiceStatus(data.Summary.Invoice) }</p></div><a href="/invoices">Back to invoices</a></header>
+	<header class="invoice-header"><div><p class="eyebrow">{ data.Organization }</p><h1>{ data.Summary.Invoice.Number }</h1><p>{ data.Summary.Customer } · { invoiceStatus(data.Summary.Invoice) }</p></div><a class="invoice-button secondary" href="/invoices">Back to invoices</a></header>
 	<section class="invoice-panel">
 		<p>Issued { data.Summary.Invoice.IssueDate } · Due { data.Summary.Invoice.DueDate }</p>
 		if len(data.Lines) == 0 {

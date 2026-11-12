@@ -245,8 +245,9 @@ func TestInvoiceWorkflowUpdatesSharedViews(t *testing.T) {
 		t.Fatalf("customers: %v", err)
 	}
 	created := request(http.MethodPost, "/invoices", url.Values{
-		"customer_id": {strconv.FormatInt(customers[0].ID, 10)}, "number": {"INV-021"},
-		"issue_date": {"2026-10-27"}, "due_date": {"2026-11-26"},
+		// No "number" field: the server assigns INV-021 (seed data ends at INV-020).
+		"customer_id": {strconv.FormatInt(customers[0].ID, 10)},
+		"issue_date":  {"2026-10-27"}, "due_date": {"2026-11-26"},
 	})
 	if created.Code != http.StatusSeeOther {
 		t.Fatalf("create invoice: status %d, body %s", created.Code, created.Body.String())

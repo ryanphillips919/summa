@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/mail"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -141,9 +142,53 @@ func (a *App) newInvoiceHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not load organization.", http.StatusInternalServerError)
 		return
 	}
-	if err := NewInvoicePage(org.Name, customers, time.Now().Format("2006-01-02")).Render(r.Context(), w); err != nil {
+	// Preview only: the number is assigned again when the draft is saved, in
+	// case someone else created an invoice in the meantime.
+	next, err := a.nextInvoiceNumber(r.Context())
+	if err != nil {
+		http.Error(w, "Could not load invoices.", http.StatusInternalServerError)
+		return
+	}
+	if err := NewInvoicePage(org.Name, customers, time.Now().Format("2006-01-02"), next).Render(r.Context(), w); err != nil {
 		fmt.Printf("render new invoice: %v\n", err)
 	}
+}
+
+// invoiceNumberPattern matches the numbers Summa assigns, such as INV-021.
+var invoiceNumberPattern = regexp.MustCompile(`^INV-(\d+)$`)
+
+// nextInvoiceNumber returns the number after the highest INV-### already in
+// use, so invoice numbers run in order without duplicates. Numbers that don't
+// follow the INV-### pattern are ignored.
+func nextInvoiceNumber(existing []string) string {
+	highest := 0
+	for _, number := range existing {
+		match := invoiceNumberPattern.FindStringSubmatch(number)
+		if match == nil {
+			continue
+		}
+		if n, err := strconv.Atoi(match[1]); err == nil && n > highest {
+			highest = n
+		}
+	}
+	return fmt.Sprintf("INV-%03d", highest+1)
+}
+
+func (a *App) nextInvoiceNumber(ctx context.Context) (string, error) {
+	invoices, err := a.queries.ListInvoices(ctx, a.orgID)
+	if err != nil {
+		return "", err
+	}
+	numbers := make([]string, len(invoices))
+	for i, invoice := range invoices {
+		numbers[i] = invoice.Number
+	}
+	return nextInvoiceNumber(numbers), nil
+}
+
+// isUniqueViolation reports whether err is SQLite rejecting a duplicate value.
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
 
 func (a *App) createInvoiceHandler(w http.ResponseWriter, r *http.Request) {
@@ -165,22 +210,33 @@ func (a *App) createInvoiceHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not load customer.", http.StatusInternalServerError)
 		return
 	}
-	number := strings.TrimSpace(r.FormValue("number"))
 	issue, issueErr := time.Parse("2006-01-02", r.FormValue("issue_date"))
 	due, dueErr := time.Parse("2006-01-02", r.FormValue("due_date"))
-	if number == "" || issueErr != nil || dueErr != nil || due.Before(issue) {
-		http.Error(w, "Enter an invoice number and valid dates; the due date must not be before the issue date.", http.StatusBadRequest)
+	if issueErr != nil || dueErr != nil || due.Before(issue) {
+		http.Error(w, "Enter valid dates; the due date must not be before the issue date.", http.StatusBadRequest)
 		return
 	}
-	invoice, err := a.queries.CreateInvoice(r.Context(), db.CreateInvoiceParams{
-		OrganizationID: a.orgID, CustomerID: customerID, Number: number,
-		IssueDate: issue.Format("2006-01-02"), DueDate: due.Format("2006-01-02"),
-	})
-	if err != nil {
-		http.Error(w, "Could not create invoice. Check that its number is unique.", http.StatusBadRequest)
-		return
+	// The number is assigned here, not typed by the user. If two people create
+	// an invoice at the same moment, one insert hits the unique constraint and
+	// simply retries with the next number.
+	for attempt := 0; attempt < 5; attempt++ {
+		number, err := a.nextInvoiceNumber(r.Context())
+		if err != nil {
+			break
+		}
+		invoice, err := a.queries.CreateInvoice(r.Context(), db.CreateInvoiceParams{
+			OrganizationID: a.orgID, CustomerID: customerID, Number: number,
+			IssueDate: issue.Format("2006-01-02"), DueDate: due.Format("2006-01-02"),
+		})
+		if err == nil {
+			http.Redirect(w, r, fmt.Sprintf("/invoices/%d", invoice.ID), http.StatusSeeOther)
+			return
+		}
+		if !isUniqueViolation(err) {
+			break
+		}
 	}
-	http.Redirect(w, r, fmt.Sprintf("/invoices/%d", invoice.ID), http.StatusSeeOther)
+	http.Error(w, "Could not create invoice.", http.StatusInternalServerError)
 }
 
 func (a *App) invoiceDetailHandler(w http.ResponseWriter, r *http.Request) {
