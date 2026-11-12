@@ -6,8 +6,8 @@ import "fmt"
 // the page scroll-snaps; datastar's window keydown maps → ← Enter Home End and f (fullscreen).
 // ↓ / ↑ / PgDn / PgUp / Space work natively. Ctrl+P → Save as PDF for the Canvas upload.
 //
-// Pressing → on slide `liveSlide` leaves the deck for /demo. From there → / Enter returns to
-// the slide after it, ← / Esc returns to it (see LedgerContent in demo.templ).
+// Pressing → on slide `liveSlide` starts a tour through the application.
+// The shared shell handles → / Enter and ← / Esc until the tour returns to the deck.
 //
 // Wire-up:  r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
 //
@@ -15,6 +15,16 @@ import "fmt"
 // and fix the ranges in sectionOf (and liveSlide if it moved).
 
 var presenters = []string{"David Kendall", "Ryan Phillips", "Sawyer Evans", "Graham Taggart"}
+
+// One goal per presenter for the "By end of semester" column on slide 8.
+// VERIFY: these are the unfinished core-scope items from the proposal, assigned arbitrarily.
+// Reassign to match who actually owns what.
+var semesterGoals = map[string]string{
+	"David Kendall":  "Excel / CSV import into the ledger",
+	"Ryan Phillips":  "Owner, editor and viewer roles",
+	"Sawyer Evans":   "Balance sheet, P&L and cash flow views",
+	"Graham Taggart": "Diff any two versions of the books, REST export",
+}
 
 const totalSlides = 9
 
@@ -26,7 +36,7 @@ const liveSlide = 5
 func deckKeys() string {
 	return fmt.Sprintf(`
 		const cur = Math.round(scrollY / innerHeight) + 1;
-		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { location.href = '/demo'; }
+		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { sessionStorage.tour = 1; location.href = '/'; }
 		else if (evt.key === 'ArrowRight' || evt.key === 'Enter') { scrollBy({top: innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'ArrowLeft') { scrollBy({top: -innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'Home') { scrollTo({top: 0, behavior: 'smooth'}); }
@@ -47,6 +57,7 @@ templ Presentation() {
 			@DeckStyle()
 		</head>
 		<body data-on:keydown__window={ deckKeys() }>
+			<script>sessionStorage.removeItem("tour");</script>
 			@Slide1()
 			@Slide2()
 			@Slide3()
@@ -62,65 +73,248 @@ templ Presentation() {
 
 templ DeckStyle() {
 	<style>
-:root { color: #132c52; background: #f7f5ef; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --footer-h: 58px; }
-* { box-sizing: border-box; }
-html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
-body { margin: 0; }
-h1, h2, h3, p, ul, ol { margin-top: 0; }
+		:root {
+			color: #132c52;
+			background: #f7f5ef;
+			font-family:
+				Inter,
+				ui-sans-serif,
+				system-ui,
+				-apple-system,
+				"Segoe UI",
+				sans-serif;
+			--footer-h: 58px;
+		}
+		* {
+			box-sizing: border-box;
+		}
+		html {
+			scroll-snap-type: y mandatory;
+			scroll-behavior: smooth;
+		}
+		body {
+			margin: 0;
+		}
+		h1,
+		h2,
+		h3,
+		p,
+		ul,
+		ol {
+			margin-top: 0;
+		}
 
-/* ---------- slide ---------- */
-.slide { display: flex; flex-direction: column; height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; }
-.slide-inner { display: flex; flex: 1; flex-direction: column; margin: 0 auto; max-width: 1500px; min-height: 0; padding: clamp(28px, 4vw, 64px) clamp(32px, 6vw, 110px); width: 100%; }
+		/* ---------- slide ---------- */
+		.slide {
+			display: flex;
+			flex-direction: column;
+			height: 100vh;
+			scroll-snap-align: start;
+			scroll-snap-stop: always;
+		}
+		.slide-inner {
+			display: flex;
+			flex: 1;
+			flex-direction: column;
+			margin: 0 auto;
+			max-width: 1500px;
+			min-height: 0;
+			padding: clamp(28px, 4vw, 64px) clamp(32px, 6vw, 110px);
+			width: 100%;
+		}
 
-/* ---------- type (projector-sized) ---------- */
-.eyebrow { color: #008265; font-size: clamp(.95rem, 1.3vw, 1.2rem); font-weight: 760; letter-spacing: .075em; margin: 0 0 12px; text-transform: uppercase; }
-h1 { color: #102e53; font-size: clamp(3.2rem, 7vw, 6rem); letter-spacing: -.045em; line-height: 1.02; margin-bottom: 18px; }
-h2 { color: #102e53; font-size: clamp(2.1rem, 4.2vw, 3.6rem); letter-spacing: -.04em; line-height: 1.08; margin-bottom: clamp(20px, 3vh, 36px); }
-h3 { color: #102e53; font-size: clamp(1.3rem, 2vw, 1.8rem); letter-spacing: -.02em; margin-bottom: 12px; }
-.lede { color: #607390; font-size: clamp(1.4rem, 2.4vw, 2.1rem); margin-bottom: 0; }
-.slide ul, .slide ol { color: #294362; font-size: clamp(1.3rem, 2.2vw, 2rem); line-height: 1.4; padding-left: 1.1em; }
-.slide li { margin-bottom: .45em; }
-.slide li strong { color: #102e53; }
-.slide li::marker { color: #008864; }
-.note { color: #607390; font-size: clamp(1rem, 1.5vw, 1.3rem); margin: auto 0 0; }
+		/* ---------- type (projector-sized) ---------- */
+		.eyebrow {
+			color: #008265;
+			font-size: clamp(0.95rem, 1.3vw, 1.2rem);
+			font-weight: 760;
+			letter-spacing: 0.075em;
+			margin: 0 0 12px;
+			text-transform: uppercase;
+		}
+		h1 {
+			color: #102e53;
+			font-size: clamp(3.2rem, 7vw, 6rem);
+			letter-spacing: -0.045em;
+			line-height: 1.02;
+			margin-bottom: 18px;
+		}
+		h2 {
+			color: #102e53;
+			font-size: clamp(2.1rem, 4.2vw, 3.6rem);
+			letter-spacing: -0.04em;
+			line-height: 1.08;
+			margin-bottom: clamp(20px, 3vh, 36px);
+		}
+		h3 {
+			color: #102e53;
+			font-size: clamp(1.3rem, 2vw, 1.8rem);
+			letter-spacing: -0.02em;
+			margin-bottom: 12px;
+		}
+		.lede {
+			color: #607390;
+			font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+			margin-bottom: 0;
+		}
+		.slide ul,
+		.slide ol {
+			color: #294362;
+			font-size: clamp(1.3rem, 2.2vw, 2rem);
+			line-height: 1.4;
+			padding-left: 1.1em;
+		}
+		.slide li {
+			margin-bottom: 0.45em;
+		}
+		.slide li strong {
+			color: #102e53;
+		}
+		.slide li::marker {
+			color: #008864;
+		}
+		.note {
+			color: #607390;
+			font-size: clamp(1rem, 1.5vw, 1.3rem);
+			margin: auto 0 0;
+		}
 
-.slide-title .slide-inner { align-items: center; justify-content: center; text-align: center; }
-.title-mark { height: clamp(72px, 10vw, 120px); margin-bottom: 24px; width: auto; }
-.presenters { color: #607390; font-size: clamp(1.1rem, 1.6vw, 1.4rem); margin-top: 36px; }
-.presenters span { color: #8fa8bf; }
+		.slide-title .slide-inner {
+			align-items: center;
+			justify-content: center;
+			text-align: center;
+		}
+		.title-mark {
+			height: clamp(72px, 10vw, 120px);
+			margin-bottom: 24px;
+			width: auto;
+		}
+		.presenters {
+			color: #607390;
+			font-size: clamp(1.1rem, 1.6vw, 1.4rem);
+			margin-top: 36px;
+		}
+		.presenters span {
+			color: #8fa8bf;
+		}
 
-.two-up { align-items: start; display: grid; flex: 1; gap: clamp(24px, 4vw, 64px); grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); min-height: 0; }
+		.two-up {
+			align-items: start;
+			display: grid;
+			flex: 1;
+			gap: clamp(24px, 4vw, 64px);
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+			min-height: 0;
+		}
 
-/* screenshots / diagrams — same card treatment as the dashboard */
-.shot { background: #fff; border: 1px solid #e6e8e4; border-radius: 12px; box-shadow: 0 3px 12px #173a5810; margin: 0; overflow: hidden; }
-.shot img { display: block; height: auto; width: 100%; }
-.shot figcaption { color: #607390; font-size: 1rem; padding: 10px 16px; }
+		/* screenshots / diagrams — same card treatment as the dashboard */
+		.shot {
+			background: #fff;
+			border: 1px solid #e6e8e4;
+			border-radius: 12px;
+			box-shadow: 0 3px 12px #173a5810;
+			margin: 0;
+			overflow: hidden;
+		}
+		.shot img {
+			display: block;
+			height: auto;
+			width: 100%;
+		}
+		.shot figcaption {
+			color: #607390;
+			font-size: 1rem;
+			padding: 10px 16px;
+		}
 
-/* ---------- footer (rendered per slide) ---------- */
-.deck-footer { align-items: center; background: linear-gradient(90deg, #0f3556, #0a2945); color: #f8fbff; display: grid; flex: 0 0 var(--footer-h); grid-template-columns: 1fr auto 1fr; padding: 0 clamp(18px, 3vw, 40px); }
-.deck-team { align-items: center; color: #dce7f3; display: flex; font-size: .9rem; gap: 12px; }
-.deck-team img { height: 26px; width: auto; }
-.deck-team span span { color: #8fa8bf; }
-.deck-counter { color: #8fa8bf; font-size: .9rem; font-variant-numeric: tabular-nums; text-align: right; }
+		/* ---------- footer (rendered per slide) ---------- */
+		.deck-footer {
+			align-items: center;
+			background: linear-gradient(90deg, #0f3556, #0a2945);
+			color: #f8fbff;
+			display: grid;
+			flex: 0 0 var(--footer-h);
+			grid-template-columns: 1fr auto 1fr;
+			padding: 0 clamp(18px, 3vw, 40px);
+		}
+		.deck-team {
+			align-items: center;
+			color: #dce7f3;
+			display: flex;
+			font-size: 0.9rem;
+			gap: 12px;
+		}
+		.deck-team img {
+			height: 26px;
+			width: auto;
+		}
+		.deck-team span span {
+			color: #8fa8bf;
+		}
+		.deck-counter {
+			color: #8fa8bf;
+			font-size: 0.9rem;
+			font-variant-numeric: tabular-nums;
+			text-align: right;
+		}
 
-.deck-dots { align-items: center; display: flex; gap: 7px; }
-.deck-dots a { background: #ffffff33; border-radius: 999px; display: block; height: 10px; width: 10px; }
-.deck-dots a.done { background: var(--c); }
-.deck-dots a.current { background: var(--c); box-shadow: 0 0 0 3px #ffffff40; width: 26px; }
-.deck-dots a[data-section="intro"] { --c: #008864; }
-.deck-dots a[data-section="demo"] { --c: #2368ae; }
-.deck-dots a[data-section="engineering"] { --c: #e0a100; }
-.deck-dots a[data-section="conclusion"] { --c: #4cc9a0; }
-/* gap between sections so the chapters read at a glance */
-.deck-dots a[data-section="demo"]:first-of-type, .deck-dots a[data-section="intro"] + a[data-section="demo"], .deck-dots a[data-section="demo"] + a[data-section="engineering"], .deck-dots a[data-section="engineering"] + a[data-section="conclusion"] { margin-left: 14px; }
+		.deck-dots {
+			align-items: center;
+			display: flex;
+			gap: 7px;
+		}
+		.deck-dots a {
+			background: #ffffff33;
+			border-radius: 999px;
+			display: block;
+			height: 10px;
+			width: 10px;
+		}
+		.deck-dots a.done {
+			background: var(--c);
+		}
+		.deck-dots a.current {
+			background: var(--c);
+			box-shadow: 0 0 0 3px #ffffff40;
+			width: 26px;
+		}
+		.deck-dots a[data-section="intro"] {
+			--c: #008864;
+		}
+		.deck-dots a[data-section="demo"] {
+			--c: #2368ae;
+		}
+		.deck-dots a[data-section="engineering"] {
+			--c: #e0a100;
+		}
+		.deck-dots a[data-section="conclusion"] {
+			--c: #4cc9a0;
+		}
+		/* gap between sections so the chapters read at a glance */
+		.deck-dots a[data-section="demo"]:first-of-type,
+		.deck-dots a[data-section="intro"] + a[data-section="demo"],
+		.deck-dots a[data-section="demo"] + a[data-section="engineering"],
+		.deck-dots a[data-section="engineering"] + a[data-section="conclusion"] {
+			margin-left: 14px;
+		}
 
-/* ---------- print → PDF for Canvas: one slide per landscape page ---------- */
-@page { margin: 0; size: landscape; }
-@media print {
-  html { scroll-snap-type: none; }
-  body { background: #fff; }
-  .slide { break-after: page; page-break-after: always; }
-}
+		/* ---------- print → PDF for Canvas: one slide per landscape page ---------- */
+		@page {
+			margin: 0;
+			size: landscape;
+		}
+		@media print {
+			html {
+				scroll-snap-type: none;
+			}
+			body {
+				background: #fff;
+			}
+			.slide {
+				break-after: page;
+				page-break-after: always;
+			}
+		}
 	</style>
 }
 
@@ -129,7 +323,7 @@ templ Slide1() {
 	@Frame(1, "intro", "title") {
 		<img class="title-mark" src="/assets/images/summa-mark-primary.png" alt=""/>
 		<h1>Summa</h1>
-		<p class="lede">TODO one-line pitch</p>
+		<p class="lede">Accounting at the speed of real-time!</p>
 		<p class="presenters">
 			@Names()
 		</p>
@@ -139,11 +333,11 @@ templ Slide1() {
 templ Slide2() {
 	@Frame(2, "intro", "") {
 		<p class="eyebrow">The problem</p>
-		<h2>TODO who it's for and why it matters</h2>
+		<h2>The books belong to the whole team, but the software is built for one accountant</h2>
 		<ul>
-			<li>TODO</li>
-			<li>TODO</li>
-			<li>TODO</li>
+			<li>Accounting is way too complicated for non-accountants</li>
+			<li>QuickBooks, Sage Intacct and Xero are slow and costly, and sharing the books means exporting a spreadsheet</li>
+			<li>Summa: a shared ledger with balanced entries and a visible transaction history</li>
 		</ul>
 	}
 }
@@ -151,14 +345,14 @@ templ Slide2() {
 templ Slide3() {
 	@Frame(3, "intro", "") {
 		<p class="eyebrow">Today</p>
-		<h2>TODO what actually works right now</h2>
+		<h2>A working ledger the team can share</h2>
 		<div class="two-up">
 			<ul>
-				<li>TODO</li>
-				<li>TODO</li>
-				<li>TODO</li>
+				<li><strong>General Journal:</strong> post a balanced adjustment to the books</li>
+				<li><strong>Timeline:</strong> review posted transactions as they arrive</li>
+				<li><strong>Dashboard:</strong> balances and activity computed from the ledger</li>
 			</ul>
-			<figure class="shot"><img src="/assets/images/present/TODO.png" alt=""/><figcaption>TODO</figcaption></figure>
+			<figure class="shot"><img src="/assets/images/summa-tour.gif" alt="Earlier Summa prototype"/><figcaption>Earlier prototype: an editable mock ledger</figcaption></figure>
 		</div>
 	}
 }
@@ -167,23 +361,27 @@ templ Slide3() {
 templ Slide4() {
 	@Frame(4, "demo", "") {
 		<p class="eyebrow">Demo</p>
-		<h2>TODO the story we're walking through</h2>
-		<ol>
-			<li>TODO step — who drives</li>
-			<li>TODO step</li>
-			<li>TODO step</li>
-		</ol>
-		<p class="note">TODO what's live vs. seeded</p>
+		<h2>Follow along with the live demo</h2>
+		<div class="two-up">
+			<ol>
+				<li><strong>Dashboard:</strong> David opens the books</li>
+				<li><strong>Analytics:</strong> Ryan shows the forecasts and audit flags</li>
+				<li><strong>General Journal:</strong> Graham posts a balanced adjustment</li>
+				<li><strong>Monthly Ledger and Timeline:</strong> see the posted transaction</li>
+			</ol>
+			<figure class="shot" style="max-width: 280px"><img src="/assets/images/presentation-journal-qr.png" alt="QR code for the Summa journal"/><figcaption>Scan to open app.summabooks.app/journal</figcaption></figure>
+		</div>
+		<p class="note">The books start with seeded data. New journal entries are shared in the demo.</p>
 	}
 }
 
-// The hand-off slide. → here leaves for /demo (see deckKeys); → there comes back to slide 6.
+// The hand-off slide. → starts the app tour, which returns to slide 6.
 // Keep it on screen while the previous speaker wraps up so the switch looks intentional.
 templ Slide5() {
 	@Frame(5, "demo", "title") {
 		<p class="eyebrow">Live</p>
 		<h1>Let's see it</h1>
-		<p class="lede">TODO one line on what you're about to show</p>
+		<p class="lede">Summa presented from the same server as these slides.</p>
 	}
 }
 
@@ -191,14 +389,19 @@ templ Slide5() {
 templ Slide6() {
 	@Frame(6, "engineering", "") {
 		<p class="eyebrow">Engineering</p>
-		<h2>TODO architecture</h2>
+		<h2>Hypermedia is <em>really</em> fast</h2>
 		<div class="two-up">
 			<ul>
-				<li>TODO</li>
-				<li>TODO</li>
-				<li>TODO</li>
+				<li><strong>SQLite:</strong> Balanced ledger entries are saved together in a database transaction.</li>
+				<li><strong>Real time:</strong> NATS notifications trigger updates to the monthly ledger and timeline in open browsers.</li>
+				<li><strong>Go and hypermedia:</strong> The server renders HTML and sends updates to the browser.</li>
 			</ul>
-			<figure class="shot"><img src="/assets/images/present/TODO.png" alt=""/><figcaption>TODO</figcaption></figure>
+			<figure class="shot" style="padding: 24px">
+				<h3>Posting an adjustment</h3>
+				<p>Browser → Go server → SQLite</p>
+				<p>NATS notification → server-sent updates → open browsers</p>
+				<figcaption>SQLite stores the books; NATS signals that they changed.</figcaption>
+			</figure>
 		</div>
 	}
 }
@@ -206,11 +409,12 @@ templ Slide6() {
 templ Slide7() {
 	@Frame(7, "engineering", "") {
 		<p class="eyebrow">Engineering</p>
-		<h2>TODO hard problems, decisions, lessons</h2>
+		<h2>Difficulties and Lessons</h2>
 		<ul>
-			<li>TODO</li>
-			<li>TODO</li>
-			<li>TODO</li>
+			<li><strong>Python?:</strong> Figuring out where python's role should be is tricky and difficult</li>
+			<li><strong>To NATS or Not to NATS:</strong> Best places to use NATS vs when to use SQLite instead?</li>
+			<li><strong>Datastar:</strong> Keep the front-end simple and re-render HTML whenever changes happen instead of keeping client-server state in sync.</li>
+			<li><strong>Accounting:</strong> Keeping strong rules for double-entry accounting is a must.</li>
 		</ul>
 	}
 }
@@ -219,20 +423,20 @@ templ Slide7() {
 templ Slide8() {
 	@Frame(8, "conclusion", "") {
 		<p class="eyebrow">Conclusion</p>
-		<h2>TODO what we've done, where we're going</h2>
+		<h2>Live collaboration works. Next: the rest of the books.</h2>
 		<div class="two-up">
 			<div>
 				<h3>Accomplished</h3>
 				<ul>
-					<li>TODO</li>
-					<li>TODO</li>
+					<li>Balanced journal entries with a shared transaction history</li>
+					<li>Dashboard and Timeline on one Go, SQLite, NATS and Datastar stack</li>
 				</ul>
 			</div>
 			<div>
-				<h3>By end of semester</h3>
+				<h3>By end of semester (draft)</h3>
 				<ul>
 					for _, p := range presenters {
-						<li><strong>{ p }:</strong> TODO</li>
+						<li><strong>{ p }:</strong> { semesterGoals[p] }</li>
 					}
 				</ul>
 			</div>

@@ -64,14 +64,14 @@ func LedgerContent(organization string, document ledger.LedgerDocument) templ.Co
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div data-init=\"@get('/demo/watch', {filterSignals: {include: /^$/}})\" data-on:keydown__window=\"if (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') { if (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; } else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') { location.href = '/presentation#s5'; } }\"><header class=\"page-header\"><div><p class=\"eyebrow\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div data-init=\"@get('/demo/watch', {filterSignals: {include: /^$/}})\"><header class=\"page-header\"><div><p class=\"eyebrow\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(organization)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 18, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 17, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -126,7 +126,7 @@ func MonthlyLedgerTable(document ledger.LedgerDocument) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(date.Date.Format("Jan 2006"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 33, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 32, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -155,7 +155,7 @@ func MonthlyLedgerTable(document ledger.LedgerDocument) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(row.Account.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 43, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 42, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -173,7 +173,7 @@ func MonthlyLedgerTable(document ledger.LedgerDocument) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(amount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 45, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 44, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -201,7 +201,7 @@ func MonthlyLedgerTable(document ledger.LedgerDocument) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(monthlyNet(document, i)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 54, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `demo.templ`, Line: 53, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {

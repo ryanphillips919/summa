@@ -26,6 +26,28 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 			}
 		</head>
 		<body>
+			<script>
+				{
+					const stops = [
+						"/presentation#s5",
+						"/",
+						"/analytics",
+						"/journal",
+						"/demo",
+						"/timeline",
+						"/presentation#s6",
+					];
+					const path = location.pathname.replace(/\/$/, "") || "/";
+					const i = stops.indexOf(path);
+					if (sessionStorage.getItem("tour") === "1" && i > 0) {
+						addEventListener("keydown", (e) => {
+							if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest("input, textarea, select, button, a, [contenteditable]")) return;
+							if (e.key === "ArrowRight" || e.key === "Enter") location.href = stops[i + 1];
+							if (e.key === "ArrowLeft" || e.key === "Escape") location.href = stops[i - 1];
+						});
+					}
+				}
+			</script>
 			<div class="summa-shell">
 				<header class="mobile-header"><a class="mobile-wordmark" href="/" aria-label="Summa dashboard"><img src="/assets/images/summa-light.png" alt="Summa"/></a><button class="mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-controls="mobile-menu" aria-expanded="false"><i data-lucide="menu"></i></button></header>
 				<aside class="sidebar">

@@ -14,8 +14,8 @@ import "fmt"
 // the page scroll-snaps; datastar's window keydown maps → ← Enter Home End and f (fullscreen).
 // ↓ / ↑ / PgDn / PgUp / Space work natively. Ctrl+P → Save as PDF for the Canvas upload.
 //
-// Pressing → on slide `liveSlide` leaves the deck for /demo. From there → / Enter returns to
-// the slide after it, ← / Esc returns to it (see LedgerContent in demo.templ).
+// Pressing → on slide `liveSlide` starts a tour through the application.
+// The shared shell handles → / Enter and ← / Esc until the tour returns to the deck.
 //
 // Wire-up:  r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
 //
@@ -23,6 +23,16 @@ import "fmt"
 // and fix the ranges in sectionOf (and liveSlide if it moved).
 
 var presenters = []string{"David Kendall", "Ryan Phillips", "Sawyer Evans", "Graham Taggart"}
+
+// One goal per presenter for the "By end of semester" column on slide 8.
+// VERIFY: these are the unfinished core-scope items from the proposal, assigned arbitrarily.
+// Reassign to match who actually owns what.
+var semesterGoals = map[string]string{
+	"David Kendall":  "Excel / CSV import into the ledger",
+	"Ryan Phillips":  "Owner, editor and viewer roles",
+	"Sawyer Evans":   "Balance sheet, P&L and cash flow views",
+	"Graham Taggart": "Diff any two versions of the books, REST export",
+}
 
 const totalSlides = 9
 
@@ -34,7 +44,7 @@ const liveSlide = 5
 func deckKeys() string {
 	return fmt.Sprintf(`
 		const cur = Math.round(scrollY / innerHeight) + 1;
-		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { location.href = '/demo'; }
+		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { sessionStorage.tour = 1; location.href = '/'; }
 		else if (evt.key === 'ArrowRight' || evt.key === 'Enter') { scrollBy({top: innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'ArrowLeft') { scrollBy({top: -innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'Home') { scrollTo({top: 0, behavior: 'smooth'}); }
@@ -79,13 +89,13 @@ func Presentation() templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(deckKeys())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 49, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 59, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"><script>sessionStorage.removeItem(\"tour\");</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -154,7 +164,7 @@ func DeckStyle() templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<style>\n:root { color: #132c52; background: #f7f5ef; font-family: Inter, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif; --footer-h: 58px; }\n* { box-sizing: border-box; }\nhtml { scroll-snap-type: y mandatory; scroll-behavior: smooth; }\nbody { margin: 0; }\nh1, h2, h3, p, ul, ol { margin-top: 0; }\n\n/* ---------- slide ---------- */\n.slide { display: flex; flex-direction: column; height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; }\n.slide-inner { display: flex; flex: 1; flex-direction: column; margin: 0 auto; max-width: 1500px; min-height: 0; padding: clamp(28px, 4vw, 64px) clamp(32px, 6vw, 110px); width: 100%; }\n\n/* ---------- type (projector-sized) ---------- */\n.eyebrow { color: #008265; font-size: clamp(.95rem, 1.3vw, 1.2rem); font-weight: 760; letter-spacing: .075em; margin: 0 0 12px; text-transform: uppercase; }\nh1 { color: #102e53; font-size: clamp(3.2rem, 7vw, 6rem); letter-spacing: -.045em; line-height: 1.02; margin-bottom: 18px; }\nh2 { color: #102e53; font-size: clamp(2.1rem, 4.2vw, 3.6rem); letter-spacing: -.04em; line-height: 1.08; margin-bottom: clamp(20px, 3vh, 36px); }\nh3 { color: #102e53; font-size: clamp(1.3rem, 2vw, 1.8rem); letter-spacing: -.02em; margin-bottom: 12px; }\n.lede { color: #607390; font-size: clamp(1.4rem, 2.4vw, 2.1rem); margin-bottom: 0; }\n.slide ul, .slide ol { color: #294362; font-size: clamp(1.3rem, 2.2vw, 2rem); line-height: 1.4; padding-left: 1.1em; }\n.slide li { margin-bottom: .45em; }\n.slide li strong { color: #102e53; }\n.slide li::marker { color: #008864; }\n.note { color: #607390; font-size: clamp(1rem, 1.5vw, 1.3rem); margin: auto 0 0; }\n\n.slide-title .slide-inner { align-items: center; justify-content: center; text-align: center; }\n.title-mark { height: clamp(72px, 10vw, 120px); margin-bottom: 24px; width: auto; }\n.presenters { color: #607390; font-size: clamp(1.1rem, 1.6vw, 1.4rem); margin-top: 36px; }\n.presenters span { color: #8fa8bf; }\n\n.two-up { align-items: start; display: grid; flex: 1; gap: clamp(24px, 4vw, 64px); grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); min-height: 0; }\n\n/* screenshots / diagrams — same card treatment as the dashboard */\n.shot { background: #fff; border: 1px solid #e6e8e4; border-radius: 12px; box-shadow: 0 3px 12px #173a5810; margin: 0; overflow: hidden; }\n.shot img { display: block; height: auto; width: 100%; }\n.shot figcaption { color: #607390; font-size: 1rem; padding: 10px 16px; }\n\n/* ---------- footer (rendered per slide) ---------- */\n.deck-footer { align-items: center; background: linear-gradient(90deg, #0f3556, #0a2945); color: #f8fbff; display: grid; flex: 0 0 var(--footer-h); grid-template-columns: 1fr auto 1fr; padding: 0 clamp(18px, 3vw, 40px); }\n.deck-team { align-items: center; color: #dce7f3; display: flex; font-size: .9rem; gap: 12px; }\n.deck-team img { height: 26px; width: auto; }\n.deck-team span span { color: #8fa8bf; }\n.deck-counter { color: #8fa8bf; font-size: .9rem; font-variant-numeric: tabular-nums; text-align: right; }\n\n.deck-dots { align-items: center; display: flex; gap: 7px; }\n.deck-dots a { background: #ffffff33; border-radius: 999px; display: block; height: 10px; width: 10px; }\n.deck-dots a.done { background: var(--c); }\n.deck-dots a.current { background: var(--c); box-shadow: 0 0 0 3px #ffffff40; width: 26px; }\n.deck-dots a[data-section=\"intro\"] { --c: #008864; }\n.deck-dots a[data-section=\"demo\"] { --c: #2368ae; }\n.deck-dots a[data-section=\"engineering\"] { --c: #e0a100; }\n.deck-dots a[data-section=\"conclusion\"] { --c: #4cc9a0; }\n/* gap between sections so the chapters read at a glance */\n.deck-dots a[data-section=\"demo\"]:first-of-type, .deck-dots a[data-section=\"intro\"] + a[data-section=\"demo\"], .deck-dots a[data-section=\"demo\"] + a[data-section=\"engineering\"], .deck-dots a[data-section=\"engineering\"] + a[data-section=\"conclusion\"] { margin-left: 14px; }\n\n/* ---------- print → PDF for Canvas: one slide per landscape page ---------- */\n@page { margin: 0; size: landscape; }\n@media print {\n  html { scroll-snap-type: none; }\n  body { background: #fff; }\n  .slide { break-after: page; page-break-after: always; }\n}\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<style>\n\t\t:root {\n\t\t\tcolor: #132c52;\n\t\t\tbackground: #f7f5ef;\n\t\t\tfont-family:\n\t\t\t\tInter,\n\t\t\t\tui-sans-serif,\n\t\t\t\tsystem-ui,\n\t\t\t\t-apple-system,\n\t\t\t\t\"Segoe UI\",\n\t\t\t\tsans-serif;\n\t\t\t--footer-h: 58px;\n\t\t}\n\t\t* {\n\t\t\tbox-sizing: border-box;\n\t\t}\n\t\thtml {\n\t\t\tscroll-snap-type: y mandatory;\n\t\t\tscroll-behavior: smooth;\n\t\t}\n\t\tbody {\n\t\t\tmargin: 0;\n\t\t}\n\t\th1,\n\t\th2,\n\t\th3,\n\t\tp,\n\t\tul,\n\t\tol {\n\t\t\tmargin-top: 0;\n\t\t}\n\n\t\t/* ---------- slide ---------- */\n\t\t.slide {\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t\theight: 100vh;\n\t\t\tscroll-snap-align: start;\n\t\t\tscroll-snap-stop: always;\n\t\t}\n\t\t.slide-inner {\n\t\t\tdisplay: flex;\n\t\t\tflex: 1;\n\t\t\tflex-direction: column;\n\t\t\tmargin: 0 auto;\n\t\t\tmax-width: 1500px;\n\t\t\tmin-height: 0;\n\t\t\tpadding: clamp(28px, 4vw, 64px) clamp(32px, 6vw, 110px);\n\t\t\twidth: 100%;\n\t\t}\n\n\t\t/* ---------- type (projector-sized) ---------- */\n\t\t.eyebrow {\n\t\t\tcolor: #008265;\n\t\t\tfont-size: clamp(0.95rem, 1.3vw, 1.2rem);\n\t\t\tfont-weight: 760;\n\t\t\tletter-spacing: 0.075em;\n\t\t\tmargin: 0 0 12px;\n\t\t\ttext-transform: uppercase;\n\t\t}\n\t\th1 {\n\t\t\tcolor: #102e53;\n\t\t\tfont-size: clamp(3.2rem, 7vw, 6rem);\n\t\t\tletter-spacing: -0.045em;\n\t\t\tline-height: 1.02;\n\t\t\tmargin-bottom: 18px;\n\t\t}\n\t\th2 {\n\t\t\tcolor: #102e53;\n\t\t\tfont-size: clamp(2.1rem, 4.2vw, 3.6rem);\n\t\t\tletter-spacing: -0.04em;\n\t\t\tline-height: 1.08;\n\t\t\tmargin-bottom: clamp(20px, 3vh, 36px);\n\t\t}\n\t\th3 {\n\t\t\tcolor: #102e53;\n\t\t\tfont-size: clamp(1.3rem, 2vw, 1.8rem);\n\t\t\tletter-spacing: -0.02em;\n\t\t\tmargin-bottom: 12px;\n\t\t}\n\t\t.lede {\n\t\t\tcolor: #607390;\n\t\t\tfont-size: clamp(1.4rem, 2.4vw, 2.1rem);\n\t\t\tmargin-bottom: 0;\n\t\t}\n\t\t.slide ul,\n\t\t.slide ol {\n\t\t\tcolor: #294362;\n\t\t\tfont-size: clamp(1.3rem, 2.2vw, 2rem);\n\t\t\tline-height: 1.4;\n\t\t\tpadding-left: 1.1em;\n\t\t}\n\t\t.slide li {\n\t\t\tmargin-bottom: 0.45em;\n\t\t}\n\t\t.slide li strong {\n\t\t\tcolor: #102e53;\n\t\t}\n\t\t.slide li::marker {\n\t\t\tcolor: #008864;\n\t\t}\n\t\t.note {\n\t\t\tcolor: #607390;\n\t\t\tfont-size: clamp(1rem, 1.5vw, 1.3rem);\n\t\t\tmargin: auto 0 0;\n\t\t}\n\n\t\t.slide-title .slide-inner {\n\t\t\talign-items: center;\n\t\t\tjustify-content: center;\n\t\t\ttext-align: center;\n\t\t}\n\t\t.title-mark {\n\t\t\theight: clamp(72px, 10vw, 120px);\n\t\t\tmargin-bottom: 24px;\n\t\t\twidth: auto;\n\t\t}\n\t\t.presenters {\n\t\t\tcolor: #607390;\n\t\t\tfont-size: clamp(1.1rem, 1.6vw, 1.4rem);\n\t\t\tmargin-top: 36px;\n\t\t}\n\t\t.presenters span {\n\t\t\tcolor: #8fa8bf;\n\t\t}\n\n\t\t.two-up {\n\t\t\talign-items: start;\n\t\t\tdisplay: grid;\n\t\t\tflex: 1;\n\t\t\tgap: clamp(24px, 4vw, 64px);\n\t\t\tgrid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);\n\t\t\tmin-height: 0;\n\t\t}\n\n\t\t/* screenshots / diagrams — same card treatment as the dashboard */\n\t\t.shot {\n\t\t\tbackground: #fff;\n\t\t\tborder: 1px solid #e6e8e4;\n\t\t\tborder-radius: 12px;\n\t\t\tbox-shadow: 0 3px 12px #173a5810;\n\t\t\tmargin: 0;\n\t\t\toverflow: hidden;\n\t\t}\n\t\t.shot img {\n\t\t\tdisplay: block;\n\t\t\theight: auto;\n\t\t\twidth: 100%;\n\t\t}\n\t\t.shot figcaption {\n\t\t\tcolor: #607390;\n\t\t\tfont-size: 1rem;\n\t\t\tpadding: 10px 16px;\n\t\t}\n\n\t\t/* ---------- footer (rendered per slide) ---------- */\n\t\t.deck-footer {\n\t\t\talign-items: center;\n\t\t\tbackground: linear-gradient(90deg, #0f3556, #0a2945);\n\t\t\tcolor: #f8fbff;\n\t\t\tdisplay: grid;\n\t\t\tflex: 0 0 var(--footer-h);\n\t\t\tgrid-template-columns: 1fr auto 1fr;\n\t\t\tpadding: 0 clamp(18px, 3vw, 40px);\n\t\t}\n\t\t.deck-team {\n\t\t\talign-items: center;\n\t\t\tcolor: #dce7f3;\n\t\t\tdisplay: flex;\n\t\t\tfont-size: 0.9rem;\n\t\t\tgap: 12px;\n\t\t}\n\t\t.deck-team img {\n\t\t\theight: 26px;\n\t\t\twidth: auto;\n\t\t}\n\t\t.deck-team span span {\n\t\t\tcolor: #8fa8bf;\n\t\t}\n\t\t.deck-counter {\n\t\t\tcolor: #8fa8bf;\n\t\t\tfont-size: 0.9rem;\n\t\t\tfont-variant-numeric: tabular-nums;\n\t\t\ttext-align: right;\n\t\t}\n\n\t\t.deck-dots {\n\t\t\talign-items: center;\n\t\t\tdisplay: flex;\n\t\t\tgap: 7px;\n\t\t}\n\t\t.deck-dots a {\n\t\t\tbackground: #ffffff33;\n\t\t\tborder-radius: 999px;\n\t\t\tdisplay: block;\n\t\t\theight: 10px;\n\t\t\twidth: 10px;\n\t\t}\n\t\t.deck-dots a.done {\n\t\t\tbackground: var(--c);\n\t\t}\n\t\t.deck-dots a.current {\n\t\t\tbackground: var(--c);\n\t\t\tbox-shadow: 0 0 0 3px #ffffff40;\n\t\t\twidth: 26px;\n\t\t}\n\t\t.deck-dots a[data-section=\"intro\"] {\n\t\t\t--c: #008864;\n\t\t}\n\t\t.deck-dots a[data-section=\"demo\"] {\n\t\t\t--c: #2368ae;\n\t\t}\n\t\t.deck-dots a[data-section=\"engineering\"] {\n\t\t\t--c: #e0a100;\n\t\t}\n\t\t.deck-dots a[data-section=\"conclusion\"] {\n\t\t\t--c: #4cc9a0;\n\t\t}\n\t\t/* gap between sections so the chapters read at a glance */\n\t\t.deck-dots a[data-section=\"demo\"]:first-of-type,\n\t\t.deck-dots a[data-section=\"intro\"] + a[data-section=\"demo\"],\n\t\t.deck-dots a[data-section=\"demo\"] + a[data-section=\"engineering\"],\n\t\t.deck-dots a[data-section=\"engineering\"] + a[data-section=\"conclusion\"] {\n\t\t\tmargin-left: 14px;\n\t\t}\n\n\t\t/* ---------- print → PDF for Canvas: one slide per landscape page ---------- */\n\t\t@page {\n\t\t\tmargin: 0;\n\t\t\tsize: landscape;\n\t\t}\n\t\t@media print {\n\t\t\thtml {\n\t\t\t\tscroll-snap-type: none;\n\t\t\t}\n\t\t\tbody {\n\t\t\t\tbackground: #fff;\n\t\t\t}\n\t\t\t.slide {\n\t\t\t\tbreak-after: page;\n\t\t\t\tpage-break-after: always;\n\t\t\t}\n\t\t}\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -196,7 +206,7 @@ func Slide1() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<img class=\"title-mark\" src=\"/assets/images/summa-mark-primary.png\" alt=\"\"><h1>Summa</h1><p class=\"lede\">TODO one-line pitch</p><p class=\"presenters\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<img class=\"title-mark\" src=\"/assets/images/summa-mark-primary.png\" alt=\"\"><h1>Summa</h1><p class=\"lede\">Accounting at the speed of real-time!</p><p class=\"presenters\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -251,7 +261,7 @@ func Slide2() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<p class=\"eyebrow\">The problem</p><h2>TODO who it's for and why it matters</h2><ul><li>TODO</li><li>TODO</li><li>TODO</li></ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<p class=\"eyebrow\">The problem</p><h2>The books belong to the whole team, but the software is built for one accountant</h2><ul><li>Accounting is way too complicated for non-accountants</li><li>QuickBooks, Sage Intacct and Xero are slow and costly, and sharing the books means exporting a spreadsheet</li><li>Summa: a shared ledger with balanced entries and a visible transaction history</li></ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -298,7 +308,7 @@ func Slide3() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<p class=\"eyebrow\">Today</p><h2>TODO what actually works right now</h2><div class=\"two-up\"><ul><li>TODO</li><li>TODO</li><li>TODO</li></ul><figure class=\"shot\"><img src=\"/assets/images/present/TODO.png\" alt=\"\"><figcaption>TODO</figcaption></figure></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<p class=\"eyebrow\">Today</p><h2>A working ledger the team can share</h2><div class=\"two-up\"><ul><li><strong>General Journal:</strong> post a balanced adjustment to the books</li><li><strong>Timeline:</strong> review posted transactions as they arrive</li><li><strong>Dashboard:</strong> balances and activity computed from the ledger</li></ul><figure class=\"shot\"><img src=\"/assets/images/summa-tour.gif\" alt=\"Earlier Summa prototype\"><figcaption>Earlier prototype: an editable mock ledger</figcaption></figure></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -346,7 +356,7 @@ func Slide4() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"eyebrow\">Demo</p><h2>TODO the story we're walking through</h2><ol><li>TODO step — who drives</li><li>TODO step</li><li>TODO step</li></ol><p class=\"note\">TODO what's live vs. seeded</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"eyebrow\">Demo</p><h2>Follow along with the live demo</h2><div class=\"two-up\"><ol><li><strong>Dashboard:</strong> David opens the books</li><li><strong>Analytics:</strong> Ryan shows the forecasts and audit flags</li><li><strong>General Journal:</strong> Graham posts a balanced adjustment</li><li><strong>Monthly Ledger and Timeline:</strong> see the posted transaction</li></ol><figure class=\"shot\" style=\"max-width: 280px\"><img src=\"/assets/images/presentation-journal-qr.png\" alt=\"QR code for the Summa journal\"><figcaption>Scan to open app.summabooks.app/journal</figcaption></figure></div><p class=\"note\">The books start with seeded data. New journal entries are shared in the demo.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -360,7 +370,7 @@ func Slide4() templ.Component {
 	})
 }
 
-// The hand-off slide. → here leaves for /demo (see deckKeys); → there comes back to slide 6.
+// The hand-off slide. → starts the app tour, which returns to slide 6.
 // Keep it on screen while the previous speaker wraps up so the switch looks intentional.
 func Slide5() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -395,7 +405,7 @@ func Slide5() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<p class=\"eyebrow\">Live</p><h1>Let's see it</h1><p class=\"lede\">TODO one line on what you're about to show</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<p class=\"eyebrow\">Live</p><h1>Let's see it</h1><p class=\"lede\">Summa presented from the same server as these slides.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -443,7 +453,7 @@ func Slide6() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"eyebrow\">Engineering</p><h2>TODO architecture</h2><div class=\"two-up\"><ul><li>TODO</li><li>TODO</li><li>TODO</li></ul><figure class=\"shot\"><img src=\"/assets/images/present/TODO.png\" alt=\"\"><figcaption>TODO</figcaption></figure></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"eyebrow\">Engineering</p><h2>Hypermedia is <em>really</em> fast</h2><div class=\"two-up\"><ul><li><strong>SQLite:</strong> Balanced ledger entries are saved together in a database transaction.</li><li><strong>Real time:</strong> NATS notifications trigger updates to the monthly ledger and timeline in open browsers.</li><li><strong>Go and hypermedia:</strong> The server renders HTML and sends updates to the browser.</li></ul><figure class=\"shot\" style=\"padding: 24px\"><h3>Posting an adjustment</h3><p>Browser → Go server → SQLite</p><p>NATS notification → server-sent updates → open browsers</p><figcaption>SQLite stores the books; NATS signals that they changed.</figcaption></figure></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -490,7 +500,7 @@ func Slide7() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<p class=\"eyebrow\">Engineering</p><h2>TODO hard problems, decisions, lessons</h2><ul><li>TODO</li><li>TODO</li><li>TODO</li></ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<p class=\"eyebrow\">Engineering</p><h2>Difficulties and Lessons</h2><ul><li><strong>Python?:</strong> Figuring out where python's role should be is tricky and difficult</li><li><strong>To NATS or Not to NATS:</strong> Best places to use NATS vs when to use SQLite instead?</li><li><strong>Datastar:</strong> Keep the front-end simple and re-render HTML whenever changes happen instead of keeping client-server state in sync.</li><li><strong>Accounting:</strong> Keeping strong rules for double-entry accounting is a must.</li></ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -538,7 +548,7 @@ func Slide8() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<p class=\"eyebrow\">Conclusion</p><h2>TODO what we've done, where we're going</h2><div class=\"two-up\"><div><h3>Accomplished</h3><ul><li>TODO</li><li>TODO</li></ul></div><div><h3>By end of semester</h3><ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<p class=\"eyebrow\">Conclusion</p><h2>Live collaboration works. Next: the rest of the books.</h2><div class=\"two-up\"><div><h3>Accomplished</h3><ul><li>Balanced journal entries with a shared transaction history</li><li>Dashboard and Timeline on one Go, SQLite, NATS and Datastar stack</li></ul></div><div><h3>By end of semester (draft)</h3><ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -550,18 +560,31 @@ func Slide8() templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(p)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 235, Col: 21}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 439, Col: 21}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, ":</strong> TODO</li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, ":</strong> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var21 string
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(semesterGoals[p])
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 439, Col: 52}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</ul></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</ul></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -591,12 +614,12 @@ func Slide9() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var21 == nil {
-			templ_7745c5c3_Var21 = templ.NopComponent
+		templ_7745c5c3_Var22 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var22 == nil {
+			templ_7745c5c3_Var22 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var22 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var23 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -608,13 +631,13 @@ func Slide9() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<h1>Thank you</h1><p class=\"lede\">Questions?</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<h1>Thank you</h1><p class=\"lede\">Questions?</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Frame(9, "conclusion", "title").Render(templ.WithChildren(ctx, templ_7745c5c3_Var22), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Frame(9, "conclusion", "title").Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -643,64 +666,64 @@ func Frame(n int, section, variant string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var23 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var23 == nil {
-			templ_7745c5c3_Var23 = templ.NopComponent
+		templ_7745c5c3_Var24 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var24 == nil {
+			templ_7745c5c3_Var24 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var24 = []any{"slide", templ.KV("slide-title", variant == "title")}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var24...)
+		var templ_7745c5c3_Var25 = []any{"slide", templ.KV("slide-title", variant == "title")}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var25...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<section id=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var25 string
-		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("s%d", n))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 257, Col: 28}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<section id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var26 string
-		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var24).String())
+		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("s%d", n))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 1, Col: 0}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 461, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-section=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var27 string
-		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(section)
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var25).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 259, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><div class=\"slide-inner\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-section=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templ_7745c5c3_Var23.Render(ctx, templ_7745c5c3_Buffer)
+		var templ_7745c5c3_Var28 string
+		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(section)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 463, Col: 24}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"><div class=\"slide-inner\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ_7745c5c3_Var24.Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -708,7 +731,7 @@ func Frame(n int, section, variant string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -732,12 +755,12 @@ func Footer(n int) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var28 == nil {
-			templ_7745c5c3_Var28 = templ.NopComponent
+		templ_7745c5c3_Var29 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var29 == nil {
+			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<footer class=\"deck-footer\"><div class=\"deck-team\"><img src=\"/assets/images/summa-mark-primary.png\" alt=\"Summa\"> <span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<footer class=\"deck-footer\"><div class=\"deck-team\"><img src=\"/assets/images/summa-mark-primary.png\" alt=\"Summa\"> <span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -745,87 +768,87 @@ func Footer(n int) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</span></div><nav class=\"deck-dots\" aria-label=\"Progress\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</span></div><nav class=\"deck-dots\" aria-label=\"Progress\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for i := 1; i <= totalSlides; i++ {
-			var templ_7745c5c3_Var29 = []any{templ.KV("done", i < n), templ.KV("current", i == n)}
-			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var29...)
+			var templ_7745c5c3_Var30 = []any{templ.KV("done", i < n), templ.KV("current", i == n)}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var30...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var30 templ.SafeURL
-			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("#s%d", i)))
+			var templ_7745c5c3_Var31 templ.SafeURL
+			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("#s%d", i)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 279, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 483, Col: 45}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" class=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var31 string
-			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var29).String())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 1, Col: 0}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" data-section=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var32 string
-			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(sectionOf(i))
+			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var30).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 281, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" aria-label=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" data-section=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var33 string
-			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("Slide %d", i))
+			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue(sectionOf(i))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 282, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 485, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"></a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" aria-label=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var34 string
+			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("Slide %d", i))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 486, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"></a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</nav><span class=\"deck-counter\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</nav><span class=\"deck-counter\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var34 string
-		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d / %d", n, totalSlides))
+		var templ_7745c5c3_Var35 string
+		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d / %d", n, totalSlides))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 286, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 490, Col: 69}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</span></footer>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</span></footer>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -849,28 +872,28 @@ func Names() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var35 == nil {
-			templ_7745c5c3_Var35 = templ.NopComponent
+		templ_7745c5c3_Var36 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var36 == nil {
+			templ_7745c5c3_Var36 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		for i, p := range presenters {
 			if i > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<span aria-hidden=\"true\">· </span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<span aria-hidden=\"true\">· </span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var36 string
-			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(p)
+			var templ_7745c5c3_Var37 string
+			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(p)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 295, Col: 5}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `presentation.templ`, Line: 499, Col: 5}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -13,7 +13,6 @@ templ LedgerPage(organization string, document ledger.LedgerDocument) {
 templ LedgerContent(organization string, document ledger.LedgerDocument) {
 	<div
 		data-init="@get('/demo/watch', {filterSignals: {include: /^$/}})"
-		data-on:keydown__window="if (document.referrer.includes('/presentation') && evt.target.tagName !== 'INPUT') { if (evt.key === 'ArrowRight' || evt.key === 'Enter') { location.href = '/presentation#s6'; } else if (evt.key === 'ArrowLeft' || evt.key === 'Escape') { location.href = '/presentation#s5'; } }"
 	>
 		<header class="page-header"><div><p class="eyebrow">{ organization }</p><h1>Monthly ledger</h1><p class="subtitle">Revenue and expenses from posted entries. Make changes through the journal.</p></div><a href="/journal?adjust=1#new-adjustment">Record an adjustment</a></header>
 		<div id="demo">
