@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
@@ -56,6 +57,7 @@ func newRouter(app *App) http.Handler {
 	// long as a tab does, so the timeout only wraps ordinary requests.
 	r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
 	r.Mount("/demo", app.demoRoutes())
+	r.Mount("/collaboration-demo", app.collaborationRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
 
 	r.Group(func(r chi.Router) {
@@ -123,6 +125,8 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 }
 
 type App struct {
+	kv             jetstream.KeyValue
+	collaboration  collaborationState
 	nc             *nats.Conn
 	sqlDB          *sql.DB
 	queries        *db.Queries
@@ -135,6 +139,12 @@ func appInit() (*App, func(), error) {
 	ns, nc, err := startEmbeddedNATS("./data/js", true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("starting NATS: %w", err)
+	}
+
+	kv, err := StartKV(nc)
+	if err != nil {
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, fmt.Errorf("starting prototype KV: %w", err)
 	}
 
 	dbPath := os.Getenv("SUMMA_DB")
@@ -169,6 +179,7 @@ func appInit() (*App, func(), error) {
 	}
 	return &App{
 		nc:             nc,
+		kv:             kv,
 		sqlDB:          conn,
 		queries:        queries,
 		orgID:          orgID,

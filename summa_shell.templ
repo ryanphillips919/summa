@@ -31,14 +31,16 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 					const stops = [
 						"/presentation#s5",
 						"/",
+						"/invoices",
 						"/analytics",
 						"/journal",
+						"/collaboration-demo",
 						"/demo",
 						"/timeline",
 						"/presentation#s6",
 					];
 					const path = location.pathname.replace(/\/$/, "") || "/";
-					const i = stops.indexOf(path);
+					const i = stops.indexOf(path.startsWith("/invoices/") ? "/invoices" : path);
 					if (sessionStorage.getItem("tour") === "1" && i > 0) {
 						addEventListener("keydown", (e) => {
 							if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest("input, textarea, select, button, a, [contenteditable]")) return;
@@ -64,6 +66,7 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						<p class="nav-section">Accounting</p>
 						@SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal")
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
+						@SummaNavLink(meta.ActiveNav, "collaboration", "/collaboration-demo", "users-2", "Collaboration Prototype")
 						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "table", "Monthly Ledger")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")
 					</nav>
@@ -78,6 +81,7 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
 						@SummaNavPlaceholder("receipt", "Bills")
 						@SummaNavPlaceholder("truck", "Vendors")
+						@SummaNavLink(meta.ActiveNav, "collaboration", "/collaboration-demo", "users-2", "Collaboration Prototype")
 						@SummaNavLink(meta.ActiveNav, "demo", "/demo", "table", "Monthly Ledger")
 						@SummaNavLink(meta.ActiveNav, "analytics", "/analytics", "line-chart", "Analytics")
 					</nav>
