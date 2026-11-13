@@ -101,7 +101,15 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</head><body><script>\n\t\t\t\t{\n\t\t\t\t\tconst stops = [\n\t\t\t\t\t\t\"/presentation#s5\",\n\t\t\t\t\t\t\"/\",\n\t\t\t\t\t\t\"/invoices\",\n\t\t\t\t\t\t\"/analytics\",\n\t\t\t\t\t\t\"/journal\",\n\t\t\t\t\t\t\"/collaboration-demo\",\n\t\t\t\t\t\t\"/demo\",\n\t\t\t\t\t\t\"/timeline\",\n\t\t\t\t\t\t\"/presentation#s6\",\n\t\t\t\t\t];\n\t\t\t\t\tconst path = location.pathname.replace(/\\/$/, \"\") || \"/\";\n\t\t\t\t\tconst i = stops.indexOf(path.startsWith(\"/invoices/\") ? \"/invoices\" : path);\n\t\t\t\t\tif (sessionStorage.getItem(\"tour\") === \"1\" && i > 0) {\n\t\t\t\t\t\taddEventListener(\"keydown\", (e) => {\n\t\t\t\t\t\t\tif (e.altKey || e.ctrlKey || e.metaKey || e.target.closest(\"input, textarea, select, button, a, [contenteditable]\")) return;\n\t\t\t\t\t\t\tif (e.key === \"ArrowRight\" || e.key === \"Enter\") location.href = stops[i + 1];\n\t\t\t\t\t\t\tif (e.key === \"ArrowLeft\" || e.key === \"Escape\") location.href = stops[i - 1];\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script><div class=\"summa-shell\"><header class=\"mobile-header\"><a class=\"mobile-wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><button class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" type=\"button\" aria-label=\"Open navigation menu\" aria-controls=\"mobile-menu\" aria-expanded=\"false\"><i data-lucide=\"menu\"></i></button></header><aside class=\"sidebar\"><a class=\"wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><nav class=\"primary-nav\" aria-label=\"Primary navigation\"><p class=\"nav-section\">Workspace</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</head><body>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.JSONScript("tour-stops", tourStops).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<script>\n\t\t\t\t{\n\t\t\t\t\t// sessionStorage.tour is the index of the current stop, since a page can appear twice.\n\t\t\t\t\tconst stops = JSON.parse(document.getElementById(\"tour-stops\").textContent);\n\t\t\t\t\tconst path = location.pathname.replace(/\\/$/, \"\") || \"/\";\n\t\t\t\t\tconst i = Number(sessionStorage.getItem(\"tour\"));\n\t\t\t\t\tconst go = (j) => { sessionStorage.tour = j; location.href = stops[j]; };\n\t\t\t\t\t// An opened invoice still counts as the Invoices stop.\n\t\t\t\t\tif (i > 0 && stops[i] === (path.startsWith(\"/invoices/\") ? \"/invoices\" : path)) {\n\t\t\t\t\t\taddEventListener(\"keydown\", (e) => {\n\t\t\t\t\t\t\tif (e.altKey || e.ctrlKey || e.metaKey || e.target.closest(\"input, textarea, select, button, a, [contenteditable]\")) return;\n\t\t\t\t\t\t\tif (e.key === \"ArrowRight\" || e.key === \"Enter\") go(i + 1);\n\t\t\t\t\t\t\tif (e.key === \"ArrowLeft\" || e.key === \"Escape\") go(i - 1);\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script><div class=\"summa-shell\"><header class=\"mobile-header\"><a class=\"mobile-wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><button class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" type=\"button\" aria-label=\"Open navigation menu\" aria-controls=\"mobile-menu\" aria-expanded=\"false\"><i data-lucide=\"menu\"></i></button></header><aside class=\"sidebar\"><a class=\"wordmark\" href=\"/\" aria-label=\"Summa dashboard\"><img src=\"/assets/images/summa-light.png\" alt=\"Summa\"></a><nav class=\"primary-nav\" aria-label=\"Primary navigation\"><p class=\"nav-section\">Workspace</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -109,7 +117,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<p class=\"nav-section\">Money in</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<p class=\"nav-section\">Money in</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -121,7 +129,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<p class=\"nav-section\">Money out</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"nav-section\">Money out</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -133,7 +141,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"nav-section\">Accounting</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<p class=\"nav-section\">Accounting</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -157,7 +165,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</nav></aside><dialog class=\"mobile-menu\" id=\"mobile-menu\" aria-labelledby=\"mobile-menu-title\"><div class=\"mobile-menu-top\"><span id=\"mobile-menu-title\">Navigation</span><button class=\"mobile-menu-close\" type=\"button\" aria-label=\"Close navigation menu\"><i data-lucide=\"x\"></i></button></div><nav class=\"mobile-nav\" aria-label=\"Mobile navigation\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</nav></aside><dialog class=\"mobile-menu\" id=\"mobile-menu\" aria-labelledby=\"mobile-menu-title\"><div class=\"mobile-menu-top\"><span id=\"mobile-menu-title\">Navigation</span><button class=\"mobile-menu-close\" type=\"button\" aria-label=\"Close navigation menu\"><i data-lucide=\"x\"></i></button></div><nav class=\"mobile-nav\" aria-label=\"Mobile navigation\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -201,7 +209,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</nav></dialog><main class=\"summa-main\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</nav></dialog><main class=\"summa-main\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -209,7 +217,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</main></div><script src=\"https://unpkg.com/lucide@latest/dist/umd/lucide.js\"></script><script src=\"/assets/mobile-menu.js\"></script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</main></div><script src=\"https://unpkg.com/lucide@latest/dist/umd/lucide.js\"></script><script src=\"/assets/mobile-menu.js\"></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -243,7 +251,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<a class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<a class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -256,46 +264,46 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 templ.SafeURL
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 103}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 94, Col: 103}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"><span class=\"nav-icon\"><i data-lucide=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"><span class=\"nav-icon\"><i data-lucide=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(icon)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 94, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"></i></span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"></i></span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 171}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 94, Col: 171}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -326,33 +334,33 @@ func SummaNavPlaceholder(icon, label string) templ.Component {
 			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"nav-link\"><span class=\"nav-icon\"><i data-lucide=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<span class=\"nav-link\"><span class=\"nav-icon\"><i data-lucide=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(icon)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 106, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"></i></span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\"></i></span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 106, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

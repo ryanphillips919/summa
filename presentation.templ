@@ -1,22 +1,26 @@
 package main
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Interactive Demo deck, served from inside the app. Each slide is one viewport tall and
 // the page scroll-snaps; datastar's window keydown maps → ← Enter Home End and f (fullscreen).
 // ↓ / ↑ / PgDn / PgUp / Space work natively. Ctrl+P → Save as PDF for the Canvas upload.
 //
-// Pressing → on slide `liveSlide` starts a tour through the application.
-// The shared shell handles → / Enter and ← / Esc until the tour returns to the deck.
+// The talk alternates between slides and live pages, in the order of tourStops. Pressing →
+// on a slide in tourStops goes to the next stop; the shared shell handles → / Enter and
+// ← / Esc on the app pages until the tour returns to the deck.
 //
 // Wire-up:  r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
 //
 // To add a slide: write a templ SlideN, add it to the list in Presentation, bump totalSlides,
-// and fix the ranges in sectionOf (and liveSlide if it moved).
+// and fix the ranges in sectionOf (and the slide numbers in tourStops if they moved).
 
 var presenters = []string{"David Kendall", "Ryan Phillips", "Sawyer Evans", "Graham Taggart"}
 
-// One goal per presenter for the "By end of semester" column on slide 8.
+// One goal per presenter for the "By end of semester" column on slide 7.
 // VERIFY: these are the unfinished core-scope items from the proposal, assigned arbitrarily.
 // Reassign to match who actually owns what.
 var semesterGoals = map[string]string{
@@ -26,23 +30,39 @@ var semesterGoals = map[string]string{
 	"Graham Taggart": "Diff any two versions of the books, REST export",
 }
 
-const totalSlides = 9
+const totalSlides = 8
 
-// the slide where → opens the live app instead of advancing
-const liveSlide = 5
+// The live part of the talk, in order. A page may appear more than once.
+// Slides before the first stop and after the last one advance normally.
+var tourStops = []string{
+	"/presentation#s3",
+	"/",
+	"/demo",
+	"/presentation#s4", // QR code so the audience can follow along
+	"/collaboration-demo",
+	"/invoices",
+	"/customers",
+	"/analytics",
+	"/presentation#s5",
+}
 
 // current slide = viewports scrolled + 1. Guarded `if` chain rather than `&&` tricks so
-// the live-slide case can't also fall through to a scroll.
+// leaving for an app page can't also fall through to a scroll.
 func deckKeys() string {
+	stops, _ := json.Marshal(tourStops)
 	return fmt.Sprintf(`
 		const cur = Math.round(scrollY / innerHeight) + 1;
-		if ((evt.key === 'ArrowRight' || evt.key === 'Enter') && cur === %d) { sessionStorage.tour = 1; location.href = '/'; }
-		else if (evt.key === 'ArrowRight' || evt.key === 'Enter') { scrollBy({top: innerHeight, behavior: 'smooth'}); }
+		const stops = %s;
+		const at = stops.indexOf('/presentation#s' + cur);
+		const forward = evt.key === 'ArrowRight' || evt.key === 'Enter';
+		if (forward && at >= 0 && at + 1 < stops.length) { sessionStorage.tour = at + 1; location.href = stops[at + 1]; }
+		else if (evt.key === 'ArrowLeft' && at > 0) { sessionStorage.tour = at - 1; location.href = stops[at - 1]; }
+		else if (forward) { scrollBy({top: innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'ArrowLeft') { scrollBy({top: -innerHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'Home') { scrollTo({top: 0, behavior: 'smooth'}); }
 		else if (evt.key === 'End') { scrollTo({top: document.body.scrollHeight, behavior: 'smooth'}); }
 		else if (evt.key === 'f') { document.documentElement.requestFullscreen(); }
-	`, liveSlide)
+	`, stops)
 }
 
 templ Presentation() {
@@ -66,7 +86,6 @@ templ Presentation() {
 			@Slide6()
 			@Slide7()
 			@Slide8()
-			@Slide9()
 		</body>
 	</html>
 }
@@ -375,19 +394,9 @@ templ Slide4() {
 	}
 }
 
-// The hand-off slide. → starts the app tour, which returns to slide 6.
-// Keep it on screen while the previous speaker wraps up so the switch looks intentional.
-templ Slide5() {
-	@Frame(5, "demo", "title") {
-		<p class="eyebrow">Live</p>
-		<h1>Let's see it</h1>
-		<p class="lede">Summa presented from the same server as these slides.</p>
-	}
-}
-
 // ---------------- SOFTWARE ENGINEERING — 2 min ----------------
-templ Slide6() {
-	@Frame(6, "engineering", "") {
+templ Slide5() {
+	@Frame(5, "engineering", "") {
 		<p class="eyebrow">Engineering</p>
 		<h2>Hypermedia is <em>really</em> fast</h2>
 		<div class="two-up">
@@ -406,8 +415,8 @@ templ Slide6() {
 	}
 }
 
-templ Slide7() {
-	@Frame(7, "engineering", "") {
+templ Slide6() {
+	@Frame(6, "engineering", "") {
 		<p class="eyebrow">Engineering</p>
 		<h2>Difficulties and Lessons</h2>
 		<ul>
@@ -420,8 +429,8 @@ templ Slide7() {
 }
 
 // ---------------- CONCLUSION — 1 min ----------------
-templ Slide8() {
-	@Frame(8, "conclusion", "") {
+templ Slide7() {
+	@Frame(7, "conclusion", "") {
 		<p class="eyebrow">Conclusion</p>
 		<h2>Live collaboration works. Next: the rest of the books.</h2>
 		<div class="two-up">
@@ -444,8 +453,8 @@ templ Slide8() {
 	}
 }
 
-templ Slide9() {
-	@Frame(9, "conclusion", "title") {
+templ Slide8() {
+	@Frame(8, "conclusion", "title") {
 		<h1>Thank you</h1>
 		<p class="lede">Questions?</p>
 	}
@@ -505,9 +514,9 @@ func sectionOf(i int) string {
 	switch {
 	case i <= 3:
 		return "intro"
-	case i <= 5:
+	case i <= 4:
 		return "demo"
-	case i <= 7:
+	case i <= 6:
 		return "engineering"
 	default:
 		return "conclusion"

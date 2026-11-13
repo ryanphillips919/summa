@@ -20,6 +20,12 @@ func TestPresentationAndAssets(t *testing.T) {
 			t.Errorf("presentation missing slide %d", slide)
 		}
 	}
+	// Every slide in the tour must exist, or → would lead nowhere after a renumber.
+	for _, stop := range tourStops {
+		if slide, ok := strings.CutPrefix(stop, "/presentation#"); ok && !strings.Contains(response.Body.String(), fmt.Sprintf(`id="%s"`, slide)) {
+			t.Errorf("tour stop %q is not a slide in the deck", stop)
+		}
+	}
 	for _, path := range []string{
 		"/assets/images/summa-tour.gif",
 		"/assets/images/architecture.gif",
