@@ -68,11 +68,16 @@ button:hover, .button-secondary:hover { background: #f1f5f8; }
 /* table wrapper scroll on narrow screens (optional wrapper div) */
 .table-scroll { overflow-x: auto; }
 
-/* inline edit mode */
-#demo td:has(input) { background: #eef7f4; padding: 0; }
+/* inline edit mode: only the cell being typed in (collaboration prototype) */
+#demo td.editing { background: #eef7f4; padding: 0; }
 #demo input[type="number"] { appearance: textfield; background: transparent; border: 1px solid transparent; border-radius: 6px; color: #122f54; display: block; margin: 0; padding: 9px 13px; text-align: right; width: 100%; }
 #demo input[type="number"]::-webkit-inner-spin-button, #demo input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
 #demo input[type="number"]:focus { background: #fff; border-color: #008864; outline: 2px solid #008864; outline-offset: -2px; }
+
+/* presenter code box and save errors (collaboration prototype) */
+.presenter-code { background: #fff; border: 1px solid #cfdbe3; border-radius: 7px; color: #183354; font-size: .84rem; margin: 0 0 16px; min-height: 38px; padding: 0 11px; width: min(100%, 220px); }
+.presenter-code:focus { border-color: #008864; outline: 2px solid #00886433; }
+.form-error { color: #a12727; font-size: .84rem; font-weight: 650; margin: 0 0 12px; }
 
 /* flash on remote change — green tint, no hue rotation (keeps the brand palette) */
 .flash-a { animation: flash-a 1.2s ease-out; }

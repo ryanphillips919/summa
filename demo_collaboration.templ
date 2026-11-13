@@ -23,21 +23,33 @@ templ CollabDemoContent(d CollabDemoDocument, clients int64, history int) {
 	// giving us real-time collaboration for free.
 	// it used to live on <body>; SummaShell owns <body> now, so it sits on this wrapper instead.
 	//
+	// editCell is the cell this person is typing in ('' when none) and editValue is what they typed.
+	// Signals starting with _ stay in this browser: _unlocked is set by the server once the
+	// presenter code checks out. If the presenter stops the session, any open cell closes.
 	<div
 		data-init="@get('/collaboration-demo/watch', {filterSignals: {include: /^$/}})"
+		data-signals="{editCell: '', editValue: '', _unlocked: false, _saveError: ''}"
+		data-effect="!$open && !$_unlocked && ($editCell = '')"
 		data-signals:open="false"
-        data-signals:history={ fmt.Sprint(history) }
-        data-signals:scrub={ fmt.Sprint(history) }
+		data-signals:history={ fmt.Sprint(history) }
+		data-signals:scrub={ fmt.Sprint(history) }
 	>
 		<header class="page-header">
 			<div>
 				<p class="eyebrow">Collaborative prototype · simulated data</p>
 				<h1>Collaborative Ledger Prototype</h1>
-				<p class="subtitle">Double-click a cell to edit. Changes sync to everyone watching.</p>
+				<p class="subtitle">Double-click a cell to edit. Changes sync to everyone watching as you type.</p>
 			</div>
 			@CollabOnline(clients)
 		</header>
-		<input type="password" placeholder="Presenter code" aria-label="Presenter code" data-bind:admin/>
+		<input
+			class="presenter-code"
+			type="password"
+			placeholder="Presenter code"
+			aria-label="Presenter code"
+			data-bind:admin
+			data-on:input__debounce.300ms="@post('/collaboration-demo/unlock', {filterSignals: {include: /^admin$/}})"
+		/>
 		<div
 			style="
 		display: none;
@@ -50,24 +62,27 @@ templ CollabDemoContent(d CollabDemoDocument, clients int64, history int) {
 		padding: 16px;
 	"
 			data-signals:qr="true"
-			data-show="$qr && $admin === 'gradmin'"
+			data-show="$qr && $_unlocked"
 		>
 			<button data-on:click="$qr = false">×</button>
 			<p>Scan the QR code to join this collaborative prototype.</p>
 			<img src="/collaboration-demo/qr" alt="Scan to join the demo"/>
 		</div>
-		@CollabDemo(d, nil, 0)
-		<div class="demo-controls" style="display: none" data-show="$admin === 'gradmin'">
+		<p class="form-error" role="alert" style="display: none" data-show="$_saveError" data-text="$_saveError"></p>
+		@CollabDemo(d)
+		<div class="demo-controls" style="display: none" data-show="$_unlocked">
 			<input
 				type="range"
 				min="0"
-				max="64" data-attr:max="$history" aria-label="Revision history"
+				max="64"
+				data-attr:max="$history"
+				aria-label="Revision history"
 				data-bind="scrub"
 				data-on:input="@get('/collaboration-demo/scrub', {filterSignals: {include: /^scrub$/}})"
 			/>
 			<button class="button-primary" data-on:click="@get('/collaboration-demo/play', {filterSignals: {include: /^$/}})">Play</button>
-			<button data-on:click="@post('/collaboration-demo/start', {filterSignals: {include: /^$/}})">Start</button>
-			<button data-on:click="@post('/collaboration-demo/stop', {filterSignals: {include: /^$/}})">Stop</button>
+			<button data-on:click="@post('/collaboration-demo/start', {filterSignals: {include: /^admin$/}})">Start</button>
+			<button data-on:click="@post('/collaboration-demo/stop', {filterSignals: {include: /^admin$/}})">Stop</button>
 		</div>
 	</div>
 }
@@ -76,26 +91,12 @@ templ CollabOnline(u int64) {
 	<p id="online">{ fmt.Sprint(u) } online</p>
 }
 
-// changed is the set of cells that just changed (nil on a plain render) and rev is the
-// NATS KV revision that changed them. Together they drive the flash animation.
-// <section> rather than <main>: SummaShell already renders <main class="summa-main">,
-// and datastar only needs the id to morph.
-templ CollabDemo(d CollabDemoDocument, changed map[string]int64, rev uint64) {
+// The table is rendered once. After that every change (live edits, scrubbing, playback)
+// arrives as signals, so the table is never re-rendered under someone who is typing.
+// <section> rather than <main>: SummaShell already renders <main class="summa-main">.
+templ CollabDemo(d CollabDemoDocument) {
 	<section id="demo">
-		@CollabTableView(d, changed, rev)
-	</section>
-}
-
-templ CollabDemoEdit(d CollabDemoDocument) {
-	<section
-		id="demo"
-		data-ignore-morph
-		data-effect="($open || $admin === 'gradmin') || @get('/collaboration-demo/cancel', {filterSignals: {include: /^$/}})"
-	>
-		@CollabTableEdit(d)
-		// Save sends every cell signal; the server diffs against what it has and only stores the changes
-		<button data-on:click="@post('/collaboration-demo', {filterSignals: {include: /^r\d+c\d+$/}})">Save</button>
-		<button data-on:click="@get('/collaboration-demo/cancel', {filterSignals: {include: /^$/}})">Cancel</button>
+		@CollabTableView(d)
 	</section>
 }
 
@@ -176,22 +177,19 @@ func CollabfooterAttrs(i int, col []string) templ.Attributes {
 	return templ.Attributes{
 		fmt.Sprintf("data-computed:total%d", i): strings.Join(col, " + "),
 		"data-text":                             fmt.Sprintf("$total%d.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", i),
+		"data-class":                            CollabflashClass(fmt.Sprintf("c%d", i), ""),
 	}
 }
 
 // --- flash animation helpers ---------------------------------------------------
-// a CSS animation only plays when its class is *added*, and datastar morphs in place,
-// so if the same cell changes twice in a row the class would already be there and
-// nothing would replay. alternating between two class names by revision parity dodges that.
-
-func CollabflashClass(key string, changed map[string]int64, rev uint64) string {
-	if _, ok := changed[key]; !ok {
-		return ""
-	}
-	if rev%2 == 0 {
-		return "flash-a"
-	}
-	return "flash-b"
+// the server sets $rev to the revision being shown and $flash.<key> to the revision that
+// last changed each cell (key r0c0) or EBITDA column (key c0), so a cell flashes when
+// the two match. a CSS animation only plays when its class is *added*, so if the same cell
+// changes twice in a row the class would already be there and nothing would replay.
+// alternating between two class names by revision parity dodges that.
+// extra adds more classes to the same data-class object.
+func CollabflashClass(key, extra string) string {
+	return fmt.Sprintf("{'flash-a': $flash.%[1]s === $rev && $rev %% 2 === 0, 'flash-b': $flash.%[1]s === $rev && $rev %% 2 === 1%[2]s}", key, extra)
 }
 
 // which column indexes had at least one changed cell → flash the EBITDA total
@@ -207,24 +205,18 @@ func CollabchangedCols(changed map[string]int64) map[int]bool {
 
 // one color per revision so every client flashes the same color for the same update.
 // rev * 137 (the golden angle) hops around the hue wheel without repeating for a long time.
-// rev 0 means "plain render, nothing flashing" so we emit nothing at all.
-// NOTE: demo.css falls back to a brand-green flash when --flash is unset; return "" here
-// unconditionally if you'd rather every flash be green instead of per-revision hues.
-func CollabflashColor(rev uint64) string {
-	if rev == 0 {
-		return ""
-	}
-	hue := (rev * 137) % 360
-	return fmt.Sprintf("--flash: oklch(0.85 0.17 %d)", hue)
-}
+// rev 0 means "plain render, nothing flashing" so it sets nothing at all.
+// NOTE: demo.css falls back to a brand-green flash when --flash is unset; drop this
+// attribute if you'd rather every flash be green instead of per-revision hues.
+const CollabflashColor = "$rev ? '--flash: oklch(0.85 0.17 ' + ($rev * 137 % 360) + ')' : ''"
 
-templ CollabTableView(d CollabDemoDocument, changed map[string]int64, rev uint64) {
+templ CollabTableView(d CollabDemoDocument) {
 	<div class="table-scroll">
-		<table data-signals={ templ.JSONString(CollabcellSignals(d)) }>
+		<table data-signals={ templ.JSONString(CollabcellSignals(d)) } data-signals:rev="0" data-attr:style={ CollabflashColor }>
 			<caption>CollabDemo For Real-Time Collaboration for Summa!</caption>
 			@CollabTableHeader(d.d)
-			@CollabTableBodyView(d.r, changed, rev)
-			@CollabTableFooterView(CollabgenerateSignals(d), CollabchangedCols(changed), rev)
+			@CollabTableBodyView(d.r)
+			@CollabTableFooterView(CollabgenerateSignals(d))
 		</table>
 	</div>
 }
@@ -242,74 +234,59 @@ templ CollabTableHeader(d []CollabDates) {
 	</thead>
 }
 
-templ CollabTableBodyView(rows []CollabRows, changed map[string]int64, rev uint64) {
+templ CollabTableBodyView(rows []CollabRows) {
 	<tbody>
 		for i, acc := range rows {
 			<tr>
 				// list the chart of account type, ie assets, liabilities, equities, expenses etc
 				<th scope="row">{ acc.account }</th>
 				for j := range acc.data {
-					// the actual list, on a single row, ie expenses 123 452 -420 310
-					// we're adding a data-on attribute here to calls the /collaboration-demo/edit url
-					// on double click, get the CollabDemoEdit templ that replaces the non-changable html
-					// into input fields users can edit/post back to the backend
-					<td
-						class={ CollabflashClass(CollabcellName(i, j), changed, rev) }
-						style={ CollabflashColor(rev) }
-						data-on:dblclick="($open || $admin === 'gradmin') && @get('/collaboration-demo/edit', {filterSignals: {include: /^$/}})"
-						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", CollabcellName(i, j)) }
-					></td>
+					@CollabCell(CollabcellName(i, j))
 				}
 			</tr>
 		}
 	</tbody>
 }
 
-templ CollabTableFooterView(columns [][]string, cols map[int]bool, rev uint64) {
+// One cell, edited in place like a spreadsheet. Double-click opens the input with the
+// cell's current value; every pause in typing saves just this cell, so everyone sees it
+// as it's typed. Enter, Esc or clicking away closes it. Other cells keep updating live
+// while you type, because updates only change signals, never this markup.
+templ CollabCell(name string) {
+	<td
+		data-class={ CollabflashClass(name, fmt.Sprintf(", editing: $editCell === '%s'", name)) }
+		data-on:dblclick={ fmt.Sprintf("($open || $_unlocked) && ($editCell = '%[1]s', $editValue = $%[1]s, setTimeout(() => el.querySelector('input').select()))", name) }
+	>
+		<span
+			data-show={ fmt.Sprintf("$editCell !== '%s'", name) }
+			data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", name) }
+		></span>
+		<input
+			type="number"
+			aria-label={ "Edit " + name }
+			style="display: none"
+			data-show={ fmt.Sprintf("$editCell === '%s'", name) }
+			data-bind="editValue"
+			data-on:input__debounce.400ms={ fmt.Sprintf("$editCell === '%s' && %s", name, collabSaveCell) }
+			data-on:keydown="(evt.key === 'Enter' || evt.key === 'Escape') && el.blur()"
+			data-on:blur={ fmt.Sprintf("$editCell === '%s' && (%s, $editCell = '')", name, collabSaveCell) }
+		/>
+	</td>
+}
+
+// sends the open cell and its value; admin lets the presenter edit while the session is locked
+const collabSaveCell = "@post('/collaboration-demo', {filterSignals: {include: /^(editCell|editValue|admin)$/}})"
+
+templ CollabTableFooterView(columns [][]string) {
 	<tfoot>
 		<tr>
 			<th scope="row">EBITDA</th>
 			for i, col := range columns {
 				// string of totals will be something like "$r0c0 + $r1c0 + $r2c0 + $r3c0"
-				<td
-					class={ templ.KV("flash-a", cols[i] && rev%2 == 0), templ.KV("flash-b", cols[i] && rev%2 == 1) }
-					style={ CollabflashColor(rev) }
-					{ CollabfooterAttrs(i, col)... }
-				></td>
+				<td { CollabfooterAttrs(i, col)... }></td>
 			}
 		</tr>
 	</tfoot>
-}
-
-// when a user double clicks on a cell datastar morphs into the DOM
-// the same HTML but with input elements users can change
-templ CollabTableEdit(d CollabDemoDocument) {
-	<div class="table-scroll">
-		<table data-signals={ templ.JSONString(CollabcellSignals(d)) }>
-			<caption>CollabDemo For Real-Time Collaboration for Summa!</caption>
-			@CollabTableHeader(d.d)
-			@CollabTableBodyEdit(d.r)
-			@CollabTableFooterView(CollabgenerateSignals(d), nil, 0)
-		</table>
-	</div>
-}
-
-templ CollabTableBodyEdit(rows []CollabRows) {
-	<tbody>
-		for i, acc := range rows {
-			<tr>
-				// list the chart of account type, ie assets, liabilities, equities, expenses etc
-				<th scope="row">{ acc.account }</th>
-				for j := range acc.data {
-					// editable version of the cell: a number input bound to the cell's signal,
-					// so typing updates $r0c0 etc and the footer totals recalculate live
-					<td>
-						<input type="number" data-bind={ CollabcellName(i, j) }/>
-					</td>
-				}
-			</tr>
-		}
-	</tbody>
 }
 
 // AI generated function to generate some dummy data before we have an actual data to play with

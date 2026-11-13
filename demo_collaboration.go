@@ -2,9 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
+	"fmt"
+	"math"
 	"net/http"
+	"os"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,8 +41,7 @@ func (a *App) collaborationRoutes() chi.Router {
 	})
 	r.Get("/", a.collaborationPage)
 	r.Post("/", a.collaborationPost)
-	r.Get("/edit", a.collaborationEdit)
-	r.Get("/cancel", a.collaborationCancel)
+	r.Post("/unlock", a.collaborationUnlock)
 	r.Get("/watch", a.collaborationWatch)
 	r.Get("/scrub", a.collaborationScrub)
 	r.Get("/play", a.collaborationPlay)
@@ -77,58 +82,136 @@ func (a *App) collaborationPage(w http.ResponseWriter, r *http.Request) {
 	}
 	CollabPage(collaborationDocument(entries, len(entries)), a.collaboration.clients.Load(), len(entries)).Render(r.Context(), w)
 }
+
+// collaborationSignals is everything a browser needs to show document d: every cell
+// value, plus which cells and EBITDA columns changed in revision rev so they flash.
+// Updates are sent as signals only, so the table markup (and any cell someone is
+// typing in) is never replaced.
+func collaborationSignals(d CollabDemoDocument, changed map[string]int64, rev uint64) map[string]any {
+	signals := map[string]any{"rev": rev}
+	for key, value := range CollabcellSignals(d) {
+		signals[key] = value
+	}
+	flash := map[string]uint64{}
+	for key := range changed {
+		flash[key] = rev
+	}
+	for col := range CollabchangedCols(changed) {
+		flash[fmt.Sprintf("c%d", col)] = rev
+	}
+	signals["flash"] = flash
+	return signals
+}
+
+// collaborationCellEdit is one cell being typed in: which cell, what's in the box, and the
+// presenter code if they have it.
+type collaborationCellEdit struct {
+	EditCell  string `json:"editCell"`
+	EditValue any    `json:"editValue"`
+	Admin     string `json:"admin"`
+}
+
+// collaborationPost saves the one cell someone is typing in. Each pause in typing sends
+// it, so other people see the edit as it happens; edits to other cells are untouched.
+// Two people typing in the same cell: the last one to pause wins.
 func (a *App) collaborationPost(w http.ResponseWriter, r *http.Request) {
-	var cells map[string]int64
-	if err := datastar.ReadSignals(r, &cells); err != nil {
-		http.Error(w, "Invalid cells", 400)
+	var edit collaborationCellEdit
+	if err := datastar.ReadSignals(r, &edit); err != nil {
+		http.Error(w, "Invalid cell", 400)
+		return
+	}
+	sse := datastar.NewSSE(w, r)
+	if !a.collaboration.editing.Load() && !collaborationPresenter(edit.Admin) {
+		sse.MarshalAndPatchSignals(map[string]any{"_saveError": "Editing is locked. Ask the presenter to start the session.", "editCell": ""})
+		return
+	}
+	cells, err := collaborationCells(map[string]any{edit.EditCell: edit.EditValue})
+	if err != nil {
+		sse.MarshalAndPatchSignals(map[string]any{"_saveError": err.Error()})
 		return
 	}
 	a.collaboration.mu.Lock()
 	defer a.collaboration.mu.Unlock()
 	entries, err := a.collaborationHistory(r.Context())
 	if err != nil {
-		http.Error(w, "History unavailable", 500)
+		sse.MarshalAndPatchSignals(map[string]any{"_saveError": "History unavailable. Try again."})
 		return
 	}
 	d := collaborationDocument(entries, len(entries))
+	// diffCells ignores names that aren't cells in the document
 	changed := d.diffCells(cells)
 	if len(changed) == 0 {
-		datastar.NewSSE(w, r).PatchElementTempl(CollabDemo(d, nil, 0), datastar.WithModeReplace())
+		sse.MarshalAndPatchSignals(map[string]any{"_saveError": ""})
 		return
 	}
 	d.setCells(changed)
 	data, err := json.Marshal(CollabcellSignals(d))
 	if err != nil {
-		http.Error(w, "Could not encode cells", 500)
+		sse.MarshalAndPatchSignals(map[string]any{"_saveError": "Could not encode cells."})
 		return
 	}
-	rev, err := a.kv.Put(r.Context(), "prototype.update", data)
-	if err != nil {
-		http.Error(w, "Could not save cells", 500)
+	if _, err := a.kv.Put(r.Context(), "prototype.update", data); err != nil {
+		sse.MarshalAndPatchSignals(map[string]any{"_saveError": "Could not save the cell. Try again."})
 		return
 	}
-	sse := datastar.NewSSE(w, r)
-	sse.MarshalAndPatchSignals(map[string]int{"history": min(len(entries)+1, 64), "scrub": min(len(entries)+1, 64)})
-	sse.PatchElementTempl(CollabDemo(d, changed, rev), datastar.WithModeReplace())
+	// the watch stream delivers the new values to everyone, including this browser
+	sse.MarshalAndPatchSignals(map[string]any{"_saveError": ""})
 }
-func (a *App) collaborationEdit(w http.ResponseWriter, r *http.Request) {
-	entries, err := a.collaborationHistory(r.Context())
-	if err != nil {
-		http.Error(w, "History unavailable", 500)
-		return
+
+// collaborationCells turns typed cell values into whole dollars. A blank input leaves
+// the cell unchanged and decimals round to the nearest dollar.
+func collaborationCells(draft map[string]any) (map[string]int64, error) {
+	cells := make(map[string]int64, len(draft))
+	for key, value := range draft {
+		var f float64
+		switch v := value.(type) {
+		case nil:
+			continue
+		case float64:
+			f = v
+		case string:
+			text := strings.TrimSpace(strings.NewReplacer("$", "", ",", "").Replace(v))
+			if text == "" {
+				continue
+			}
+			parsed, err := strconv.ParseFloat(text, 64)
+			if err != nil {
+				return nil, fmt.Errorf("%q is not a number.", v)
+			}
+			f = parsed
+		default:
+			return nil, fmt.Errorf("%v is not a number.", v)
+		}
+		if math.IsNaN(f) || math.Abs(f) >= 1e12 {
+			return nil, fmt.Errorf("%v is not a usable amount.", value)
+		}
+		cells[key] = int64(math.Round(f))
 	}
-	datastar.NewSSE(w, r).PatchElementTempl(CollabDemoEdit(collaborationDocument(entries, len(entries))))
+	return cells, nil
 }
-func (a *App) collaborationCancel(w http.ResponseWriter, r *http.Request) {
-	entries, err := a.collaborationHistory(r.Context())
-	if err != nil {
-		http.Error(w, "History unavailable", 500)
+
+// collaborationPresenter reports whether code is the presenter code. Checking it here
+// keeps the code out of the page source. SUMMA_PRESENTER_CODE overrides the default.
+func collaborationPresenter(code string) bool {
+	want := os.Getenv("SUMMA_PRESENTER_CODE")
+	if want == "" {
+		want = "gradmin"
+	}
+	return subtle.ConstantTimeCompare([]byte(code), []byte(want)) == 1
+}
+
+type collaborationAdmin struct {
+	Admin string `json:"admin"`
+}
+
+// collaborationUnlock shows the presenter controls once the right code is typed.
+func (a *App) collaborationUnlock(w http.ResponseWriter, r *http.Request) {
+	var sig collaborationAdmin
+	if datastar.ReadSignals(r, &sig) != nil {
+		http.Error(w, "Invalid code", 400)
 		return
 	}
-	d := collaborationDocument(entries, len(entries))
-	sse := datastar.NewSSE(w, r)
-	sse.MarshalAndPatchSignals(CollabcellSignals(d))
-	sse.PatchElementTempl(CollabDemo(d, nil, 0), datastar.WithModeReplace())
+	datastar.NewSSE(w, r).MarshalAndPatchSignals(map[string]bool{"_unlocked": collaborationPresenter(sig.Admin)})
 }
 func (a *App) collaborationWatch(w http.ResponseWriter, r *http.Request) {
 	watcher, err := a.kv.Watch(r.Context(), "prototype.*", jetstream.UpdatesOnly())
@@ -153,9 +236,8 @@ func (a *App) collaborationWatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := collaborationDocument(entries, len(entries))
-	sse.MarshalAndPatchSignals(CollabcellSignals(d))
 	sse.MarshalAndPatchSignals(map[string]int{"history": len(entries), "scrub": len(entries)})
-	if sse.PatchElementTempl(CollabDemo(d, nil, 0)) != nil {
+	if sse.MarshalAndPatchSignals(collaborationSignals(d, nil, 0)) != nil {
 		return
 	}
 	for {
@@ -189,9 +271,8 @@ func (a *App) collaborationWatch(w http.ResponseWriter, r *http.Request) {
 				prev := collaborationDocument(entries, idx)
 				d := collaborationDocument(entries, idx+1)
 				changed := prev.diffCells(CollabcellSignals(d))
-				sse.MarshalAndPatchSignals(CollabcellSignals(d))
 				sse.MarshalAndPatchSignals(map[string]int{"history": len(entries), "scrub": idx + 1})
-				if sse.PatchElementTempl(CollabDemo(d, changed, entry.Revision())) != nil {
+				if sse.MarshalAndPatchSignals(collaborationSignals(d, changed, entry.Revision())) != nil {
 					return
 				}
 			}
@@ -212,10 +293,8 @@ func (a *App) collaborationScrub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n := max(0, min(sig.Scrub, len(entries)))
-	d := collaborationDocument(entries, n)
 	sse := datastar.NewSSE(w, r)
-	sse.MarshalAndPatchSignals(CollabcellSignals(d))
-	sse.PatchElementTempl(CollabDemo(d, nil, 0))
+	sse.MarshalAndPatchSignals(collaborationSignals(collaborationDocument(entries, n), nil, 0))
 }
 func (a *App) collaborationPlay(w http.ResponseWriter, r *http.Request) {
 	entries, err := a.collaborationHistory(r.Context())
@@ -228,8 +307,7 @@ func (a *App) collaborationPlay(w http.ResponseWriter, r *http.Request) {
 	for i, e := range entries {
 		d := collaborationDocument(entries, i+1)
 		changed := prev.diffCells(CollabcellSignals(d))
-		sse.MarshalAndPatchSignals(CollabcellSignals(d))
-		if sse.PatchElementTempl(CollabDemo(d, changed, e.Revision())) != nil {
+		if sse.MarshalAndPatchSignals(collaborationSignals(d, changed, e.Revision())) != nil {
 			return
 		}
 		sse.MarshalAndPatchSignals(map[string]int{"scrub": i + 1})
@@ -243,6 +321,11 @@ func (a *App) collaborationPlay(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) collaborationSetEditing(open bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var sig collaborationAdmin
+		if datastar.ReadSignals(r, &sig) != nil || !collaborationPresenter(sig.Admin) {
+			http.Error(w, "Presenter code required", http.StatusForbidden)
+			return
+		}
 		a.collaboration.editing.Store(open)
 		if _, err := a.kv.Put(r.Context(), "prototype.editing", nil); err != nil {
 			http.Error(w, "Could not update prototype", 500)
