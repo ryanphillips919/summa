@@ -12,6 +12,8 @@ import (
 	"summa/internal/db"
 )
 
+// invoiceFixture groups the database connection and test records
+// so newInvoiceFixture can return everything the tests need in one struct.
 type invoiceFixture struct {
 	conn       *sql.DB
 	queries    *db.Queries
@@ -21,7 +23,7 @@ type invoiceFixture struct {
 	revenue    db.Account
 }
 
-func newInvoiceFixture(t *testing.T) invoiceFixture {
+func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
 	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "test.db"))
@@ -43,7 +45,13 @@ func newInvoiceFixture(t *testing.T) invoiceFixture {
 	if err := goose.Up(conn, "../db/migrations"); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
+	return conn
+}
 
+func newInvoiceFixture(t *testing.T) invoiceFixture {
+	t.Helper()
+
+	conn := newTestDB(t)
 	q := db.New(conn)
 	org, err := q.CreateOrganization(t.Context(), "First organization")
 	if err != nil {
@@ -111,6 +119,8 @@ func (f invoiceFixture) post(t *testing.T) (db.Transaction, error) {
 	return PostInvoice(t.Context(), f.conn, f.org.ID, f.invoice.ID, f.receivable.ID, f.revenue.ID)
 }
 
+// TestPostInvoice checks the ledger entries and invoice link, and ensures a
+// posted invoice cannot be posted again or receive new lines.
 func TestPostInvoice(t *testing.T) {
 	f := newInvoiceFixture(t)
 	f.addLine(t)
@@ -165,6 +175,8 @@ func TestPostInvoice(t *testing.T) {
 	}
 }
 
+// TestPostInvoiceRejectsOtherOrganization checks that invoices and accounts
+// cannot be used across organizations, and that rejected posts create no transactions.
 func TestPostInvoiceRejectsOtherOrganization(t *testing.T) {
 	f := newInvoiceFixture(t)
 	f.addLine(t)
@@ -195,6 +207,8 @@ func TestPostInvoiceRejectsOtherOrganization(t *testing.T) {
 	}
 }
 
+// TestPostInvoiceRequiresPositiveTotalAndCorrectAccountTypes checks that empty
+// invoices and incorrect account types are rejected without creating transactions.
 func TestPostInvoiceRequiresPositiveTotalAndCorrectAccountTypes(t *testing.T) {
 	f := newInvoiceFixture(t)
 	_, err := f.post(t)
@@ -212,6 +226,8 @@ func TestPostInvoiceRequiresPositiveTotalAndCorrectAccountTypes(t *testing.T) {
 	}
 }
 
+// TestPostInvoiceRollsBackWhenInvoiceLinkFails checks that a failure to link the
+// invoice rolls back the transaction and leaves the invoice unlinked.
 func TestPostInvoiceRollsBackWhenInvoiceLinkFails(t *testing.T) {
 	f := newInvoiceFixture(t)
 	f.addLine(t)
