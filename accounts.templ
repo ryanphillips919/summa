@@ -1,0 +1,34 @@
+package main
+
+templ AccountsPage(organization string, accounts []JournalAccount, name, accountType, message string) {
+	@SummaShell(SummaPageMeta{Title: "Chart of Accounts · Summa", Description: "Manage accounts", ActiveNav: "accounts", Stylesheet: "/assets/invoices.css"}, AccountsContent(organization, accounts, name, accountType, message))
+}
+
+templ AccountsContent(organization string, accounts []JournalAccount, name, accountType, message string) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Chart of accounts</h1><p>Balances include all finalized entries.</p></div><a class="invoice-button" href="/reports/trial-balance">View trial balance</a></header>
+	<section class="invoice-panel">
+		<h2>Add account</h2>
+		if message != "" {
+			<p class="form-error" role="alert">{ message }</p>
+		}
+		<form class="invoice-form" method="post" action="/accounts">
+			<label>Account name<input name="name" maxlength="200" value={ name } required/></label>
+			<label>Type<select name="type" required>
+				<option value="">Choose type</option>
+				for _, kind := range []string{"asset", "liability", "equity", "revenue", "expense"} {
+					if accountType == kind {
+						<option value={ kind } selected>{ kind }</option>
+					} else {
+						<option value={ kind }>{ kind }</option>
+					}
+				}
+			</select></label>
+			<button class="invoice-button" type="submit">Add account</button>
+		</form>
+	</section>
+	<section class="invoice-panel"><table><caption>Account balances</caption><thead><tr><th scope="col">Account</th><th scope="col">Type</th><th scope="col">Balance</th></tr></thead><tbody>
+		for _, account := range accounts {
+			<tr><th scope="row">{ account.Name }</th><td>{ account.Type }</td><td>{ formatDollars(account.Balance) }</td></tr>
+		}
+	</tbody></table></section>
+}

@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/payables"
+)
+
+templ BillAgingPage(organization string, report payables.AgingReport) {
+	@SummaShell(SummaPageMeta{Title: "Bill Aging · Summa", Description: "Bill balances by due date", ActiveNav: "bill-aging", Stylesheet: "/assets/invoices.css"}, BillAgingContent(organization, report))
+}
+
+templ BillAgingContent(organization string, report payables.AgingReport) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Bill aging</h1><p>Posted bills less recorded payments.</p></div><a class="invoice-button" href={ templ.URL(fmt.Sprintf("/reports/bill-aging?as_of=%s&format=csv", report.AsOf)) }>Download CSV</a></header>
+	<section class="invoice-panel">
+		<p>Direct ledger entries not recorded as bills are not included. This report may differ from the payables account.</p>
+		<form class="invoice-form" method="get" action="/reports/bill-aging"><label>As of <input type="date" name="as_of" value={ report.AsOf } required/></label><button class="invoice-button" type="submit">Update</button></form>
+		<table><caption>Bills through { report.AsOf }</caption><thead><tr><th>Bill</th><th>Vendor</th><th>Due</th><th>Current</th><th>1–30 days</th><th>31–60 days</th><th>61–90 days</th><th>Over 90 days</th><th>Total</th></tr></thead><tbody>
+			for _, row := range report.Rows {
+				<tr><td><a href={ templ.URL(fmt.Sprintf("/bills/%d", row.ID)) }>{ row.Number }</a></td><td>{ row.Vendor }</td><td>{ row.DueDate }</td><td>{ formatDollars(row.Current) }</td><td>{ formatDollars(row.Days1To30) }</td><td>{ formatDollars(row.Days31To60) }</td><td>{ formatDollars(row.Days61To90) }</td><td>{ formatDollars(row.Over90) }</td><td>{ formatDollars(row.Outstanding) }</td></tr>
+			}
+		</tbody><tfoot><tr><th scope="row">Total</th><td></td><td></td><td>{ formatDollars(report.Current) }</td><td>{ formatDollars(report.Days1To30) }</td><td>{ formatDollars(report.Days31To60) }</td><td>{ formatDollars(report.Days61To90) }</td><td>{ formatDollars(report.Over90) }</td><td>{ formatDollars(report.Outstanding) }</td></tr></tfoot></table>
+	</section>
+}

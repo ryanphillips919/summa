@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -42,8 +43,16 @@ func run() error {
 	go app.warmAnalyticsCache()
 
 	log.Println("Embedded NATS ready")
-	log.Println("Summa running on http://localhost:8080")
-	return http.ListenAndServe(":8080", newRouter(app))
+	address := listenAddress()
+	log.Printf("Summa listening on %s", address)
+	return http.ListenAndServe(address, newRouter(app))
+}
+
+func listenAddress() string {
+	if address := os.Getenv("SUMMA_LISTEN_ADDR"); address != "" {
+		return address
+	}
+	return "127.0.0.1:8080"
 }
 
 func newRouter(app *App) http.Handler {
@@ -82,14 +91,36 @@ func (a *App) mountRoutes(r chi.Router) {
 	r.Get("/", a.homepageHandler)
 	r.Get("/journal", a.journalHandler)
 	r.Post("/journal", a.journalPostHandler)
+	r.Post("/journal/{transactionID}/reverse", a.reverseJournalHandler)
+	r.Get("/accounts", a.accountsHandler)
+	r.Post("/accounts", a.createAccountHandler)
+	r.Get("/reports/trial-balance", a.trialBalanceHandler)
+	r.Get("/reports/profit-and-loss", a.incomeStatementHandler)
+	r.Get("/reports/balance-sheet", a.balanceSheetHandler)
+	r.Get("/reports/invoice-aging", a.invoiceAgingHandler)
+	r.Get("/reports/bill-aging", a.billAgingHandler)
+	r.Get("/reports/general-ledger", a.generalLedgerHandler)
 	r.Get("/customers", a.customersHandler)
 	r.Post("/customers", a.createCustomerHandler)
+	r.Post("/customers/{customerID}", a.updateCustomerHandler)
+	r.Get("/vendors", a.vendorsHandler)
+	r.Post("/vendors", a.createVendorHandler)
+	r.Post("/vendors/{vendorID}", a.updateVendorHandler)
+	r.Get("/bills", a.billsHandler)
+	r.Get("/bills/new", a.newBillHandler)
+	r.Post("/bills", a.createBillHandler)
+	r.Get("/bills/{billID}", a.billDetailHandler)
+	r.Post("/bills/{billID}/payments", a.payBillHandler)
 	r.Get("/invoices", a.invoicesHandler)
 	r.Get("/invoices/new", a.newInvoiceHandler)
 	r.Post("/invoices", a.createInvoiceHandler)
 	r.Get("/invoices/{invoiceID}", a.invoiceDetailHandler)
+	r.Post("/invoices/{invoiceID}", a.updateInvoiceHandler)
 	r.Post("/invoices/{invoiceID}/lines", a.addInvoiceLineHandler)
+	r.Post("/invoices/{invoiceID}/lines/{lineID}", a.updateInvoiceLineHandler)
+	r.Post("/invoices/{invoiceID}/lines/{lineID}/delete", a.deleteInvoiceLineHandler)
 	r.Post("/invoices/{invoiceID}/post", a.postInvoiceHandler)
+	r.Post("/invoices/{invoiceID}/payments", a.recordInvoicePaymentHandler)
 	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var request analytics.Request
@@ -148,11 +179,18 @@ func appInit() (*App, func(), error) {
 	}
 
 	dbPath := os.Getenv("SUMMA_DB")
+	usingDefaultDB := dbPath == ""
 	if dbPath == "" {
 		dbPath = filepath.Join("data", "summa.db")
 	}
 	ctx := context.Background()
 	conn, err := openDatabase(ctx, dbPath)
+	if usingDefaultDB && errors.Is(err, errLegacyDatabase) {
+		legacyPath := dbPath
+		dbPath = filepath.Join("data", "northstar.db")
+		log.Printf("Database %s uses an older schema; keeping it separate and opening demo database %s", legacyPath, dbPath)
+		conn, err = openDatabase(ctx, dbPath)
+	}
 	if err != nil {
 		shutdownEmbeddedNATS(nc, ns)
 		return nil, nil, err
@@ -187,6 +225,8 @@ func appInit() (*App, func(), error) {
 	}, cleanup, nil
 }
 
+var errLegacyDatabase = errors.New("incompatible older Summa schema")
+
 func newAnalyticsDataSource(
 	conn *sql.DB,
 	orgID int64,
@@ -210,6 +250,22 @@ func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	conn, err := sql.Open("sqlite", "file:"+path+"?"+params.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
+	}
+	// Older Summa prototypes used different schemas under the same migration
+	// versions. Never apply the current migrations to those databases: doing
+	// so can leave a partially upgraded database or misinterpret its records.
+	var legacyTransactions int
+	if err := conn.QueryRowContext(ctx, `SELECT EXISTS (
+		SELECT 1 FROM pragma_table_info('transactions') WHERE name = 'occurred_on'
+	) AND NOT EXISTS (
+		SELECT 1 FROM pragma_table_info('transactions') WHERE name = 'date'
+	)`).Scan(&legacyTransactions); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("inspect database schema: %w", err)
+	}
+	if legacyTransactions != 0 {
+		conn.Close()
+		return nil, fmt.Errorf("database %s uses an %w; preserve it and start a separate demo database with SUMMA_DB=data/northstar.db go run .", path, errLegacyDatabase)
 	}
 	if err := migrate(ctx, conn); err != nil {
 		conn.Close()

@@ -7,3 +7,8 @@ SELECT * FROM customers WHERE organization_id = ? ORDER BY name, id;
 -- name: GetCustomer :one
 SELECT * FROM customers
 WHERE id = sqlc.arg(customer_id) AND organization_id = sqlc.arg(organization_id);
+
+-- name: UpdateCustomer :one
+UPDATE customers SET name = sqlc.arg(name), email = sqlc.arg(email)
+WHERE id = sqlc.arg(customer_id) AND organization_id = sqlc.arg(organization_id)
+RETURNING *;

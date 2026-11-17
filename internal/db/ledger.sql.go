@@ -15,6 +15,7 @@ SELECT a.id, a.name, a.type,
        CAST(COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount END), 0) AS INTEGER) AS credits
 FROM accounts a
 LEFT JOIN entries e ON e.account_id = a.id
+  AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = e.transaction_id)
 WHERE a.organization_id = ?
 GROUP BY a.id
 ORDER BY a.name
@@ -161,6 +162,7 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 const getTransaction = `-- name: GetTransaction :one
 SELECT id, organization_id, date, description FROM transactions
 WHERE id = ?1 AND organization_id = ?2
+AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = transactions.id)
 `
 
 type GetTransactionParams struct {
@@ -214,7 +216,9 @@ func (q *Queries) ListAccounts(ctx context.Context, organizationID int64) ([]Acc
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT id, transaction_id, account_id, direction, amount FROM entries WHERE transaction_id = ? ORDER BY id
+SELECT e.id, e.transaction_id, e.account_id, e.direction, e.amount FROM entries e WHERE e.transaction_id = ?
+AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = e.transaction_id)
+ORDER BY e.id
 `
 
 // ListEntries returns the lines of one transaction.
@@ -248,7 +252,9 @@ func (q *Queries) ListEntries(ctx context.Context, transactionID int64) ([]Entry
 }
 
 const listTransactions = `-- name: ListTransactions :many
-SELECT id, organization_id, date, description FROM transactions WHERE organization_id = ? ORDER BY date DESC, id DESC
+SELECT id, organization_id, date, description FROM transactions WHERE organization_id = ?
+AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = transactions.id)
+ORDER BY date DESC, id DESC
 `
 
 // ListTransactions is the journal, newest first.

@@ -1,0 +1,46 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/db"
+	"summa/internal/ledger"
+)
+
+templ GeneralLedgerPage(organization string, accounts []db.Account, report *ledger.GeneralLedger, from, to string) {
+	@SummaShell(SummaPageMeta{Title: "General Ledger · Summa", Description: "Account activity", ActiveNav: "general-ledger", Stylesheet: "/assets/invoices.css"}, GeneralLedgerContent(organization, accounts, report, from, to))
+}
+
+templ GeneralLedgerContent(organization string, accounts []db.Account, report *ledger.GeneralLedger, from, to string) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>General ledger</h1><p>Finalized account activity and running balance.</p></div>
+		if report != nil {
+			<a class="invoice-button" href={ templ.URL(fmt.Sprintf("/reports/general-ledger?account_id=%d&from=%s&to=%s&format=csv", report.Account.ID, from, to)) }>Download CSV</a>
+		}
+	</header>
+	<section class="invoice-panel">
+		if len(accounts) == 0 {
+			<p>No accounts yet. <a href="/accounts">Add an account</a>.</p>
+		} else {
+			<form class="invoice-form" method="get" action="/reports/general-ledger">
+				<label>Account<select name="account_id">
+					for _, account := range accounts {
+						if report != nil && report.Account.ID == account.ID {
+							<option value={ fmt.Sprint(account.ID) } selected>{ account.Name }</option>
+						} else {
+							<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+						}
+					}
+				</select></label>
+				<label>From<input type="date" name="from" value={ from } required/></label><label>Through<input type="date" name="to" value={ to } required/></label><button class="invoice-button" type="submit">Update</button>
+			</form>
+			if report != nil {
+				<p>Balances use this account’s normal debit or credit sign.</p>
+				<table><caption>{ report.Account.Name } from { from } through { to }</caption><thead><tr><th>Date</th><th>Journal entry</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>
+					<tr><td></td><th scope="row" colspan="4">Opening balance</th><td>{ formatDollars(report.Opening) }</td></tr>
+					for _, line := range report.Lines {
+						<tr><td>{ line.Date }</td><td><a href={ templ.URL(fmt.Sprintf("/journal#entry-%d", line.TransactionID)) }>JE-{ fmt.Sprint(line.TransactionID) }</a></td><td>{ line.Description }</td><td>{ formatDollars(line.Debit) }</td><td>{ formatDollars(line.Credit) }</td><td>{ formatDollars(line.Balance) }</td></tr>
+					}
+				</tbody><tfoot><tr><th scope="row" colspan="5">Closing balance</th><td>{ formatDollars(report.Closing) }</td></tr></tfoot></table>
+			}
+		}
+	</section>
+}

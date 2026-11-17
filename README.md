@@ -94,6 +94,12 @@ Choose a path that does not already exist. Local SQLite databases and NATS
 state are stored in `data/` and must not be committed. If you intentionally
 reset a database, its local data is lost.
 
+If the default `data/summa.db` uses an incompatible older Summa schema,
+`go run .` leaves it separate and starts with `data/northstar.db` instead.
+The startup log identifies the selected database. Setting `SUMMA_DB` explicitly
+always selects that exact path; an incompatible database is rejected rather
+than switched or migrated automatically.
+
 The initial account balances, in dollars, are:
 
 | Account | Balance |
@@ -107,12 +113,29 @@ The initial account balances, in dollars, are:
 | Total expenses | $279,449.98 |
 | Net income | -$114,699.98 |
 
-Customer receipts are balanced ledger entries. The schema does not yet
-allocate them to individual invoices, so invoice pages show **Draft** or
-**Posted** rather than claiming that an invoice is paid or outstanding.
+The seeded customer receipts are balanced ledger entries and are not allocated
+to individual invoices. New receipts can be recorded against a single posted
+invoice, including partial payments; recording one posts cash and receivables
+in the same transaction. Invoice balances show only these explicit allocations,
+so earlier unallocated receipts need separate review. Refunds, credits, and
+allocating one receipt to multiple invoices are not yet supported.
 The monthly ledger is read-only; use the general journal for balanced manual
 adjustments. After a journal adjustment or invoice posting, NATS notifies open
 monthly-ledger and timeline views to reload their data from SQLite.
+
+Draft invoice details and lines can be edited until posting. Manual journal
+adjustments created through the journal can be reversed once with a dated,
+balanced entry. Historical transactions and invoice postings do not use this
+manual reversal workflow.
+
+The trial balance and balance sheet support an as-of date, and profit and loss
+supports a date range. All three use finalized ledger entries and offer CSV
+exports. Accumulated income on the balance sheet is the cumulative net balance
+of revenue and expense accounts, including any closing entries.
+
+Summa is still a prototype: the application currently uses a seeded, shared
+organization and does not enforce user authentication or roles. It is not ready
+to host real financial data.
 
 ## Analytics
 

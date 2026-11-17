@@ -28,15 +28,20 @@ INSERT INTO entries (transaction_id, account_id, direction, amount) VALUES (?, ?
 
 -- ListTransactions is the journal, newest first.
 -- name: ListTransactions :many
-SELECT * FROM transactions WHERE organization_id = ? ORDER BY date DESC, id DESC;
+SELECT * FROM transactions WHERE organization_id = ?
+AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = transactions.id)
+ORDER BY date DESC, id DESC;
 
 -- name: GetTransaction :one
 SELECT * FROM transactions
-WHERE id = sqlc.arg(transaction_id) AND organization_id = sqlc.arg(organization_id);
+WHERE id = sqlc.arg(transaction_id) AND organization_id = sqlc.arg(organization_id)
+AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = transactions.id);
 
 -- ListEntries returns the lines of one transaction.
 -- name: ListEntries :many
-SELECT * FROM entries WHERE transaction_id = ? ORDER BY id;
+SELECT e.* FROM entries e WHERE e.transaction_id = ?
+AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = e.transaction_id)
+ORDER BY e.id;
 
 -- AccountTotals adds up every account's debits and credits. Balances are
 -- never stored; they're always worked out from the entries like this, and
@@ -47,6 +52,7 @@ SELECT a.id, a.name, a.type,
        CAST(COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount END), 0) AS INTEGER) AS credits
 FROM accounts a
 LEFT JOIN entries e ON e.account_id = a.id
+  AND EXISTS (SELECT 1 FROM ledger_finalizations f WHERE f.transaction_id = e.transaction_id)
 WHERE a.organization_id = ?
 GROUP BY a.id
 ORDER BY a.name;

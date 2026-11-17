@@ -136,3 +136,39 @@ func (q *Queries) MarkInvoicePosted(ctx context.Context, arg MarkInvoicePostedPa
 	)
 	return i, err
 }
+
+const updateDraftInvoice = `-- name: UpdateDraftInvoice :one
+UPDATE invoices SET customer_id = ?1, issue_date = ?2, due_date = ?3
+WHERE id = ?4 AND organization_id = ?5 AND posted_transaction_id IS NULL
+RETURNING id, organization_id, customer_id, number, issue_date, due_date, posted_transaction_id
+`
+
+type UpdateDraftInvoiceParams struct {
+	CustomerID     int64
+	IssueDate      string
+	DueDate        string
+	InvoiceID      int64
+	OrganizationID int64
+}
+
+// UpdateDraftInvoice changes invoice details only before posting.
+func (q *Queries) UpdateDraftInvoice(ctx context.Context, arg UpdateDraftInvoiceParams) (Invoice, error) {
+	row := q.db.QueryRowContext(ctx, updateDraftInvoice,
+		arg.CustomerID,
+		arg.IssueDate,
+		arg.DueDate,
+		arg.InvoiceID,
+		arg.OrganizationID,
+	)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.CustomerID,
+		&i.Number,
+		&i.IssueDate,
+		&i.DueDate,
+		&i.PostedTransactionID,
+	)
+	return i, err
+}

@@ -47,6 +47,33 @@ func (q *Queries) CreateInvoiceLine(ctx context.Context, arg CreateInvoiceLinePa
 	return i, err
 }
 
+const deleteInvoiceLine = `-- name: DeleteInvoiceLine :one
+DELETE FROM invoice_lines
+WHERE invoice_lines.id = ?1 AND invoice_lines.invoice_id = ?2
+AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_lines.invoice_id AND i.organization_id = ?3 AND i.posted_transaction_id IS NULL)
+RETURNING id, invoice_id, description, quantity, unit_price_cents
+`
+
+type DeleteInvoiceLineParams struct {
+	LineID         int64
+	InvoiceID      int64
+	OrganizationID int64
+}
+
+// DeleteInvoiceLine removes a line only while its organization's invoice is a draft.
+func (q *Queries) DeleteInvoiceLine(ctx context.Context, arg DeleteInvoiceLineParams) (InvoiceLine, error) {
+	row := q.db.QueryRowContext(ctx, deleteInvoiceLine, arg.LineID, arg.InvoiceID, arg.OrganizationID)
+	var i InvoiceLine
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceID,
+		&i.Description,
+		&i.Quantity,
+		&i.UnitPriceCents,
+	)
+	return i, err
+}
+
 const invoiceTotal = `-- name: InvoiceTotal :one
 SELECT CAST(COALESCE(SUM(l.quantity * l.unit_price_cents), 0) AS INTEGER) AS total_cents
 FROM invoices i
@@ -108,4 +135,41 @@ func (q *Queries) ListInvoiceLines(ctx context.Context, arg ListInvoiceLinesPara
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateInvoiceLine = `-- name: UpdateInvoiceLine :one
+UPDATE invoice_lines SET description = ?1, quantity = ?2, unit_price_cents = ?3
+WHERE invoice_lines.id = ?4 AND invoice_lines.invoice_id = ?5
+AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_lines.invoice_id AND i.organization_id = ?6 AND i.posted_transaction_id IS NULL)
+RETURNING id, invoice_id, description, quantity, unit_price_cents
+`
+
+type UpdateInvoiceLineParams struct {
+	Description    string
+	Quantity       int64
+	UnitPriceCents int64
+	LineID         int64
+	InvoiceID      int64
+	OrganizationID int64
+}
+
+// UpdateInvoiceLine changes a line only while its organization's invoice is a draft.
+func (q *Queries) UpdateInvoiceLine(ctx context.Context, arg UpdateInvoiceLineParams) (InvoiceLine, error) {
+	row := q.db.QueryRowContext(ctx, updateInvoiceLine,
+		arg.Description,
+		arg.Quantity,
+		arg.UnitPriceCents,
+		arg.LineID,
+		arg.InvoiceID,
+		arg.OrganizationID,
+	)
+	var i InvoiceLine
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceID,
+		&i.Description,
+		&i.Quantity,
+		&i.UnitPriceCents,
+	)
+	return i, err
 }

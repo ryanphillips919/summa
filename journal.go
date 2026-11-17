@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -11,6 +13,8 @@ import (
 
 	"summa/internal/db"
 	"summa/internal/ledger"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // JournalPageData is the read model for the real, double-entry general journal.
@@ -21,6 +25,8 @@ type JournalPageData struct {
 	Accounts     []JournalAccount
 	Form         JournalForm
 	Posted       bool
+	Reversed     bool
+	Today        string
 }
 
 type JournalTransaction struct {
@@ -29,6 +35,7 @@ type JournalTransaction struct {
 	Description string
 	Entries     []JournalEntry
 	Total       int64
+	CanReverse  bool
 }
 
 type JournalEntry struct {
@@ -146,13 +153,29 @@ func (a *App) journalPostHandler(w http.ResponseWriter, r *http.Request) {
 		a.renderJournal(w, r, form, false, http.StatusUnprocessableEntity)
 		return
 	}
-	if _, err := ledger.Post(r.Context(), a.sqlDB, db.CreateTransactionParams{
+	tx, err := a.sqlDB.BeginTx(r.Context(), nil)
+	if err != nil {
+		a.journalServerError(w, err)
+		return
+	}
+	defer tx.Rollback()
+	posted, err := ledger.PostInTx(r.Context(), tx, db.CreateTransactionParams{
 		OrganizationID: a.orgID,
 		Date:           form.Date,
 		Description:    form.Description,
-	}, entries); err != nil {
+	}, entries)
+	if err != nil {
+		_ = tx.Rollback()
 		form.Error = "This adjustment could not be posted: " + err.Error()
 		a.renderJournal(w, r, form, false, http.StatusUnprocessableEntity)
+		return
+	}
+	if _, err := tx.ExecContext(r.Context(), `INSERT INTO manual_journal_transactions (transaction_id) VALUES (?)`, posted.ID); err != nil {
+		a.journalServerError(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		a.journalServerError(w, err)
 		return
 	}
 
@@ -185,7 +208,7 @@ func (a *App) journalData(r *http.Request, form JournalForm, posted bool) (Journ
 	if err != nil {
 		return JournalPageData{}, err
 	}
-	view := JournalPageData{Organization: org.Name, Form: form, Posted: posted, Transactions: transactions}
+	view := JournalPageData{Organization: org.Name, Form: form, Posted: posted, Reversed: r.URL.Query().Get("reversed") == "1", Today: time.Now().Format("2006-01-02"), Transactions: transactions}
 	for _, total := range totals {
 		view.Accounts = append(view.Accounts, JournalAccount{
 			ID: total.ID, Name: total.Name, Type: total.Type,
@@ -217,6 +240,11 @@ func (a *App) journalTransactions(ctx context.Context) ([]JournalTransaction, er
 			return nil, err
 		}
 		journalTransaction := JournalTransaction{ID: transaction.ID, Date: transaction.Date, Description: transaction.Description}
+		var available int
+		if err := a.sqlDB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM manual_journal_transactions m LEFT JOIN manual_journal_reversals r ON r.original_transaction_id = m.transaction_id WHERE m.transaction_id = ? AND r.original_transaction_id IS NULL)`, transaction.ID).Scan(&available); err != nil {
+			return nil, err
+		}
+		journalTransaction.CanReverse = available == 1
 		for _, entry := range entries {
 			account := accountByID[entry.AccountID]
 			journalTransaction.Entries = append(journalTransaction.Entries, JournalEntry{AccountName: account.Name, Direction: entry.Direction, Amount: entry.Amount})
@@ -227,6 +255,29 @@ func (a *App) journalTransactions(ctx context.Context) ([]JournalTransaction, er
 		result = append(result, journalTransaction)
 	}
 	return result, nil
+}
+
+func (a *App) reverseJournalHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "transactionID"), 10, 64)
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Could not read reversal.", http.StatusBadRequest)
+		return
+	}
+	_, err = ledger.ReverseManual(r.Context(), a.sqlDB, a.orgID, id, r.FormValue("date"))
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "This entry is unavailable or already reversed.", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not reverse entry: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	a.notifyLedgerChanged()
+	http.Redirect(w, r, "/journal?reversed=1", http.StatusSeeOther)
 }
 
 func (a *App) journalServerError(w http.ResponseWriter, err error) {

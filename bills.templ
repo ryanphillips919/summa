@@ -1,0 +1,96 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/db"
+	"summa/internal/payables"
+)
+
+templ BillsPage(organization string, bills []payables.Bill) {
+	@SummaShell(SummaPageMeta{Title: "Bills · Summa", Description: "Vendor bills", ActiveNav: "bills", Stylesheet: "/assets/invoices.css"}, BillsContent(organization, bills))
+}
+
+templ BillsContent(organization string, bills []payables.Bill) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Bills</h1><p>Posted bills and recorded payments.</p></div><a class="invoice-button" href="/bills/new">New bill</a></header>
+	<section class="invoice-panel">
+		if len(bills) == 0 {
+			<p>No bills yet.</p>
+		} else {
+			<table><thead><tr><th>Number</th><th>Vendor</th><th>Due</th><th>Total</th><th>Paid</th><th>Remaining</th></tr></thead><tbody>
+				for _, bill := range bills {
+					<tr><td><a href={ templ.URL(fmt.Sprintf("/bills/%d", bill.ID)) }>{ bill.Number }</a></td><td>{ bill.Vendor }</td><td>{ bill.DueDate }</td><td>{ formatDollars(bill.Amount) }</td><td>{ formatDollars(bill.Paid) }</td><td>{ formatDollars(bill.Amount-bill.Paid) }</td></tr>
+				}
+			</tbody></table>
+		}
+	</section>
+}
+
+templ NewBillPage(organization string, vendors []db.Vendor, accounts []db.Account, today, key string) {
+	@SummaShell(SummaPageMeta{Title: "New bill · Summa", Description: "Record vendor bill", ActiveNav: "bills", Stylesheet: "/assets/invoices.css"}, NewBillContent(organization, vendors, accounts, today, key))
+}
+
+templ NewBillContent(organization string, vendors []db.Vendor, accounts []db.Account, today, key string) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>New bill</h1><p>Posting records an expense and a payable.</p></div><a class="invoice-button secondary" href="/bills">Back to bills</a></header>
+	<section class="invoice-panel">
+		if len(vendors) == 0 {
+			<p><a href="/vendors">Add a vendor</a> before recording a bill.</p>
+		} else {
+			<form class="invoice-form" method="post" action="/bills">
+				<input type="hidden" name="request_key" value={ key }/>
+				<label>Vendor<select name="vendor_id" required><option value="">Choose a vendor</option>
+					for _, vendor := range vendors {
+						<option value={ fmt.Sprint(vendor.ID) }>{ vendor.Name }</option>
+					}
+				</select></label>
+				<label>Bill number<input name="number" maxlength="100" required/></label><label>Description<input name="description" maxlength="250" required/></label>
+				<label>Issue date<input type="date" name="issue_date" value={ today } required/></label><label>Due date<input type="date" name="due_date" value={ today } required/></label><label>Amount ($)<input name="amount" inputmode="decimal" required/></label>
+				<label>Expense account<select name="expense_account_id" required><option value="">Choose expense</option>
+					for _, account := range accounts {
+						if account.Type == "expense" {
+							<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+						}
+					}
+				</select></label>
+				<label>Payable account<select name="payable_account_id" required><option value="">Choose liability</option>
+					for _, account := range accounts {
+						if account.Type == "liability" {
+							<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+						}
+					}
+				</select></label><button class="invoice-button" type="submit">Post bill</button>
+			</form>
+		}
+	</section>
+}
+
+templ BillDetailPage(data BillPageData) {
+	@SummaShell(SummaPageMeta{Title: "Bill · Summa", Description: "Vendor bill details", ActiveNav: "bills", Stylesheet: "/assets/invoices.css"}, BillDetailContent(data))
+}
+
+templ BillDetailContent(data BillPageData) {
+	<header class="invoice-header"><div><p class="eyebrow">{ data.Organization }</p><h1>{ data.Bill.Number }</h1><p>{ data.Bill.Vendor }</p></div><a class="invoice-button secondary" href="/bills">Back to bills</a></header>
+	<section class="invoice-panel"><h2>Bill details</h2><p>{ data.Bill.Description } · Issued { data.Bill.IssueDate } · Due { data.Bill.DueDate }</p><p>Total { formatDollars(data.Bill.Amount) } · Paid { formatDollars(data.Bill.Paid) } · Remaining { formatDollars(data.Bill.Amount-data.Bill.Paid) }</p><p><a href={ templ.URL(fmt.Sprintf("/journal#entry-%d", data.Bill.TransactionID)) }>View posting JE-{ fmt.Sprint(data.Bill.TransactionID) }</a></p></section>
+	<section class="invoice-panel"><h2>Payments</h2>
+		if len(data.Payments) > 0 {
+			<table><thead><tr><th>Date</th><th>Account</th><th>Amount</th><th>Journal entry</th></tr></thead><tbody>
+				for _, payment := range data.Payments {
+					<tr><td>{ payment.Date }</td><td>{ payment.Account }</td><td>{ formatDollars(payment.Amount) }</td><td><a href={ templ.URL(fmt.Sprintf("/journal#entry-%d", payment.TransactionID)) }>JE-{ fmt.Sprint(payment.TransactionID) }</a></td></tr>
+				}
+			</tbody></table>
+		}
+		if data.Bill.Paid < data.Bill.Amount {
+			<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/bills/%d/payments", data.Bill.ID)) }>
+				<input type="hidden" name="request_key" value={ data.RequestKey }/>
+				<label>Date<input type="date" name="date" min={ data.Bill.IssueDate } value={ data.Today } required/></label>
+				<label>Amount ($)<input name="amount" inputmode="decimal" value={ centsCSV(data.Bill.Amount-data.Bill.Paid) } required/></label>
+				<label>Payment account<select name="payment_account_id" required><option value="">Choose an asset</option>
+					for _, account := range data.Accounts {
+						if account.Type == "asset" {
+							<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+						}
+					}
+				</select></label><button class="invoice-button" type="submit">Record payment</button>
+			</form>
+		}
+	</section>
+}

@@ -31,13 +31,12 @@ templ CustomersContent(organization string, customers []db.Customer, name, email
 				<tbody>
 					for _, customer := range customers {
 						<tr>
-							<td>{ customer.Name }</td>
-							<td>
-								if customer.Email.Valid {
-									{ customer.Email.String }
-								} else {
-									<span>—</span>
-								}
+							<td colspan="2">
+								<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/customers/%d", customer.ID)) }>
+									<label>Name<input name="name" value={ customer.Name } maxlength="200" required/></label>
+									<label>Email<input type="email" name="email" value={ customer.Email.String } maxlength="254"/></label>
+									<button class="invoice-button secondary" type="submit">Save customer</button>
+								</form>
 							</td>
 						</tr>
 					}
@@ -54,7 +53,7 @@ templ InvoicesPage(organization string, invoices []InvoiceSummary) {
 templ InvoicesContent(organization string, invoices []InvoiceSummary) {
 	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Invoices</h1><p>Draft and posted customer invoices.</p></div><a class="invoice-button" href="/invoices/new">New invoice</a></header>
 	<section class="invoice-panel">
-		<p>Payments are recorded in the ledger; payment allocation to individual invoices is not available yet.</p>
+		<p>Payments recorded on an invoice are allocated to it. Earlier ledger receipts are not automatically matched.</p>
 		if len(invoices) == 0 {
 			<p>No invoices yet.</p>
 		} else {
@@ -127,8 +126,39 @@ templ InvoiceDetailContent(data InvoiceDetailData) {
 	</section>
 	if data.Transaction != nil {
 		<section class="invoice-panel">
+			<h2>Recorded payments</h2>
+			<p>Allocated to this invoice: { formatDollars(data.RecordedPayments) } · Remaining after recorded allocations: { formatDollars(data.Remaining) }</p>
+			<p>Earlier receipts entered directly in the ledger are not automatically allocated to invoices.</p>
+			if len(data.Receipts) > 0 {
+				<table><thead><tr><th>Date</th><th>Deposit account</th><th>Amount</th><th>Journal entry</th></tr></thead><tbody>
+					for _, receipt := range data.Receipts {
+						<tr><td>{ receipt.Date }</td><td>{ receipt.DepositAccount }</td><td>{ formatDollars(receipt.Amount) }</td><td><a href={ templ.URL(fmt.Sprintf("/journal#entry-%d", receipt.TransactionID)) }>JE-{ fmt.Sprint(receipt.TransactionID) }</a></td></tr>
+					}
+				</tbody></table>
+			}
+			if data.Remaining > 0 {
+				<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/invoices/%d/payments", data.Summary.Invoice.ID)) }>
+					<input type="hidden" name="request_key" value={ data.PaymentKey }/>
+					<label>Date<input type="date" name="date" value={ data.Today } min={ data.Summary.Invoice.IssueDate } required/></label>
+					<label>Amount ($)<input name="amount" inputmode="decimal" value={ centsCSV(data.Remaining) } required/></label>
+					<label>Deposit account<select name="deposit_account_id" required><option value="">Choose an asset account</option>
+						for _, account := range data.Accounts {
+							if account.Type == "asset" {
+								if account.Name == "Cash" {
+									<option value={ fmt.Sprint(account.ID) } selected>{ account.Name }</option>
+								} else {
+									<option value={ fmt.Sprint(account.ID) }>{ account.Name }</option>
+								}
+							}
+						}
+					</select></label>
+					<button class="invoice-button" type="submit">Record payment</button>
+				</form>
+			}
+		</section>
+		<section class="invoice-panel">
 			<h2>Ledger transaction</h2>
-			<p><a href={ templ.URL(fmt.Sprintf("/journal#transaction-%d", data.Transaction.ID)) }>JE-{ fmt.Sprint(data.Transaction.ID) }</a> · { data.Transaction.Date } · { data.Transaction.Description }</p>
+			<p><a href={ templ.URL(fmt.Sprintf("/journal#entry-%d", data.Transaction.ID)) }>JE-{ fmt.Sprint(data.Transaction.ID) }</a> · { data.Transaction.Date } · { data.Transaction.Description }</p>
 			<table>
 				<thead><tr><th>Account</th><th>Direction</th><th>Amount</th></tr></thead>
 				<tbody>
@@ -139,6 +169,37 @@ templ InvoiceDetailContent(data InvoiceDetailData) {
 			</table>
 		</section>
 	} else {
+		<section class="invoice-panel">
+			<h2>Edit invoice details</h2>
+			<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/invoices/%d", data.Summary.Invoice.ID)) }>
+				<label>Customer<select name="customer_id" required>
+					for _, customer := range data.Customers {
+						if customer.ID == data.Summary.Invoice.CustomerID {
+							<option value={ fmt.Sprint(customer.ID) } selected>{ customer.Name }</option>
+						} else {
+							<option value={ fmt.Sprint(customer.ID) }>{ customer.Name }</option>
+						}
+					}
+				</select></label>
+				<label>Issue date<input type="date" name="issue_date" value={ data.Summary.Invoice.IssueDate } required/></label>
+				<label>Due date<input type="date" name="due_date" value={ data.Summary.Invoice.DueDate } required/></label>
+				<button class="invoice-button" type="submit">Save details</button>
+			</form>
+		</section>
+		if len(data.Lines) > 0 {
+			<section class="invoice-panel">
+				<h2>Edit line items</h2>
+				for _, line := range data.Lines {
+					<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/invoices/%d/lines/%d", data.Summary.Invoice.ID, line.ID)) }>
+						<label>Description<input name="description" value={ line.Description } maxlength="250" required/></label>
+						<label>Quantity<input type="number" name="quantity" min="1" step="1" value={ fmt.Sprint(line.Quantity) } required/></label>
+						<label>Unit price ($)<input name="unit_price" inputmode="decimal" value={ centsCSV(line.UnitPriceCents) } required/></label>
+						<button class="invoice-button" type="submit">Save line</button>
+						<button class="invoice-button secondary" type="submit" formnovalidate formaction={ templ.URL(fmt.Sprintf("/invoices/%d/lines/%d/delete", data.Summary.Invoice.ID, line.ID)) }>Remove line</button>
+					</form>
+				}
+			</section>
+		}
 		<section class="invoice-panel">
 			<h2>Add a line item</h2>
 			<form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/invoices/%d/lines", data.Summary.Invoice.ID)) }>

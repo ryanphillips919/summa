@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/ledger"
+)
+
+templ IncomeStatementPage(organization string, report ledger.IncomeStatement) {
+	@SummaShell(SummaPageMeta{Title: "Profit and Loss · Summa", Description: "Income and expenses", ActiveNav: "profit-and-loss", Stylesheet: "/assets/invoices.css"}, IncomeStatementContent(organization, report))
+}
+
+templ IncomeStatementContent(organization string, report ledger.IncomeStatement) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Profit and loss</h1><p>Revenue and expenses from finalized ledger transactions.</p></div><a class="invoice-button" href={ templ.URL(fmt.Sprintf("/reports/profit-and-loss?from=%s&to=%s&format=csv", report.From, report.To)) }>Download CSV</a></header>
+	<section class="invoice-panel">
+		<form class="invoice-form" method="get" action="/reports/profit-and-loss"><label>From <input type="date" name="from" value={ report.From } required/></label><label>Through <input type="date" name="to" value={ report.To } required/></label><button class="invoice-button" type="submit">Update</button></form>
+		<table><caption>Activity from { report.From } through { report.To }</caption><thead><tr><th scope="col">Account</th><th scope="col">Type</th><th scope="col">Amount</th></tr></thead>
+		<tbody>
+			for _, row := range report.Rows {
+				<tr><th scope="row">{ row.Name }</th><td>{ row.Type }</td><td>{ formatDollars(row.Amount) }</td></tr>
+			}
+		</tbody><tfoot><tr><th scope="row">Total revenue</th><td></td><td>{ formatDollars(report.Revenue) }</td></tr><tr><th scope="row">Total expenses</th><td></td><td>{ formatDollars(report.Expenses) }</td></tr><tr><th scope="row">Net income</th><td></td><td>{ formatDollars(report.NetIncome) }</td></tr></tfoot></table>
+	</section>
+}

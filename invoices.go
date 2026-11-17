@@ -25,11 +25,15 @@ type InvoiceSummary struct {
 }
 
 type InvoiceDetailData struct {
-	Organization string
-	Summary      InvoiceSummary
-	Lines        []db.InvoiceLine
-	Accounts     []db.Account
-	Transaction  *JournalTransaction
+	Organization                string
+	Summary                     InvoiceSummary
+	Lines                       []db.InvoiceLine
+	Accounts                    []db.Account
+	Customers                   []db.Customer
+	Transaction                 *JournalTransaction
+	Receipts                    []invoicing.Receipt
+	RecordedPayments, Remaining int64
+	PaymentKey, Today           string
 }
 
 func invoiceStatus(invoice db.Invoice) string {
@@ -110,6 +114,29 @@ func (a *App) createCustomerHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		http.Error(w, "Could not create customer.", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/customers", http.StatusSeeOther)
+}
+
+func (a *App) updateCustomerHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "customerID"), 10, 64)
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	name, email, err := parseContact(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	_, err = a.queries.UpdateCustomer(r.Context(), db.UpdateCustomerParams{OrganizationID: a.orgID, CustomerID: id, Name: name, Email: sql.NullString{String: email, Valid: email != ""}})
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not update customer.", http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/customers", http.StatusSeeOther)
@@ -280,8 +307,36 @@ func (a *App) invoiceDetailHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not load accounts.", http.StatusInternalServerError)
 		return
 	}
-	data := InvoiceDetailData{Organization: org.Name, Summary: InvoiceSummary{Invoice: invoice, Customer: customer.Name, Total: total}, Lines: lines, Accounts: accounts}
+	customers, err := a.queries.ListCustomers(ctx, a.orgID)
+	if err != nil {
+		http.Error(w, "Could not load customers.", http.StatusInternalServerError)
+		return
+	}
+	data := InvoiceDetailData{Organization: org.Name, Summary: InvoiceSummary{Invoice: invoice, Customer: customer.Name, Total: total}, Lines: lines, Accounts: accounts, Customers: customers}
 	if invoice.PostedTransactionID.Valid {
+		receipts, err := invoicing.ListReceipts(ctx, a.sqlDB, a.orgID, invoice.ID)
+		if err != nil {
+			http.Error(w, "Could not load recorded payments.", http.StatusInternalServerError)
+			return
+		}
+		data.Receipts = receipts
+		for _, receipt := range receipts {
+			data.RecordedPayments += receipt.Amount
+		}
+		data.Remaining = total - data.RecordedPayments
+		if data.Remaining < 0 {
+			http.Error(w, "Invoice payment allocations exceed its total.", http.StatusInternalServerError)
+			return
+		}
+		data.PaymentKey, err = GenerateSessionToken()
+		if err != nil {
+			http.Error(w, "Could not prepare payment form.", http.StatusInternalServerError)
+			return
+		}
+		data.Today = time.Now().Format("2006-01-02")
+		if data.Today < invoice.IssueDate {
+			data.Today = invoice.IssueDate
+		}
 		transaction, err := a.queries.GetTransaction(ctx, db.GetTransactionParams{OrganizationID: a.orgID, TransactionID: invoice.PostedTransactionID.Int64})
 		if err != nil {
 			http.Error(w, "Could not load the linked ledger transaction.", http.StatusInternalServerError)
@@ -307,6 +362,72 @@ func (a *App) invoiceDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (a *App) recordInvoicePaymentHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "invoiceID"), 10, 64)
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Could not read payment.", http.StatusBadRequest)
+		return
+	}
+	depositID, accountErr := strconv.ParseInt(r.FormValue("deposit_account_id"), 10, 64)
+	amountText := strings.TrimSpace(r.FormValue("amount"))
+	amount, amountErr := parseCents(amountText)
+	if accountErr != nil || depositID < 1 || amountText == "" || amountErr != nil || amount <= 0 {
+		http.Error(w, "Choose a deposit account and enter a positive payment amount.", http.StatusBadRequest)
+		return
+	}
+	_, err = invoicing.RecordReceipt(r.Context(), a.sqlDB, a.orgID, id, depositID, amount, r.FormValue("date"), r.FormValue("request_key"))
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "Invoice or account was not found.", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not record payment: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	a.notifyLedgerChanged()
+	http.Redirect(w, r, fmt.Sprintf("/invoices/%d", id), http.StatusSeeOther)
+}
+
+func (a *App) updateInvoiceHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "invoiceID"), 10, 64)
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Could not read the invoice form.", http.StatusBadRequest)
+		return
+	}
+	customerID, customerErr := strconv.ParseInt(r.FormValue("customer_id"), 10, 64)
+	issue, issueErr := time.Parse("2006-01-02", r.FormValue("issue_date"))
+	due, dueErr := time.Parse("2006-01-02", r.FormValue("due_date"))
+	if customerErr != nil || customerID < 1 || issueErr != nil || dueErr != nil || due.Before(issue) {
+		http.Error(w, "Choose a customer and valid dates; the due date must not be before the issue date.", http.StatusBadRequest)
+		return
+	}
+	if _, err := a.queries.GetCustomer(r.Context(), db.GetCustomerParams{OrganizationID: a.orgID, CustomerID: customerID}); errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "That customer is not available for this organization.", http.StatusBadRequest)
+		return
+	} else if err != nil {
+		http.Error(w, "Could not load customer.", http.StatusInternalServerError)
+		return
+	}
+	_, err = a.queries.UpdateDraftInvoice(r.Context(), db.UpdateDraftInvoiceParams{OrganizationID: a.orgID, InvoiceID: id, CustomerID: customerID, IssueDate: issue.Format("2006-01-02"), DueDate: due.Format("2006-01-02")})
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "This invoice is missing or already posted.", http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not update invoice.", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/invoices/%d", id), http.StatusSeeOther)
+}
+
 func (a *App) addInvoiceLineHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "invoiceID"), 10, 64)
 	if err != nil || id < 1 {
@@ -321,7 +442,7 @@ func (a *App) addInvoiceLineHandler(w http.ResponseWriter, r *http.Request) {
 	quantity, quantityErr := strconv.ParseInt(r.FormValue("quantity"), 10, 64)
 	priceText := strings.TrimSpace(r.FormValue("unit_price"))
 	price, priceErr := parseCents(priceText)
-	if description == "" || quantityErr != nil || quantity < 1 || priceText == "" || priceErr != nil {
+	if description == "" || len(description) > 250 || quantityErr != nil || quantity < 1 || priceText == "" || priceErr != nil {
 		http.Error(w, "Enter a description, positive whole quantity, and valid unit price.", http.StatusBadRequest)
 		return
 	}
@@ -337,6 +458,66 @@ func (a *App) addInvoiceLineHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/invoices/%d", id), http.StatusSeeOther)
+}
+
+func invoiceLineIDs(r *http.Request) (int64, int64, error) {
+	invoiceID, err := strconv.ParseInt(chi.URLParam(r, "invoiceID"), 10, 64)
+	if err != nil || invoiceID < 1 {
+		return 0, 0, errors.New("invalid invoice")
+	}
+	lineID, err := strconv.ParseInt(chi.URLParam(r, "lineID"), 10, 64)
+	if err != nil || lineID < 1 {
+		return 0, 0, errors.New("invalid line")
+	}
+	return invoiceID, lineID, nil
+}
+
+func (a *App) updateInvoiceLineHandler(w http.ResponseWriter, r *http.Request) {
+	invoiceID, lineID, err := invoiceLineIDs(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Could not read the line form.", http.StatusBadRequest)
+		return
+	}
+	description := strings.TrimSpace(r.FormValue("description"))
+	quantity, quantityErr := strconv.ParseInt(r.FormValue("quantity"), 10, 64)
+	priceText := strings.TrimSpace(r.FormValue("unit_price"))
+	price, priceErr := parseCents(priceText)
+	if description == "" || len(description) > 250 || quantityErr != nil || quantity < 1 || priceText == "" || priceErr != nil {
+		http.Error(w, "Enter a description, positive whole quantity, and valid unit price.", http.StatusBadRequest)
+		return
+	}
+	_, err = a.queries.UpdateInvoiceLine(r.Context(), db.UpdateInvoiceLineParams{OrganizationID: a.orgID, InvoiceID: invoiceID, LineID: lineID, Description: description, Quantity: quantity, UnitPriceCents: price})
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "This line is missing or its invoice is already posted.", http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not update the line. Check the quantity and price.", http.StatusBadRequest)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/invoices/%d", invoiceID), http.StatusSeeOther)
+}
+
+func (a *App) deleteInvoiceLineHandler(w http.ResponseWriter, r *http.Request) {
+	invoiceID, lineID, err := invoiceLineIDs(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_, err = a.queries.DeleteInvoiceLine(r.Context(), db.DeleteInvoiceLineParams{OrganizationID: a.orgID, InvoiceID: invoiceID, LineID: lineID})
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "This line is missing or its invoice is already posted.", http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not delete the line.", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/invoices/%d", invoiceID), http.StatusSeeOther)
 }
 
 func (a *App) postInvoiceHandler(w http.ResponseWriter, r *http.Request) {

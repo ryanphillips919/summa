@@ -31,6 +31,9 @@ templ JournalContent(data JournalPageData) {
 			Adjustment posted to the general journal.
 		</p>
 	}
+	if data.Reversed {
+		<p class="journal-notice" role="status">Reversal posted to the general journal.</p>
+	}
 
 	if data.Form.Open {
 		@JournalAdjustment(data.Form, data.Accounts)
@@ -66,7 +69,14 @@ templ JournalContent(data JournalPageData) {
 										<time datetime={ transaction.Date }>{ transaction.Date }</time>
 										<span>JE-{ fmt.Sprint(transaction.ID) }</span>
 									</td>
-									<td colspan="3"><strong>{ transaction.Description }</strong></td>
+									<td colspan="3"><strong>{ transaction.Description }</strong>
+										if transaction.CanReverse {
+											<form method="post" action={ templ.URL(fmt.Sprintf("/journal/%d/reverse", transaction.ID)) }>
+												<label>Reversal date <input type="date" name="date" value={ data.Today } min={ transaction.Date } required/></label>
+												<button type="submit">Reverse entry</button>
+											</form>
+										}
+									</td>
 								</tr>
 
 								for _, entry := range transaction.Entries {

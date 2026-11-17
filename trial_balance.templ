@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/ledger"
+)
+
+templ TrialBalancePage(organization string, report ledger.TrialBalance) {
+	@SummaShell(SummaPageMeta{Title: "Trial Balance · Summa", Description: "Account balances", ActiveNav: "trial-balance", Stylesheet: "/assets/invoices.css"}, TrialBalanceContent(organization, report))
+}
+
+templ TrialBalanceContent(organization string, report ledger.TrialBalance) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Trial balance</h1><p>Net account balances from finalized ledger transactions.</p></div><a class="invoice-button" href={ templ.URL(fmt.Sprintf("/reports/trial-balance?as_of=%s&format=csv", report.AsOf)) }>Download CSV</a></header>
+	<section class="invoice-panel">
+		<form class="invoice-form" method="get" action="/reports/trial-balance"><label>As of <input type="date" name="as_of" value={ report.AsOf } required/></label><button class="invoice-button" type="submit">Update</button></form>
+		<table><caption>Balances through { report.AsOf }</caption><thead><tr><th scope="col">Account</th><th scope="col">Type</th><th scope="col">Debit</th><th scope="col">Credit</th></tr></thead>
+		<tbody>
+			for _, row := range report.Rows {
+				<tr><th scope="row">{ row.Name }</th><td>{ row.Type }</td><td>{ formatDollars(row.Debit) }</td><td>{ formatDollars(row.Credit) }</td></tr>
+			}
+		</tbody><tfoot><tr><th scope="row">Total</th><td></td><td>{ formatDollars(report.TotalDebit) }</td><td>{ formatDollars(report.TotalCredit) }</td></tr></tfoot></table>
+	</section>
+}

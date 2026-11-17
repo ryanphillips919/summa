@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/ledger"
+)
+
+templ BalanceSheetPage(organization string, report ledger.BalanceSheet) {
+	@SummaShell(SummaPageMeta{Title: "Balance Sheet · Summa", Description: "Assets, liabilities and equity", ActiveNav: "balance-sheet", Stylesheet: "/assets/invoices.css"}, BalanceSheetContent(organization, report))
+}
+
+templ BalanceSheetContent(organization string, report ledger.BalanceSheet) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Balance sheet</h1><p>Balances from finalized ledger transactions.</p></div><a class="invoice-button" href={ templ.URL(fmt.Sprintf("/reports/balance-sheet?as_of=%s&format=csv", report.AsOf)) }>Download CSV</a></header>
+	<section class="invoice-panel">
+		<form class="invoice-form" method="get" action="/reports/balance-sheet"><label>As of <input type="date" name="as_of" value={ report.AsOf } required/></label><button class="invoice-button" type="submit">Update</button></form>
+		<table><caption>Balances through { report.AsOf }</caption><thead><tr><th scope="col">Account</th><th scope="col">Type</th><th scope="col">Amount</th></tr></thead>
+		<tbody>
+			for _, row := range report.Rows {
+				<tr><th scope="row">{ row.Name }</th><td>{ row.Type }</td><td>{ formatDollars(row.Amount) }</td></tr>
+			}
+		</tbody><tfoot><tr><th scope="row">Total assets</th><td></td><td>{ formatDollars(report.Assets) }</td></tr><tr><th scope="row">Total liabilities</th><td></td><td>{ formatDollars(report.Liabilities) }</td></tr><tr><th scope="row">Total equity accounts</th><td></td><td>{ formatDollars(report.Equity) }</td></tr><tr><th scope="row">Accumulated income</th><td></td><td>{ formatDollars(report.AccumulatedIncome) }</td></tr><tr><th scope="row">Total liabilities and equity</th><td></td><td>{ formatDollars(report.TotalLiabilitiesAndEquity) }</td></tr></tfoot></table>
+	</section>
+}

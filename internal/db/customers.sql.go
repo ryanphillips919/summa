@@ -85,3 +85,33 @@ func (q *Queries) ListCustomers(ctx context.Context, organizationID int64) ([]Cu
 	}
 	return items, nil
 }
+
+const updateCustomer = `-- name: UpdateCustomer :one
+UPDATE customers SET name = ?1, email = ?2
+WHERE id = ?3 AND organization_id = ?4
+RETURNING id, organization_id, name, email
+`
+
+type UpdateCustomerParams struct {
+	Name           string
+	Email          sql.NullString
+	CustomerID     int64
+	OrganizationID int64
+}
+
+func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error) {
+	row := q.db.QueryRowContext(ctx, updateCustomer,
+		arg.Name,
+		arg.Email,
+		arg.CustomerID,
+		arg.OrganizationID,
+	)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Email,
+	)
+	return i, err
+}

@@ -133,11 +133,11 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SummaNavPlaceholder("receipt", "Bills").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "bills", "/bills", "receipt", "Bills").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SummaNavPlaceholder("truck", "Vendors").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "vendors", "/vendors", "truck", "Vendors").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -146,6 +146,34 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "journal", "/journal", "book-open", "General Journal").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "accounts", "/accounts", "list-tree", "Chart of Accounts").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "general-ledger", "/reports/general-ledger", "book-open", "General Ledger").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "trial-balance", "/reports/trial-balance", "scale", "Trial Balance").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "profit-and-loss", "/reports/profit-and-loss", "chart-no-axes-combined", "Profit and Loss").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "balance-sheet", "/reports/balance-sheet", "landmark", "Balance Sheet").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "invoice-aging", "/reports/invoice-aging", "clock", "Invoice Aging").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "bill-aging", "/reports/bill-aging", "clock", "Bill Aging").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -177,6 +205,34 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "accounts", "/accounts", "list-tree", "Chart of Accounts").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "general-ledger", "/reports/general-ledger", "book-open", "General Ledger").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "trial-balance", "/reports/trial-balance", "scale", "Trial Balance").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "profit-and-loss", "/reports/profit-and-loss", "chart-no-axes-combined", "Profit and Loss").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "balance-sheet", "/reports/balance-sheet", "landmark", "Balance Sheet").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "invoice-aging", "/reports/invoice-aging", "clock", "Invoice Aging").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "bill-aging", "/reports/bill-aging", "clock", "Bill Aging").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -189,11 +245,11 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SummaNavPlaceholder("receipt", "Bills").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "bills", "/bills", "receipt", "Bills").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SummaNavPlaceholder("truck", "Vendors").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "vendors", "/vendors", "truck", "Vendors").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -271,7 +327,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		var templ_7745c5c3_Var9 templ.SafeURL
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 94, Col: 103}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 108, Col: 103}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -284,7 +340,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(icon)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 94, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 108, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -297,7 +353,7 @@ func SummaNavLink(active, current, href, icon, label string) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 94, Col: 171}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 108, Col: 171}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -341,7 +397,7 @@ func SummaNavPlaceholder(icon, label string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(icon)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 114, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -354,7 +410,7 @@ func SummaNavPlaceholder(icon, label string) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 100, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summa_shell.templ`, Line: 114, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {

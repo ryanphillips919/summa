@@ -140,40 +140,46 @@ func CustomersContent(organization string, customers []db.Customer, name, email,
 				return templ_7745c5c3_Err
 			}
 			for _, customer := range customers {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<tr><td>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<tr><td colspan=\"2\"><form class=\"invoice-form\" method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var7 string
-				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(customer.Name)
+				var templ_7745c5c3_Var7 templ.SafeURL
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/customers/%d", customer.ID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 34, Col: 26}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 35, Col: 110}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"><label>Name<input name=\"name\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if customer.Email.Valid {
-					var templ_7745c5c3_Var8 string
-					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(customer.Email.String)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 37, Col: 32}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<span>—</span>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(customer.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 36, Col: 60}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</td></tr>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" maxlength=\"200\" required></label> <label>Email<input type=\"email\" name=\"email\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var9 string
+				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(customer.Email.String)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 37, Col: 83}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" maxlength=\"254\"></label> <button class=\"invoice-button secondary\" type=\"submit\">Save customer</button></form></td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -207,9 +213,9 @@ func InvoicesPage(organization string, invoices []InvoiceSummary) templ.Componen
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var9 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var9 == nil {
-			templ_7745c5c3_Var9 = templ.NopComponent
+		templ_7745c5c3_Var10 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var10 == nil {
+			templ_7745c5c3_Var10 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = SummaShell(SummaPageMeta{Title: "Invoices · Summa", Description: "Customer invoices", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, InvoicesContent(organization, invoices)).Render(ctx, templ_7745c5c3_Buffer)
@@ -236,25 +242,25 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var10 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var10 == nil {
-			templ_7745c5c3_Var10 = templ.NopComponent
+		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var11 == nil {
+			templ_7745c5c3_Var11 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<header class=\"invoice-header\"><div><p class=\"eyebrow\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(organization)
+		var templ_7745c5c3_Var12 string
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(organization)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 55, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 54, Col: 70}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p><h1>Invoices</h1><p>Draft and posted customer invoices.</p></div><a class=\"invoice-button\" href=\"/invoices/new\">New invoice</a></header><section class=\"invoice-panel\"><p>Payments are recorded in the ledger; payment allocation to individual invoices is not available yet.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p><h1>Invoices</h1><p>Draft and posted customer invoices.</p></div><a class=\"invoice-button\" href=\"/invoices/new\">New invoice</a></header><section class=\"invoice-panel\"><p>Payments recorded on an invoice are allocated to it. Earlier ledger receipts are not automatically matched.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -273,12 +279,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var12 templ.SafeURL
-				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d", invoice.Invoice.ID)))
+				var templ_7745c5c3_Var13 templ.SafeURL
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d", invoice.Invoice.ID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 82}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -286,12 +292,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var13 string
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Invoice.Number)
+				var templ_7745c5c3_Var14 string
+				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Invoice.Number)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 109}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 109}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -299,12 +305,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var14 string
-				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Customer)
+				var templ_7745c5c3_Var15 string
+				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Customer)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 142}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 142}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -312,12 +318,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Invoice.IssueDate)
+				var templ_7745c5c3_Var16 string
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Invoice.IssueDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 180}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 180}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -325,12 +331,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Invoice.DueDate)
+				var templ_7745c5c3_Var17 string
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(invoice.Invoice.DueDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 216}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 216}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -338,12 +344,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(invoiceStatus(invoice.Invoice))
+				var templ_7745c5c3_Var18 string
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(invoiceStatus(invoice.Invoice))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 259}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 259}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -351,12 +357,12 @@ func InvoicesContent(organization string, invoices []InvoiceSummary) templ.Compo
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(invoice.Total))
+				var templ_7745c5c3_Var19 string
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(invoice.Total))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 65, Col: 300}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 64, Col: 300}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -394,9 +400,9 @@ func NewInvoicePage(organization string, customers []db.Customer, today, nextNum
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var19 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var19 == nil {
-			templ_7745c5c3_Var19 = templ.NopComponent
+		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var20 == nil {
+			templ_7745c5c3_Var20 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = SummaShell(SummaPageMeta{Title: "New invoice · Summa", Description: "Create an invoice", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, NewInvoiceContent(organization, customers, today, nextNumber)).Render(ctx, templ_7745c5c3_Buffer)
@@ -423,21 +429,21 @@ func NewInvoiceContent(organization string, customers []db.Customer, today, next
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var20 == nil {
-			templ_7745c5c3_Var20 = templ.NopComponent
+		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var21 == nil {
+			templ_7745c5c3_Var21 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<header class=\"invoice-header\"><div><p class=\"eyebrow\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var21 string
-		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(organization)
+		var templ_7745c5c3_Var22 string
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(organization)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 78, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 77, Col: 70}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -460,12 +466,12 @@ func NewInvoiceContent(organization string, customers []db.Customer, today, next
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var22 string
-				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(customer.ID))
+				var templ_7745c5c3_Var23 string
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(customer.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 89, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 88, Col: 46}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -473,12 +479,12 @@ func NewInvoiceContent(organization string, customers []db.Customer, today, next
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(customer.Name)
+				var templ_7745c5c3_Var24 string
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(customer.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 89, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 88, Col: 64}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -491,12 +497,12 @@ func NewInvoiceContent(organization string, customers []db.Customer, today, next
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(nextNumber)
+			var templ_7745c5c3_Var25 string
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(nextNumber)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 95, Col: 95}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 94, Col: 95}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -504,12 +510,12 @@ func NewInvoiceContent(organization string, customers []db.Customer, today, next
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(today)
+			var templ_7745c5c3_Var26 string
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(today)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 98, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 97, Col: 71}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -517,12 +523,12 @@ func NewInvoiceContent(organization string, customers []db.Customer, today, next
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var26 string
-			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(today)
+			var templ_7745c5c3_Var27 string
+			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(today)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 99, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 98, Col: 67}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -555,9 +561,9 @@ func InvoiceDetailPage(data InvoiceDetailData) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var27 == nil {
-			templ_7745c5c3_Var27 = templ.NopComponent
+		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var28 == nil {
+			templ_7745c5c3_Var28 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = SummaShell(SummaPageMeta{Title: "Invoice · Summa", Description: "Invoice details", ActiveNav: "invoices", Stylesheet: "/assets/invoices.css"}, InvoiceDetailContent(data)).Render(ctx, templ_7745c5c3_Buffer)
@@ -584,21 +590,21 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var28 == nil {
-			templ_7745c5c3_Var28 = templ.NopComponent
+		templ_7745c5c3_Var29 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var29 == nil {
+			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<header class=\"invoice-header\"><div><p class=\"eyebrow\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var29 string
-		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(data.Organization)
+		var templ_7745c5c3_Var30 string
+		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(data.Organization)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 111, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 110, Col: 75}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -606,12 +612,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var30 string
-		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Invoice.Number)
+		var templ_7745c5c3_Var31 string
+		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Invoice.Number)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 111, Col: 114}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 110, Col: 114}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -619,12 +625,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var31 string
-		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Customer)
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Customer)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 111, Col: 147}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 110, Col: 147}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -632,12 +638,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var32 string
-		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(invoiceStatus(data.Summary.Invoice))
+		var templ_7745c5c3_Var33 string
+		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(invoiceStatus(data.Summary.Invoice))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 111, Col: 190}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 110, Col: 190}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -645,12 +651,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var33 string
-		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Invoice.IssueDate)
+		var templ_7745c5c3_Var34 string
+		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Invoice.IssueDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 113, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 112, Col: 44}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -658,12 +664,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var34 string
-		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Invoice.DueDate)
+		var templ_7745c5c3_Var35 string
+		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(data.Summary.Invoice.DueDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 113, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 112, Col: 84}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -686,12 +692,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var35 string
-				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(line.Description)
+				var templ_7745c5c3_Var36 string
+				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(line.Description)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 121, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 120, Col: 32}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -699,12 +705,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var36 string
-				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(line.Quantity))
+				var templ_7745c5c3_Var37 string
+				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(line.Quantity))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 121, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 120, Col: 70}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -712,12 +718,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var37 string
-				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(line.UnitPriceCents))
+				var templ_7745c5c3_Var38 string
+				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(line.UnitPriceCents))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 121, Col: 117}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 120, Col: 117}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -725,12 +731,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var38 string
-				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(line.Quantity * line.UnitPriceCents))
+				var templ_7745c5c3_Var39 string
+				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(line.Quantity * line.UnitPriceCents))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 121, Col: 180}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 120, Col: 180}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -748,12 +754,12 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var39 string
-		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(data.Summary.Total))
+		var templ_7745c5c3_Var40 string
+		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(data.Summary.Total))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 126, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 125, Col: 55}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -762,281 +768,727 @@ func InvoiceDetailContent(data InvoiceDetailData) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if data.Transaction != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<section class=\"invoice-panel\"><h2>Ledger transaction</h2><p><a href=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var40 templ.SafeURL
-			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/journal#transaction-%d", data.Transaction.ID)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 131, Col: 86}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\">JE-")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<section class=\"invoice-panel\"><h2>Recorded payments</h2><p>Allocated to this invoice: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var41 string
-			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(data.Transaction.ID))
+			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(data.RecordedPayments))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 131, Col: 125}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 130, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</a> · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, " · Remaining after recorded allocations: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var42 string
-			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(data.Transaction.Date)
+			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(data.Remaining))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 131, Col: 158}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 130, Col: 146}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</p><p>Earlier receipts entered directly in the ledger are not automatically allocated to invoices.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var43 string
-			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(data.Transaction.Description)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 131, Col: 194}
+			if len(data.Receipts) > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<table><thead><tr><th>Date</th><th>Deposit account</th><th>Amount</th><th>Journal entry</th></tr></thead><tbody>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				for _, receipt := range data.Receipts {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<tr><td>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var43 string
+					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(receipt.Date)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 135, Col: 28}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</td><td>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var44 string
+					templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(receipt.DepositAccount)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 135, Col: 63}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</td><td>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var45 string
+					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(receipt.Amount))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 135, Col: 105}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</td><td><a href=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var46 templ.SafeURL
+					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/journal#entry-%d", receipt.TransactionID)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 135, Col: 192}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\">JE-")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var47 string
+					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(receipt.TransactionID))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 135, Col: 233}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</a></td></tr>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</tbody></table>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+			if data.Remaining > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<form class=\"invoice-form\" method=\"post\" action=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var48 templ.SafeURL
+				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d/payments", data.Summary.Invoice.ID)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 140, Col: 126}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "\"><input type=\"hidden\" name=\"request_key\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var49 string
+				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.PaymentKey)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 141, Col: 68}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var49)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\"> <label>Date<input type=\"date\" name=\"date\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var50 string
+				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Today)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 142, Col: 65}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var50)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\" min=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var51 string
+				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Summary.Invoice.IssueDate)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 142, Col: 104}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var51)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\" required></label> <label>Amount ($)<input name=\"amount\" inputmode=\"decimal\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var52 string
+				templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.ResolveAttributeValue(centsCSV(data.Remaining))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 143, Col: 95}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var52)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" required></label> <label>Deposit account<select name=\"deposit_account_id\" required><option value=\"\">Choose an asset account</option> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				for _, account := range data.Accounts {
+					if account.Type == "asset" {
+						if account.Name == "Cash" {
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<option value=\"")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var53 string
+							templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 148, Col: 47}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var53)
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "\" selected>")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var54 string
+							templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 148, Col: 73}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</option>")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+						} else {
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<option value=\"")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var55 string
+							templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 150, Col: 47}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var55)
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\">")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var56 string
+							templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 150, Col: 64}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</option>")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+						}
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</select></label> <button class=\"invoice-button\" type=\"submit\">Record payment</button></form>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</section><section class=\"invoice-panel\"><h2>Ledger transaction</h2><p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</p><table><thead><tr><th>Account</th><th>Direction</th><th>Amount</th></tr></thead> <tbody>")
+			var templ_7745c5c3_Var57 templ.SafeURL
+			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/journal#entry-%d", data.Transaction.ID)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 161, Col: 80}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "\">JE-")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var58 string
+			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(data.Transaction.ID))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 161, Col: 119}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</a> · ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var59 string
+			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(data.Transaction.Date)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 161, Col: 152}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, " · ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var60 string
+			templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(data.Transaction.Description)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 161, Col: 188}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</p><table><thead><tr><th>Account</th><th>Direction</th><th>Amount</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, entry := range data.Transaction.Entries {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<tr><td>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<tr><td>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var44 string
-				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(entry.AccountName)
+				var templ_7745c5c3_Var61 string
+				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(entry.AccountName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 136, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 166, Col: 33}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</td><td>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var45 string
-				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Direction)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 136, Col: 61}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</td><td>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</td><td>")
+				var templ_7745c5c3_Var62 string
+				templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Direction)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 166, Col: 61}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var46 string
-				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(entry.Amount))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 136, Col: 101}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</td><td>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</td></tr>")
+				var templ_7745c5c3_Var63 string
+				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollars(entry.Amount))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 166, Col: 101}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</tbody></table></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "</tbody></table></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<section class=\"invoice-panel\"><h2>Add a line item</h2><form class=\"invoice-form\" method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<section class=\"invoice-panel\"><h2>Edit invoice details</h2><form class=\"invoice-form\" method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var47 templ.SafeURL
-			templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d/lines", data.Summary.Invoice.ID)))
+			var templ_7745c5c3_Var64 templ.SafeURL
+			templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d", data.Summary.Invoice.ID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 144, Col: 122}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 174, Col: 116}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "\"><label>Description<input name=\"description\" maxlength=\"250\" required></label><label>Quantity<input type=\"number\" name=\"quantity\" min=\"1\" step=\"1\" value=\"1\" required></label><label>Unit price ($)<input name=\"unit_price\" inputmode=\"decimal\" placeholder=\"0.00\" required></label><button class=\"invoice-button\" type=\"submit\">Add line</button></form></section><section class=\"invoice-panel\"><h2>Post to ledger</h2><p>Posting debits receivables and credits revenue. The invoice can no longer be edited.</p><form class=\"invoice-form\" method=\"post\" action=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var48 templ.SafeURL
-			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d/post", data.Summary.Invoice.ID)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 151, Col: 121}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "\"><label>Customer<select name=\"customer_id\" required>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "\"><label>Receivable account <select name=\"receivable_account_id\" required><option value=\"\">Choose an asset account</option> ")
+			for _, customer := range data.Customers {
+				if customer.ID == data.Summary.Invoice.CustomerID {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<option value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var65 string
+					templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(customer.ID))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 178, Col: 46}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var65)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "\" selected>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var66 string
+					templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(customer.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 178, Col: 73}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</option>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<option value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var67 string
+					templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(customer.ID))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 180, Col: 46}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var67)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var68 string
+					templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(customer.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 180, Col: 64}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "</option>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</select></label> <label>Issue date<input type=\"date\" name=\"issue_date\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var69 string
+			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Summary.Invoice.IssueDate)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 184, Col: 96}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var69)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "\" required></label> <label>Due date<input type=\"date\" name=\"due_date\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var70 string
+			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Summary.Invoice.DueDate)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 185, Col: 90}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var70)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "\" required></label> <button class=\"invoice-button\" type=\"submit\">Save details</button></form></section>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(data.Lines) > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<section class=\"invoice-panel\"><h2>Edit line items</h2>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				for _, line := range data.Lines {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<form class=\"invoice-form\" method=\"post\" action=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var71 templ.SafeURL
+					templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d/lines/%d", data.Summary.Invoice.ID, line.ID)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 193, Col: 136}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "\"><label>Description<input name=\"description\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var72 string
+					templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.ResolveAttributeValue(line.Description)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 194, Col: 74}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var72)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\" maxlength=\"250\" required></label> <label>Quantity<input type=\"number\" name=\"quantity\" min=\"1\" step=\"1\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var73 string
+					templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(line.Quantity))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 195, Col: 108}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var73)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "\" required></label> <label>Unit price ($)<input name=\"unit_price\" inputmode=\"decimal\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var74 string
+					templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.ResolveAttributeValue(centsCSV(line.UnitPriceCents))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 196, Col: 109}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var74)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "\" required></label> <button class=\"invoice-button\" type=\"submit\">Save line</button> <button class=\"invoice-button secondary\" type=\"submit\" formnovalidate formaction=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var75 string
+					templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.URL(fmt.Sprintf("/invoices/%d/lines/%d/delete", data.Summary.Invoice.ID, line.ID)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 198, Col: 177}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var75)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "\">Remove line</button></form>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "</section>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, " <section class=\"invoice-panel\"><h2>Add a line item</h2><form class=\"invoice-form\" method=\"post\" action=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var76 templ.SafeURL
+			templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d/lines", data.Summary.Invoice.ID)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 205, Col: 122}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "\"><label>Description<input name=\"description\" maxlength=\"250\" required></label><label>Quantity<input type=\"number\" name=\"quantity\" min=\"1\" step=\"1\" value=\"1\" required></label><label>Unit price ($)<input name=\"unit_price\" inputmode=\"decimal\" placeholder=\"0.00\" required></label><button class=\"invoice-button\" type=\"submit\">Add line</button></form></section><section class=\"invoice-panel\"><h2>Post to ledger</h2><p>Posting debits receivables and credits revenue. The invoice can no longer be edited.</p><form class=\"invoice-form\" method=\"post\" action=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var77 templ.SafeURL
+			templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/invoices/%d/post", data.Summary.Invoice.ID)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 212, Col: 121}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "\"><label>Receivable account <select name=\"receivable_account_id\" required><option value=\"\">Choose an asset account</option> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, account := range data.Accounts {
 				if account.Type == "asset" {
 					if account.Name == "Accounts Receivable" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<option value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "<option value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var49 string
-						templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
+						var templ_7745c5c3_Var78 string
+						templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 159, Col: 47}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 220, Col: 47}
 						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var49)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\" selected>")
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var78)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var50 string
-						templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
-						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 159, Col: 73}
-						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "\" selected>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</option>")
+						var templ_7745c5c3_Var79 string
+						templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 220, Col: 73}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "</option>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<option value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<option value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var51 string
-						templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
+						var templ_7745c5c3_Var80 string
+						templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 161, Col: 47}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 222, Col: 47}
 						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var51)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\">")
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var80)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var52 string
-						templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
-						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 161, Col: 64}
-						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</option>")
+						var templ_7745c5c3_Var81 string
+						templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 222, Col: 64}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "</option>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</select></label> <label>Revenue account <select name=\"revenue_account_id\" required><option value=\"\">Choose a revenue account</option> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</select></label> <label>Revenue account <select name=\"revenue_account_id\" required><option value=\"\">Choose a revenue account</option> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, account := range data.Accounts {
 				if account.Type == "revenue" {
 					if account.Name == "Sales Revenue" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<option value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "<option value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var53 string
-						templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
+						var templ_7745c5c3_Var82 string
+						templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 174, Col: 47}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 235, Col: 47}
 						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var53)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\" selected>")
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var82)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var54 string
-						templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
-						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 174, Col: 73}
-						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "\" selected>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</option>")
+						var templ_7745c5c3_Var83 string
+						templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 235, Col: 73}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "</option>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<option value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<option value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var55 string
-						templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
+						var templ_7745c5c3_Var84 string
+						templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprint(account.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 176, Col: 47}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 237, Col: 47}
 						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var55)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "\">")
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var84)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var56 string
-						templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
-						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 176, Col: 64}
-						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</option>")
+						var templ_7745c5c3_Var85 string
+						templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(account.Name)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `invoices.templ`, Line: 237, Col: 64}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "</option>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</select></label> <button class=\"invoice-button\" type=\"submit\">Post invoice</button></form></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "</select></label> <button class=\"invoice-button\" type=\"submit\">Post invoice</button></form></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -72,3 +72,17 @@ The article doesn't cover these. The team needs to decide them:
 
 The `/demo/` page edits P&L totals directly, which violates rule 6. That's acceptable for the
 prototype, but the real UI must post entries rather than overwrite totals.
+
+Ledger postings are finalized in the same database transaction as their entries. SQLite checks
+that each finalized transaction is balanced, rejects entries added after finalization, and prevents
+updates or deletes of ledger rows. The migration checks existing transactions before finalizing
+them; if it fails, investigate the existing data before retrying. Historical posting times are
+unknown and are left unset. Only the ledger service should create transactions: direct SQL can
+still commit an unfinalized transaction, and database access is not a substitute for application
+authorization.
+
+The ledger has a closed-through lock that rejects finalization on or before the
+locked date, including postings from invoices and payments. Lock dates can only
+move forward, and changes are recorded, but the primitive is not exposed in the
+UI: user identity, role checks, and actor attribution are not implemented yet.
+Do not treat this as a complete accounting-period administration feature.

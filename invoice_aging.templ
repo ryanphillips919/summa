@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/invoicing"
+)
+
+templ InvoiceAgingPage(organization string, report invoicing.AgingReport) {
+	@SummaShell(SummaPageMeta{Title: "Invoice Aging · Summa", Description: "Invoice balances by due date", ActiveNav: "invoice-aging", Stylesheet: "/assets/invoices.css"}, InvoiceAgingContent(organization, report))
+}
+
+templ InvoiceAgingContent(organization string, report invoicing.AgingReport) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Invoice aging</h1><p>Posted invoices less payments allocated to them.</p></div><a class="invoice-button" href={ templ.URL(fmt.Sprintf("/reports/invoice-aging?as_of=%s&format=csv", report.AsOf)) }>Download CSV</a></header>
+	<section class="invoice-panel">
+		<p>Earlier receipts recorded directly in the ledger are not included; allocating those receipts is not yet available. This report may therefore differ from the receivables account.</p>
+		<form class="invoice-form" method="get" action="/reports/invoice-aging"><label>As of <input type="date" name="as_of" value={ report.AsOf } required/></label><button class="invoice-button" type="submit">Update</button></form>
+		<table><caption>Invoice allocations through { report.AsOf }</caption><thead><tr><th>Invoice</th><th>Customer</th><th>Due</th><th>Current</th><th>1–30 days</th><th>31–60 days</th><th>61–90 days</th><th>Over 90 days</th><th>Total</th></tr></thead><tbody>
+			for _, row := range report.Rows {
+				<tr><td><a href={ templ.URL(fmt.Sprintf("/invoices/%d", row.InvoiceID)) }>{ row.Number }</a></td><td>{ row.Customer }</td><td>{ row.DueDate }</td><td>{ formatDollars(row.Current) }</td><td>{ formatDollars(row.Days1To30) }</td><td>{ formatDollars(row.Days31To60) }</td><td>{ formatDollars(row.Days61To90) }</td><td>{ formatDollars(row.Over90) }</td><td>{ formatDollars(row.Outstanding) }</td></tr>
+			}
+		</tbody><tfoot><tr><th scope="row">Total</th><td></td><td></td><td>{ formatDollars(report.Current) }</td><td>{ formatDollars(report.Days1To30) }</td><td>{ formatDollars(report.Days31To60) }</td><td>{ formatDollars(report.Days61To90) }</td><td>{ formatDollars(report.Over90) }</td><td>{ formatDollars(report.Outstanding) }</td></tr></tfoot></table>
+	</section>
+}

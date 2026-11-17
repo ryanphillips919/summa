@@ -1,0 +1,35 @@
+package main
+
+import (
+	"fmt"
+	"summa/internal/db"
+)
+
+templ VendorsPage(organization string, vendors []db.Vendor, name, email, message string) {
+	@SummaShell(SummaPageMeta{Title: "Vendors · Summa", Description: "Vendors", ActiveNav: "vendors", Stylesheet: "/assets/invoices.css"}, VendorsContent(organization, vendors, name, email, message))
+}
+
+templ VendorsContent(organization string, vendors []db.Vendor, name, email, message string) {
+	<header class="invoice-header"><div><p class="eyebrow">{ organization }</p><h1>Vendors</h1><p>Vendors in your organization.</p></div></header>
+	<section class="invoice-panel"><h2>Add a vendor</h2>
+		if message != "" {
+			<p class="form-error" role="alert">{ message }</p>
+		}
+		<form class="invoice-form" method="post" action="/vendors"><label>Name<input name="name" value={ name } maxlength="200" required/></label><label>Email (optional)<input type="email" name="email" value={ email } maxlength="254"/></label><button class="invoice-button" type="submit">Add vendor</button></form>
+	</section>
+	<section class="invoice-panel">
+		if len(vendors) == 0 {
+			<p>No vendors yet.</p>
+		} else {
+			<table><thead><tr><th>Name</th><th>Email</th></tr></thead><tbody>
+				for _, vendor := range vendors {
+					<tr><td colspan="2"><form class="invoice-form" method="post" action={ templ.URL(fmt.Sprintf("/vendors/%d", vendor.ID)) }>
+						<label>Name<input name="name" value={ vendor.Name } maxlength="200" required/></label>
+						<label>Email<input type="email" name="email" value={ vendor.Email.String } maxlength="254"/></label>
+						<button class="invoice-button secondary" type="submit">Save vendor</button>
+					</form></td></tr>
+				}
+			</tbody></table>
+		}
+	</section>
+}

@@ -22,3 +22,17 @@ FROM invoices i
 LEFT JOIN invoice_lines l ON l.invoice_id = i.id
 WHERE i.organization_id = sqlc.arg(organization_id) AND i.id = sqlc.arg(invoice_id)
 GROUP BY i.id;
+
+-- UpdateInvoiceLine changes a line only while its organization's invoice is a draft.
+-- name: UpdateInvoiceLine :one
+UPDATE invoice_lines SET description = sqlc.arg(description), quantity = sqlc.arg(quantity), unit_price_cents = sqlc.arg(unit_price_cents)
+WHERE invoice_lines.id = sqlc.arg(line_id) AND invoice_lines.invoice_id = sqlc.arg(invoice_id)
+AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_lines.invoice_id AND i.organization_id = sqlc.arg(organization_id) AND i.posted_transaction_id IS NULL)
+RETURNING *;
+
+-- DeleteInvoiceLine removes a line only while its organization's invoice is a draft.
+-- name: DeleteInvoiceLine :one
+DELETE FROM invoice_lines
+WHERE invoice_lines.id = sqlc.arg(line_id) AND invoice_lines.invoice_id = sqlc.arg(invoice_id)
+AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_lines.invoice_id AND i.organization_id = sqlc.arg(organization_id) AND i.posted_transaction_id IS NULL)
+RETURNING *;

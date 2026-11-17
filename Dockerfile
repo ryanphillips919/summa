@@ -18,6 +18,7 @@ COPY --from=builder /app/analytics ./analytics
 COPY --from=builder /app/assets ./assets
 RUN python3 -m venv /opt/summa-analytics-venv && /opt/summa-analytics-venv/bin/python -m pip install --no-cache-dir -r analytics/requirements.txt
 ENV SUMMA_ANALYTICS_PYTHON=/opt/summa-analytics-venv/bin/python
+ENV SUMMA_LISTEN_ADDR=:8080
 
 RUN useradd --system --uid 10001 --home-dir /app summa && mkdir -p /app/data && chown summa:summa /app/data
 USER summa

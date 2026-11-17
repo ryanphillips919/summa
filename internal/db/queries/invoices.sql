@@ -19,3 +19,9 @@ WHERE id = sqlc.arg(invoice_id)
   AND organization_id = sqlc.arg(organization_id)
   AND posted_transaction_id IS NULL
 RETURNING *;
+
+-- UpdateDraftInvoice changes invoice details only before posting.
+-- name: UpdateDraftInvoice :one
+UPDATE invoices SET customer_id = sqlc.arg(customer_id), issue_date = sqlc.arg(issue_date), due_date = sqlc.arg(due_date)
+WHERE id = sqlc.arg(invoice_id) AND organization_id = sqlc.arg(organization_id) AND posted_transaction_id IS NULL
+RETURNING *;

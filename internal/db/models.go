@@ -15,6 +15,44 @@ type Account struct {
 	Type           string
 }
 
+type AccountingPeriodLock struct {
+	OrganizationID int64
+	ClosedThrough  string
+}
+
+type AccountingPeriodLockEvent struct {
+	ID             int64
+	OrganizationID int64
+	ClosedThrough  string
+	RecordedAt     string
+}
+
+type Bill struct {
+	ID               int64
+	OrganizationID   int64
+	VendorID         int64
+	Number           string
+	IssueDate        string
+	DueDate          string
+	Description      string
+	Amount           int64
+	ExpenseAccountID int64
+	PayableAccountID int64
+	TransactionID    int64
+	RequestKey       string
+}
+
+type BillPayment struct {
+	ID               int64
+	OrganizationID   int64
+	BillID           int64
+	Date             string
+	Amount           int64
+	PaymentAccountID int64
+	TransactionID    int64
+	RequestKey       string
+}
+
 type Customer struct {
 	ID             int64
 	OrganizationID int64
@@ -48,6 +86,31 @@ type InvoiceLine struct {
 	UnitPriceCents int64
 }
 
+type InvoiceReceipt struct {
+	ID               int64
+	OrganizationID   int64
+	InvoiceID        int64
+	TransactionID    int64
+	DepositAccountID int64
+	Date             string
+	Amount           int64
+	RequestKey       string
+}
+
+type LedgerFinalization struct {
+	TransactionID int64
+	FinalizedAt   sql.NullString
+}
+
+type ManualJournalReversal struct {
+	OriginalTransactionID int64
+	ReversalTransactionID int64
+}
+
+type ManualJournalTransaction struct {
+	TransactionID int64
+}
+
 type Organization struct {
 	ID   int64
 	Name string
@@ -64,4 +127,11 @@ type User struct {
 	ID    int64
 	Email string
 	Name  string
+}
+
+type Vendor struct {
+	ID             int64
+	OrganizationID int64
+	Name           string
+	Email          sql.NullString
 }

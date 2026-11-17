@@ -70,6 +70,7 @@ func (s DatabaseCashDataSource) latestCashDate(
 SELECT MAX(date) FROM (
 	SELECT t.date
 	FROM transactions t
+	JOIN ledger_finalizations f ON f.transaction_id = t.id
 	JOIN entries e ON e.transaction_id = t.id
 	JOIN accounts a ON a.id = e.account_id
 	WHERE t.organization_id = ?
@@ -105,6 +106,7 @@ SELECT COALESCE(SUM(
 	END
 ), 0)
 FROM transactions t
+JOIN ledger_finalizations f ON f.transaction_id = t.id
 JOIN entries e ON e.transaction_id = t.id
 JOIN accounts a ON a.id = e.account_id
 WHERE t.organization_id = ?
@@ -144,6 +146,7 @@ SELECT
 		  AND counterparty.name != 'Cash'
 	), '')
 FROM transactions t
+JOIN ledger_finalizations f ON f.transaction_id = t.id
 JOIN entries e ON e.transaction_id = t.id
 JOIN accounts cash ON cash.id = e.account_id
 WHERE t.organization_id = ?

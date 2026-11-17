@@ -13,6 +13,8 @@ import (
 	"database/sql"
 	"errors"
 	"math"
+	"strings"
+	"time"
 
 	"summa/internal/db"
 )
@@ -40,6 +42,13 @@ func Post(ctx context.Context, conn *sql.DB, transactionParams db.CreateTransact
 // PostInTx writes a balanced ledger transaction inside a caller-owned SQL
 // transaction. The caller commits or rolls back the transaction.
 func PostInTx(ctx context.Context, sqlTx *sql.Tx, transactionParams db.CreateTransactionParams, entries []db.CreateEntryParams) (db.Transaction, error) {
+	date, err := time.Parse("2006-01-02", transactionParams.Date)
+	if err != nil || date.Format("2006-01-02") != transactionParams.Date {
+		return db.Transaction{}, errors.New("transaction date must be a valid date in YYYY-MM-DD format")
+	}
+	if strings.TrimSpace(transactionParams.Description) == "" {
+		return db.Transaction{}, errors.New("transaction description is required")
+	}
 	// money always moves from somewhere to somewhere: one line for each side
 	if len(entries) < 2 {
 		return db.Transaction{}, errors.New("a transaction needs at least 2 entries")
@@ -71,6 +80,19 @@ func PostInTx(ctx context.Context, sqlTx *sql.Tx, transactionParams db.CreateTra
 	}
 
 	q := db.New(sqlTx)
+	// Check ownership in the posting service as well as at the database layer.
+	// Other callers besides the journal can post entries, so a UI check alone
+	// cannot protect an organization's books.
+	for _, e := range entries {
+		if _, err := q.GetAccount(ctx, db.GetAccountParams{
+			AccountID: e.AccountID, OrganizationID: transactionParams.OrganizationID,
+		}); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return db.Transaction{}, errors.New("entry account does not belong to the transaction organization")
+			}
+			return db.Transaction{}, err
+		}
+	}
 
 	// save the transaction first so its entries have an ID to point at
 	ledgerTransaction, err := q.CreateTransaction(ctx, transactionParams)
@@ -82,6 +104,11 @@ func PostInTx(ctx context.Context, sqlTx *sql.Tx, transactionParams db.CreateTra
 		if err := q.CreateEntry(ctx, e); err != nil {
 			return db.Transaction{}, err
 		}
+	}
+	// The marker is written in the same SQL transaction as the entries. The
+	// database verifies balance and refuses subsequent inserts for this posting.
+	if _, err := sqlTx.ExecContext(ctx, `INSERT INTO ledger_finalizations (transaction_id) VALUES (?)`, ledgerTransaction.ID); err != nil {
+		return db.Transaction{}, err
 	}
 	return ledgerTransaction, nil
 }
