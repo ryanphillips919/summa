@@ -20,7 +20,7 @@ The database is the source of truth. If SQLC already generated a type or a query
 
 ## Routes
 
-- The repository root contains only `main.go` and routing files, one per feature (`invoices.go`, `login.go`, `homepage.go`, `settings.go`, ...). Templ code goes in `views/`, tests in `tests/`. Do not add other kinds of code to the root.
+- The repository root contains `main.go` and routing files, one per feature (`invoices.go`, `login.go`, `homepage.go`, `settings.go`, ...), with their tests alongside them. Templ code goes in `views/`. Keep package tests alongside the code they exercise; use `tests/` for integration or end-to-end tests when appropriate. Do not add other kinds of code to the root.
 - Each feature file starts with one function that lists every route for that feature and returns a `chi.Router`. Its handlers follow in the same file:
 
   ```go

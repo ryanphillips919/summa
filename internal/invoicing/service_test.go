@@ -1,4 +1,4 @@
-package tests
+package invoicing
 
 import (
 	"database/sql"

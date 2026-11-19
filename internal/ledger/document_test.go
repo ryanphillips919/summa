@@ -1,4 +1,4 @@
-package tests
+package ledger
 
 import (
 	"database/sql"
