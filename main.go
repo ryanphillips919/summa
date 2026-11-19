@@ -16,6 +16,7 @@ import (
 
 	"summa/internal/analytics"
 	"summa/internal/db"
+	"summa/views"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
@@ -53,7 +54,7 @@ func newRouter(app *App) http.Handler {
 
 	// Server-sent event streams (/demo/watch, /timeline/watch, /ledger/watch) stay open for as
 	// long as a tab does, so the timeout only wraps ordinary requests.
-	r.Get("/presentation", templ.Handler(Presentation()).ServeHTTP)
+	r.Get("/presentation", templ.Handler(views.Presentation()).ServeHTTP)
 	r.Mount("/demo", app.demoRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
 	//r.Mount("/ledger", app.ledgerRoutes())

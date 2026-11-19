@@ -1,4 +1,4 @@
-package main
+package views
 
 import (
 	"slices"
@@ -6,13 +6,13 @@ import (
 )
 
 type EntrySystem struct {
-	entry []Entry
+	Entry []Entry
 }
 
 type Entry struct {
-	created time.Time
-	rev     uint64
-	values  string
+	Created time.Time
+	Rev     uint64
+	Values  string
 }
 
 templ Timeline() {
@@ -49,12 +49,12 @@ templ TimelineEntry(e EntrySystem) {
 	<section id="timeline">
 		<ul>
 			// need to iterate backwards here since we want to display from newest to oldest additions
-			for _, v := range slices.Backward(e.entry) {
+			for _, v := range slices.Backward(e.Entry) {
 				<li>
 					<div>
-						<p>{ v.created.Format("2006-01-02 03:04:05 PM") }</p>
-						<p>{ v.rev }</p>
-						<p>{ v.values }</p>
+						<p>{ v.Created.Format("2006-01-02 03:04:05 PM") }</p>
+						<p>{ v.Rev }</p>
+						<p>{ v.Values }</p>
 					</div>
 				</li>
 			}

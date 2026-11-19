@@ -1,4 +1,4 @@
-package main
+package views
 
 import (
 	"fmt"
@@ -95,26 +95,26 @@ type Rows struct {
 	data    []int64
 }
 
-func cellName(row, col int) string {
+func CellName(row, col int) string {
 	return fmt.Sprintf("r%dc%d", row, col)
 }
 
-func generateSignals(d DemoDocument) [][]string {
+func GenerateSignals(d DemoDocument) [][]string {
 	// need an way to generate all the input signals on variable for any given document object
 	// one list per date column: [["$r0c0", "$r1c0"], ["$r0c1", "$r1c1"], ...]
 	result := make([][]string, len(d.d))
 	for col := range d.d {
 		for row := range d.r {
-			result[col] = append(result[col], "$"+cellName(row, col))
+			result[col] = append(result[col], "$"+CellName(row, col))
 		}
 	}
 	return result
 }
 
-func (d *DemoDocument) setCells(cells map[string]int64) {
+func (d *DemoDocument) SetCells(cells map[string]int64) {
 	for i := range d.r {
 		for j := range d.r[i].data {
-			if v, ok := cells[cellName(i, j)]; ok {
+			if v, ok := cells[CellName(i, j)]; ok {
 				d.r[i].data[j] = v
 			}
 		}
@@ -122,12 +122,12 @@ func (d *DemoDocument) setCells(cells map[string]int64) {
 }
 
 // returns only the cells whose incoming value differs from what we have
-func (d *DemoDocument) diffCells(cells map[string]int64) map[string]int64 {
+func (d *DemoDocument) DiffCells(cells map[string]int64) map[string]int64 {
 	changed := map[string]int64{}
 	for i := range d.r {
 		for j, cur := range d.r[i].data {
-			if v, ok := cells[cellName(i, j)]; ok && v != cur {
-				changed[cellName(i, j)] = v
+			if v, ok := cells[CellName(i, j)]; ok && v != cur {
+				changed[CellName(i, j)] = v
 			}
 		}
 	}
@@ -136,11 +136,11 @@ func (d *DemoDocument) diffCells(cells map[string]int64) map[string]int64 {
 
 // starting values for every cell signal: {"r0c0": 123, "r0c1": 452, ...}
 // r meaning row, c meaning column
-func cellSignals(d DemoDocument) map[string]int64 {
+func CellSignals(d DemoDocument) map[string]int64 {
 	m := map[string]int64{}
 	for row, acc := range d.r {
 		for col, v := range acc.data {
-			m[cellName(row, col)] = v
+			m[CellName(row, col)] = v
 		}
 	}
 	return m
@@ -154,7 +154,7 @@ func cellSignals(d DemoDocument) map[string]int64 {
 // we need to dynamically create a new signal that is set to data-computed, but that depends on how many columns we have...
 // so this is why we need this function that returns a templ.Attributes
 // it'll dynamically generate data-computed:total12="$r0c12 + $r1c12 + $r2c12" etc.
-func footerAttrs(i int, col []string) templ.Attributes {
+func FooterAttrs(i int, col []string) templ.Attributes {
 	return templ.Attributes{
 		fmt.Sprintf("data-computed:total%d", i): strings.Join(col, " + "),
 		"data-text":                             fmt.Sprintf("$total%d.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", i),
@@ -166,7 +166,7 @@ func footerAttrs(i int, col []string) templ.Attributes {
 // so if the same cell changes twice in a row the class would already be there and
 // nothing would replay. alternating between two class names by revision parity dodges that.
 
-func flashClass(key string, changed map[string]int64, rev uint64) string {
+func FlashClass(key string, changed map[string]int64, rev uint64) string {
 	if _, ok := changed[key]; !ok {
 		return ""
 	}
@@ -177,7 +177,7 @@ func flashClass(key string, changed map[string]int64, rev uint64) string {
 }
 
 // which column indexes had at least one changed cell → flash the EBITDA total
-func changedCols(changed map[string]int64) map[int]bool {
+func ChangedCols(changed map[string]int64) map[int]bool {
 	cols := map[int]bool{}
 	for key := range changed {
 		var r, c int
@@ -192,7 +192,7 @@ func changedCols(changed map[string]int64) map[int]bool {
 // rev 0 means "plain render, nothing flashing" so we emit nothing at all.
 // NOTE: demo.css falls back to a brand-green flash when --flash is unset; return "" here
 // unconditionally if you'd rather every flash be green instead of per-revision hues.
-func flashColor(rev uint64) string {
+func FlashColor(rev uint64) string {
 	if rev == 0 {
 		return ""
 	}
@@ -202,11 +202,11 @@ func flashColor(rev uint64) string {
 
 templ TableView(d DemoDocument, changed map[string]int64, rev uint64) {
 	<div class="table-scroll">
-		<table data-signals={ templ.JSONString(cellSignals(d)) }>
+		<table data-signals={ templ.JSONString(CellSignals(d)) }>
 			<caption>Demo For Real-Time Collaboration for Summa!</caption>
 			@TableHeader(d.d)
 			@TableBodyView(d.r, changed, rev)
-			@TableFooterView(generateSignals(d), changedCols(changed), rev)
+			@TableFooterView(GenerateSignals(d), ChangedCols(changed), rev)
 		</table>
 	</div>
 }
@@ -236,10 +236,10 @@ templ TableBodyView(rows []Rows, changed map[string]int64, rev uint64) {
 					// on double click, get the DemoEdit templ that replaces the non-changable html
 					// into input fields users can edit/post back to the backend
 					<td
-						class={ flashClass(cellName(i, j), changed, rev) }
-						style={ flashColor(rev) }
+						class={ FlashClass(CellName(i, j), changed, rev) }
+						style={ FlashColor(rev) }
 						data-on:dblclick="@get('/demo/edit', {filterSignals: {include: /^$/}})"
-						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", cellName(i, j)) }
+						data-text={ fmt.Sprintf("$%s.toLocaleString('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0})", CellName(i, j)) }
 					></td>
 				}
 			</tr>
@@ -255,8 +255,8 @@ templ TableFooterView(columns [][]string, cols map[int]bool, rev uint64) {
 				// string of totals will be something like "$r0c0 + $r1c0 + $r2c0 + $r3c0"
 				<td
 					class={ templ.KV("flash-a", cols[i] && rev%2 == 0), templ.KV("flash-b", cols[i] && rev%2 == 1) }
-					style={ flashColor(rev) }
-					{ footerAttrs(i, col)... }
+					style={ FlashColor(rev) }
+					{ FooterAttrs(i, col)... }
 				></td>
 			}
 		</tr>
@@ -267,11 +267,11 @@ templ TableFooterView(columns [][]string, cols map[int]bool, rev uint64) {
 // the same HTML but with input elements users can change
 templ TableEdit(d DemoDocument) {
 	<div class="table-scroll">
-		<table data-signals={ templ.JSONString(cellSignals(d)) }>
+		<table data-signals={ templ.JSONString(CellSignals(d)) }>
 			<caption>Demo For Real-Time Collaboration for Summa!</caption>
 			@TableHeader(d.d)
 			@TableBodyEdit(d.r)
-			@TableFooterView(generateSignals(d), nil, 0)
+			@TableFooterView(GenerateSignals(d), nil, 0)
 		</table>
 	</div>
 }
@@ -286,7 +286,7 @@ templ TableBodyEdit(rows []Rows) {
 					// editable version of the cell: a number input bound to the cell's signal,
 					// so typing updates $r0c0 etc and the footer totals recalculate live
 					<td>
-						<input type="number" data-bind={ cellName(i, j) }/>
+						<input type="number" data-bind={ CellName(i, j) }/>
 					</td>
 				}
 			</tr>
@@ -295,7 +295,7 @@ templ TableBodyEdit(rows []Rows) {
 }
 
 // AI generated function to generate some dummy data before we have an actual data to play with
-func dummyDocument() DemoDocument {
+func DummyDocument() DemoDocument {
 	const columns = 5
 
 	accounts := []struct {

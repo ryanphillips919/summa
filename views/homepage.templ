@@ -1,4 +1,27 @@
-package main
+package views
+
+// DashboardData is a presentation-specific view model. For the demo it uses
+// sample data; later its values can be assembled from ledger queries and the
+// analytics service without changing the template.
+type DashboardData struct {
+	Organization string
+	UserName     string
+	Period       string
+	Metrics      []DashboardMetric
+	CloseTasks   []CloseTask
+	Reviews      []ReviewItem
+	Aging        []AgingBucket
+	Overdue      []OverdueInvoice
+	Activity     []DashboardActivity
+}
+
+type DashboardMetric struct{ Label, Value, Change, Direction, Tone string }
+type CloseTask struct{ Label, Detail, State, Mark string }
+type ReviewItem struct{ Level, Title, Detail string }
+type AgingBucket struct{ Label, Amount, Customers, Tone string }
+type OverdueInvoice struct{ Customer, Number, Amount string }
+type DashboardActivity struct{ Date, Kind, Description, Amount, Tone string }
+
 
 templ HomePage(d DashboardData) {
 	@SummaShell(SummaPageMeta{Title: "Dashboard · Summa", Description: "Summa accounting dashboard", ActiveNav: "dashboard", Stylesheet: "/assets/homepage.css"}, HomePageContent(d))

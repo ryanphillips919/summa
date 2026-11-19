@@ -1,8 +1,10 @@
-package analytics
+package tests
 
 import (
 	"context"
 	"path/filepath"
+	"summa/internal/analytics"
+	"summa/views"
 	"testing"
 )
 

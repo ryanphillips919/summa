@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"summa/internal/analytics"
+	"summa/views"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -32,7 +33,7 @@ func (app *App) analyticsPageHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	if err := AnalyticsPage().Render(r.Context(), w); err != nil {
+	if err := views.AnalyticsPage().Render(r.Context(), w); err != nil {
 		http.Error(
 			w,
 			"could not render analytics page",

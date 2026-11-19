@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"summa/views"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/starfederation/datastar-go/datastar"
@@ -15,7 +17,7 @@ import (
 
 // before there's database tables just store state as json
 var (
-	doc     = dummyDocument()
+	doc     = views.DummyDocument()
 	clients atomic.Int64
 )
 
@@ -33,7 +35,7 @@ func (a *App) demoRoutes() chi.Router {
 
 func (a *App) demoHandler(w http.ResponseWriter, r *http.Request) {
 	// to start off we need to render the page or else it won't render
-	Page(doc, clients.Load()).Render(r.Context(), w)
+	views.Page(doc, clients.Load()).Render(r.Context(), w)
 }
 
 func (a *App) demoPostHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,14 +45,14 @@ func (a *App) demoPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	changed := doc.diffCells(cells)
+	changed := doc.DiffCells(cells)
 	if len(changed) == 0 {
 		// nothing changed → no KV write, so no watcher push. we have to
 		// exit edit mode ourselves
-		datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0))
+		datastar.NewSSE(w, r).PatchElementTempl(views.Demo(doc, nil, 0))
 		return
 	}
-	doc.setCells(changed)
+	doc.SetCells(changed)
 	data, _ := json.Marshal(changed)
 	rev, _ := a.kv.Put(r.Context(), "demo.update", data)
 	fmt.Printf("demo.update @ %d -> %s\n", rev, data)
@@ -60,11 +62,11 @@ func (a *App) demoPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) demoEditHandler(w http.ResponseWriter, r *http.Request) {
-	datastar.NewSSE(w, r).PatchElementTempl(DemoEdit(doc))
+	datastar.NewSSE(w, r).PatchElementTempl(views.DemoEdit(doc))
 }
 
 func (a *App) demoCancelHandler(w http.ResponseWriter, r *http.Request) {
-	datastar.NewSSE(w, r).PatchElementTempl(Demo(doc, nil, 0))
+	datastar.NewSSE(w, r).PatchElementTempl(views.Demo(doc, nil, 0))
 }
 
 // this is the function that lets us update all clients in real-time!
@@ -98,14 +100,14 @@ func (a *App) demoWatcherHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if entry.Key() == "demo.clients" {
-			if err := sse.PatchElementTempl(Online(clients.Load())); err != nil {
+			if err := sse.PatchElementTempl(views.Online(clients.Load())); err != nil {
 				return
 			}
 			continue
 		}
 		var changed map[string]int64
 		json.Unmarshal(entry.Value(), &changed)
-		if err := sse.PatchElementTempl(Demo(doc, changed, entry.Revision())); err != nil {
+		if err := sse.PatchElementTempl(views.Demo(doc, changed, entry.Revision())); err != nil {
 			return
 		}
 	}
@@ -117,7 +119,7 @@ func (a *App) demoScrubHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	datastar.ReadSignals(r, &sig)
 	entries, _ := a.kv.History(r.Context(), "demo.update")
-	d := dummyDocument()
+	d := views.DummyDocument()
 	var changed map[string]int64
 	var rev uint64
 	for i, e := range entries {
@@ -126,23 +128,23 @@ func (a *App) demoScrubHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		changed = map[string]int64{}
 		json.Unmarshal(e.Value(), &changed)
-		d.setCells(changed)
+		d.SetCells(changed)
 		rev = e.Revision()
 	}
-	datastar.NewSSE(w, r).PatchElementTempl(Demo(d, changed, rev))
+	datastar.NewSSE(w, r).PatchElementTempl(views.Demo(d, changed, rev))
 }
 
 func (a *App) demoPlayHandler(w http.ResponseWriter, r *http.Request) {
 	entries, _ := a.kv.History(r.Context(), "demo.update")
 	sse := datastar.NewSSE(w, r)
 
-	d := dummyDocument()
+	d := views.DummyDocument()
 	for i, e := range entries {
 		changed := map[string]int64{}
 		json.Unmarshal(e.Value(), &changed)
-		d.setCells(changed)
+		d.SetCells(changed)
 
-		if err := sse.PatchElementTempl(Demo(d, changed, e.Revision())); err != nil {
+		if err := sse.PatchElementTempl(views.Demo(d, changed, e.Revision())); err != nil {
 			return
 		}
 		sse.MarshalAndPatchSignals(map[string]int{"scrub": i + 1})
