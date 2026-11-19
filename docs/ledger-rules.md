@@ -72,3 +72,17 @@ The article doesn't cover these. The team needs to decide them:
 
 The `/demo/` page edits P&L totals directly, which violates rule 6. That's acceptable for the
 prototype, but the real UI must post entries rather than overwrite totals.
+
+## Future reporting and integrity work
+
+When a monthly report is implemented, retain these scenarios from the retired document tests:
+
+- An October $300 rent payment shows Rent as -30,000 cents and excludes the Cash asset account.
+- An October $1,000 sale and $300 rent payment, followed by a November $200 rent payment,
+  show Sales as 100,000 and 0 cents, and Rent as -30,000 and -20,000 cents, respectively.
+  Account rows and month columns must match the requested organization and periods.
+
+The ledger schema currently does not ensure that an entry's account belongs to the same
+organization as its transaction. Consider enforcing this integrity constraint in a future change.
+Transaction dates are stored as unrestricted text; decide how to validate dates and handle existing
+malformed values before relying on date-based reports.

@@ -1,11 +1,8 @@
 // Package ledger is Summa's double-entry ledger. It works directly with the
 // types sqlc generates in internal/db, so names match the tables: directions
 // are "debit" or "credit", and account types are "asset", "expense", etc.
-//
-//   - ledger.go is the engine. Post and PostInTx save entries, and Balance
-//     turns an account's totals into its balance.
-//   - ledger-o1.go shows the books as a spreadsheet (accounts by month)
-//     and saves each cell edit as a transaction through Post.
+// Post and PostInTx save entries, and Balance turns an account's totals into
+// its balance.
 package ledger
 
 import (
