@@ -8,13 +8,13 @@ Go, SQLite, SQLC (generated queries and types in package `db`), chi (routing), t
 
 ## Core principle
 
-The database is the source of truth. If SQLC already generated a type or a query, use it directly. Do not rewrite it, wrap it, or mirror it in a hand-written struct.
+The database is the source of truth. Prefer SQLC-generated queries and types over redundant handwritten models and wrappers. Shared business operations may enforce accounting invariants and coordinate atomic database changes.
 
 ## Database
 
-- **Need a struct type? Check the schema first.** If the shape exists in the database, use the SQLC-generated type. If it doesn't, add it to the schema or queries, regenerate, and use the generated type. Do not hand-write a parallel struct.
-- **Call generated queries directly from handlers.** Do not add service or repository wrapper functions (e.g. a `PostInTx` that only sequences `CreateTransaction` and `CreateEntry`). The handler is the right place for that sequencing.
-- **Put validation in the schema.** Use `CHECK`, `NOT NULL`, foreign keys, and similar constraints, and let SQLite's error come back through the SQLC call. Do not duplicate in Go a check the database already enforces.
+- **Need a database shape? Check the schema and queries first.** Use SQLC-generated types instead of duplicating them in handwritten structs. Named structs are appropriate for meaningful non-database shapes, such as test fixtures and external API contracts.
+- **Call generated queries directly when practical.** Do not add functions that merely wrap SQLC calls. Shared operations such as `PostInTx` may enforce accounting invariants and coordinate atomic changes.
+- **Enforce integrity in the schema where practical.** Use `CHECK`, `NOT NULL`, foreign keys, and similar constraints. Keep existing Go safeguards until equivalent protection exists elsewhere.
 - **Exception:** security-sensitive input (login, sign-up, and similar) is still validated explicitly in Go.
 - **Prefer SQL for shaping data.** If a page needs joined, aggregated, or ranked data, write a query (joins, window functions) so SQLC generates the type, instead of assembling it in Go.
 
@@ -38,27 +38,19 @@ The database is the source of truth. If SQLC already generated a type or a query
 
 ## Views
 
-- Templ components take SQLC-generated types as arguments, e.g. `templ BigGetPage(u db.Users, b []db.Balance, txn []db.Transaction)`. Do not create view-model structs to pass data into templates.
+- Prefer passing SQLC-generated types directly to templ components; avoid redundant view models.
 - Rendering helpers (formatting amounts, building display strings) live in the `.templ` file that uses them. When there are enough of them, move them to `views/views_helper.go` in `package views`.
 - Simple display formatting (money, basic string manipulation) may be done on the front end with Datastar where that is simpler.
 - Selection and filtering for display (e.g. "last three transactions per user") can be done in the templ itself.
 
 ## Helper structs
 
-Default: do not create them. Most of the time they are unnecessary.
-
-Before adding one, in order:
-
-1. Can this be a SQL query or window function, so SQLC generates the type? Do that.
-2. Can templ take the generated types and do the selection while rendering? Do that.
-3. Only if neither fits: use an anonymous struct declared inside the handler. Never a named package-level helper type.
-
-If anonymous structs start showing up in many handlers, stop and move the shape into the database.
+Prefer SQL for shaping database results and templ for simple display selection. Use a named struct when it represents a meaningful concept, external contract, or test fixture and improves clarity. Avoid duplicating generated database types.
 
 ## Before you finish a change
 
 - No new hand-written struct duplicates a table or query result.
-- No new function exists only to wrap generated SQLC calls.
-- No Go validation repeats a database constraint (outside auth flows).
+- No new function exists only to wrap generated SQLC calls; shared invariant and transaction logic is welcome.
+- Existing safeguards remain until equivalent protection exists elsewhere.
 - No non-routing code was added to the repository root.
 - `main.go` is still just middleware, mounts, and server start.
