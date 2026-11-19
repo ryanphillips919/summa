@@ -27,7 +27,7 @@ func (s DatabaseCashDataSource) LoadCashSnapshot(
 
 	observationDays := s.ObservationDays
 	if observationDays == 0 {
-		observationDays = 60
+		observationDays = 120
 	}
 
 	latestDate, err := s.latestCashDate(ctx)
@@ -126,7 +126,7 @@ SELECT
 		ELSE -e.amount
 	END) AS cash_cents,
 	t.description,
-	COALESCE(MIN(counterparty.name), '')
+	COALESCE(MIN(counterparty.name), '') AS category
 FROM transactions t
 JOIN entries e ON e.transaction_id = t.id
 JOIN accounts cash ON cash.id = e.account_id
@@ -162,7 +162,7 @@ ORDER BY t.date, t.id
 			date        string
 			cents       int64
 			description string
-			vendor      string
+			category    string
 		)
 
 		if err := rows.Scan(
@@ -170,7 +170,7 @@ ORDER BY t.date, t.id
 			&date,
 			&cents,
 			&description,
-			&vendor,
+			&category,
 		); err != nil {
 			return nil, fmt.Errorf("scan cash movement: %w", err)
 		}
@@ -180,7 +180,7 @@ ORDER BY t.date, t.id
 			Date:        date,
 			Amount:      float64(cents) / 100,
 			Description: description,
-			Vendor:      vendor,
+			Category:    category,
 		})
 	}
 

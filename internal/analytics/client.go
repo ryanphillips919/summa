@@ -23,6 +23,7 @@ type CashMovement struct {
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description,omitempty"`
 	Vendor      string  `json:"vendor,omitempty"`
+	Category    string  `json:"category,omitempty"`
 }
 
 type Request struct {
@@ -45,13 +46,15 @@ type ForecastPoint struct {
 }
 
 type Anomaly struct {
-	ID             string   `json:"id"`
-	Date           string   `json:"date"`
-	Amount         float64  `json:"amount"`
-	Description    string   `json:"description"`
-	ModifiedZScore *float64 `json:"modified_z_score"`
-	Reason         string   `json:"reason"`
-	Type           string   `json:"type"`
+	ID                    string   `json:"id"`
+	Date                  string   `json:"date"`
+	Amount                float64  `json:"amount"`
+	Description           string   `json:"description"`
+	Category              string   `json:"category"`
+	ModifiedZScore        *float64 `json:"modified_z_score"`
+	Reason                string   `json:"reason"`
+	Type                  string   `json:"type"`
+	RelatedTransactionIDs []string `json:"related_transaction_ids"`
 }
 
 type Response struct {

@@ -217,7 +217,7 @@ func newAnalyticsDataSource(
 			DB:              conn,
 			OrganizationID:  orgID,
 			ForecastDays:    30,
-			ObservationDays: 60,
+			ObservationDays: 120,
 		}, nil
 
 	default:
