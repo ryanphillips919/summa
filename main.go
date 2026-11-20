@@ -95,6 +95,7 @@ func (a *App) mountRoutes(r chi.Router) {
 	})
 
 	r.Get("/api/analytics", a.analyticsHandler)
+	r.Mount("/invoices", a.invoiceRoutes())
 	r.Mount("/analytics", a.analyticsRoutes())
 }
 
@@ -162,10 +163,18 @@ func appInit() (*App, func(), error) {
 		return nil, nil, fmt.Errorf("starting KV: %w", err)
 	}
 
-	dbPath := os.Getenv("SUMMA_DB")
-	if dbPath == "" {
-		dbPath = filepath.Join("data", "summa.db")
+	dbDir, err := os.MkdirTemp("", "summa-db-*")
+	if err != nil {
+		shutdownEmbeddedNATS(nc, ns)
+		return nil, nil, fmt.Errorf("create temporary database directory: %w", err)
 	}
+	ready := false
+	defer func() {
+		if !ready {
+			os.RemoveAll(dbDir)
+		}
+	}()
+	dbPath := filepath.Join(dbDir, "summa.db")
 	ctx := context.Background()
 	conn, err := openDatabase(ctx, dbPath)
 	if err != nil {
@@ -190,8 +199,10 @@ func appInit() (*App, func(), error) {
 
 	cleanup := func() {
 		conn.Close()
+		os.RemoveAll(dbDir)
 		shutdownEmbeddedNATS(nc, ns)
 	}
+	ready = true
 	return &App{
 		nc:             nc,
 		kv:             kv,

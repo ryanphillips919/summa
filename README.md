@@ -64,6 +64,8 @@ For the server itself for local testing use go run ., you can also use go run ma
 go run . # basically says run this code at the root directory, so with chi it will start up the server and print the localhost to open the server and see
 ```
 
+Each app startup creates a temporary SQLite database with the Northstar presentation data. Changes made while the app is running are lost when it stops. Existing database files are not modified, and `SUMMA_DB` is not used.
+
 In the CI/CD pipeline there will be some commands that Go comes built in that are really useful for formatting, linting, testing etc.
 ```sh
 go fmt ./.. # format your golang code in all directories
@@ -125,9 +127,8 @@ By default, Analytics uses the JSON demo fixture:
 go run .
 ```
 
-To test the full database-backend analytics path, run Summa with a separate local SQLite database:
+To test the full database-backend analytics path with additional analytics fixture entries:
 ```bash
-SUMMA_DB=data/analytics-sanity.db \
 SUMMA_ANALYTICS_SOURCE=database \
 SUMMA_SEED_ANALYTICS_DEMO=1 \
 go run .
@@ -135,4 +136,4 @@ go run .
 
 This applies the current migrations and seeds balanced ledger entries derived from the analytics fixture. Open `http://localhost:8080/analytics`. 
 
-The `data/` directory contains local runtime state, including SQLite databases and NATS files. It must not be committed.
+The `data/` directory contains local runtime state, including existing SQLite databases and NATS files. It must not be committed.

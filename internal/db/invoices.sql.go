@@ -106,6 +106,51 @@ func (q *Queries) ListInvoices(ctx context.Context, organizationID int64) ([]Inv
 	return items, nil
 }
 
+const listInvoicesWithCustomers = `-- name: ListInvoicesWithCustomers :many
+SELECT i.id, i.number, i.issue_date, i.due_date, i.posted_transaction_id, c.name AS customer_name
+FROM invoices i JOIN customers c ON c.id = i.customer_id AND c.organization_id = i.organization_id
+WHERE i.organization_id = ? ORDER BY i.issue_date DESC, i.id DESC
+`
+
+type ListInvoicesWithCustomersRow struct {
+	ID                  int64
+	Number              string
+	IssueDate           string
+	DueDate             string
+	PostedTransactionID sql.NullInt64
+	CustomerName        string
+}
+
+func (q *Queries) ListInvoicesWithCustomers(ctx context.Context, organizationID int64) ([]ListInvoicesWithCustomersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listInvoicesWithCustomers, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInvoicesWithCustomersRow
+	for rows.Next() {
+		var i ListInvoicesWithCustomersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.IssueDate,
+			&i.DueDate,
+			&i.PostedTransactionID,
+			&i.CustomerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markInvoicePosted = `-- name: MarkInvoicePosted :one
 UPDATE invoices
 SET posted_transaction_id = ?1

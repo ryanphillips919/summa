@@ -1,0 +1,67 @@
+package views
+
+import (
+	"fmt"
+	"summa/internal/db"
+)
+
+templ InvoicesPage(invoices []db.ListInvoicesWithCustomersRow, customers []db.Customer) {
+	@SummaShell(SummaPageMeta{
+		Title: "Invoices · Summa",
+		Description: "View and create invoices",
+		ActiveNav: "invoices",
+		Stylesheet: "/assets/customers.css",
+	}, InvoicesContent(invoices, customers))
+}
+
+templ InvoicesContent(invoices []db.ListInvoicesWithCustomersRow, customers []db.Customer) {
+	<header class="page-header">
+		<p>Money in</p>
+		<h1>Invoices</h1>
+		<p>Create and view invoice drafts.</p>
+	</header>
+	<section class="customer-panel">
+		<h2>New invoice</h2>
+		if len(customers) == 0 {
+			<p>Add a customer before creating an invoice.</p>
+			<a href="/customers/">Add customer</a>
+		} else {
+			<form method="post" action="/invoices/">
+				<label>Customer
+					<select name="customer_id" required>
+						<option value="">Choose a customer</option>
+						for _, customer := range customers {
+							<option value={ fmt.Sprint(customer.ID) }>{ customer.Name }</option>
+						}
+					</select>
+				</label>
+				<label>Invoice number <input type="text" name="number" required/></label>
+				<label>Issue date <input type="date" name="issue_date" required/></label>
+				<label>Due date <input type="date" name="due_date" required/></label>
+				<div class="customer-actions"><button type="submit">Create invoice</button></div>
+			</form>
+		}
+	</section>
+	<section class="customer-panel">
+		<h2>Invoices</h2>
+		if len(invoices) == 0 {
+			<p>No invoices yet.</p>
+		} else {
+			<ul>
+				for _, invoice := range invoices {
+					<li><div>
+						<strong>{ invoice.Number }</strong>
+						<span>{ invoice.CustomerName }</span>
+						<span>Issued { invoice.IssueDate } · Due { invoice.DueDate }</span>
+					</div>
+					if invoice.PostedTransactionID.Valid {
+						<span>Posted</span>
+					} else {
+						<span>Draft</span>
+					}
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}

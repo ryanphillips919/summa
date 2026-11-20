@@ -5,7 +5,7 @@
 .customer-panel h2 { font-size: 1.1rem; margin: 0 0 16px; }
 .customer-panel form { display: grid; gap: 12px; }
 .customer-panel label { display: grid; gap: 5px; }
-.customer-panel input { border: 1px solid #9caebc; border-radius: 5px; font: inherit; padding: 8px; }
+.customer-panel input, .customer-panel select { border: 1px solid #9caebc; border-radius: 5px; font: inherit; padding: 8px; }
 .customer-actions { display: flex; gap: 8px; }
 .customer-panel button, .customer-panel a { background: #087a63; border: 0; border-radius: 5px; color: white; padding: 8px 12px; text-decoration: none; }
 .customer-panel ul { list-style: none; margin: 0; padding: 0; }
