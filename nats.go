@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -11,40 +11,37 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-func startEmbeddedNATS(storeDir string, enableLogging bool) (*server.Server, *nats.Conn, error) {
-	if err := os.MkdirAll(storeDir, 0o755); err != nil {
-		return nil, nil, fmt.Errorf("create NATS storage directory %q: %w", storeDir, err)
-	}
-
-	options := &server.Options{
+func startEmbeddedNATS(inProcess, enableLogging bool) (*nats.Conn, *server.Server, error) {
+	serverOpts := &server.Options{
 		ServerName: "summa_embedded",
-		DontListen: true,
+		DontListen: inProcess,
 		JetStream:  true,
-		StoreDir:   storeDir,
+		StoreDir:   "./data/js",
 	}
-	ns, err := server.NewServer(options)
+	ns, err := server.NewServer(serverOpts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create NATS server: %w", err)
+		return nil, nil, err
 	}
 	if enableLogging {
 		ns.ConfigureLogger()
 	}
-
 	go ns.Start()
+
 	if !ns.ReadyForConnections(5 * time.Second) {
-		ns.Shutdown()
-		ns.WaitForShutdown()
-		return nil, nil, fmt.Errorf("NATS server failed to start")
+		return nil, nil, errors.New("NATS failed to start")
 	}
 
-	nc, err := nats.Connect(nats.DefaultURL, nats.InProcessServer(ns))
+	clientOpts := []nats.Option{}
+	if inProcess {
+		clientOpts = append(clientOpts, nats.InProcessServer(ns))
+	}
+
+	nc, err := nats.Connect(nats.DefaultURL, clientOpts...)
 	if err != nil {
-		ns.Shutdown()
-		ns.WaitForShutdown()
-		return nil, nil, fmt.Errorf("connect to NATS: %w", err)
+		return nil, nil, err
 	}
 
-	return ns, nc, nil
+	return nc, ns, nil
 }
 
 func StartKV(nc *nats.Conn) (jetstream.KeyValue, error) {

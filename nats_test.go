@@ -6,8 +6,8 @@ import (
 )
 
 func TestNATSPublishSubscribe(t *testing.T) {
-	// Give this test its own JetStream storage so it does not touch app data.
-	natsServer, natsConn, err := startEmbeddedNATS(t.TempDir(), false)
+	// Note: this starts the server on the app's own JetStream store (./data/js).
+	natsConn, natsServer, err := startEmbeddedNATS(true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,14 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
 	"time"
 
 	"summa/internal/analytics"
@@ -27,238 +23,108 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
-	}
+type App struct {
+	nc             *nats.Conn
+	kv             jetstream.KeyValue
+	sqlDB          *sql.DB
+	queries        *db.Queries
+	orgID          int64
+	cashDataSource analytics.CashDataSource
 }
 
-func run() error {
+func main() {
 	app, cleanup, err := appInit()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	defer cleanup()
 
-	log.Println("Embedded NATS ready")
-	log.Println("Summa running on http://localhost:8080")
-	return http.ListenAndServe(":8080", newRouter(app))
-}
-
-func newRouter(app *App) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Server-sent event streams (/demo/watch, /timeline/watch) stay open for as
-	// long as a tab does, so the timeout only wraps ordinary requests.
 	r.Get("/presentation", templ.Handler(views.Presentation()).ServeHTTP)
 	r.Mount("/demo", app.demoRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))
-		app.mountRoutes(r)
-	})
-	return r
-}
 
-func (a *App) mountRoutes(r chi.Router) {
-	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	r.Get("/", a.homepageHandler)
-	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
-		var request analytics.Request
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&request); err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid analytics request: "+err.Error())
-			return
-		}
-		result, err := analytics.Run(r.Context(), request)
-		if err != nil {
-			log.Printf("analytics request failed: %v", err)
-			writeJSONError(w, http.StatusUnprocessableEntity, "analytics could not process these cash movements")
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(result)
+		r.Get("/health", healthHandler)
+		r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+
+		r.Mount("/", app.homepageRoutes())
+		r.Mount("/analytics", app.analyticsRoutes())
+		r.Mount("/api/analytics", app.analyticsAPIRoutes())
 	})
 
-	r.Get("/api/analytics/demo", demoAnalyticsHandler)
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok","service":"summa"}`))
-	})
-
-	r.Get("/api/analytics", a.analyticsHandler)
-	r.Mount("/analytics", a.analyticsRoutes())
-}
-
-func writeJSONError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
-}
-
-type analyticsDemoResponse struct {
-	analytics.Response
-	CashMovements      []analytics.CashMovement `json:"cash_movements"`
-	OpeningCashBalance float64                  `json:"opening_cash_balance"`
-}
-
-func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
-	fixture, err := os.ReadFile("analytics/data/demo_cash_movements.json")
-	if err != nil {
-		log.Printf("read analytics demo fixture: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is unavailable")
-		return
+	csrf := http.NewCrossOriginProtection()
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           csrf.Handler(r),
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
-
-	var request analytics.Request
-	if err := json.Unmarshal(fixture, &request); err != nil {
-		log.Printf("decode analytics demo fixture: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is invalid")
-		return
-	}
-
-	result, err := analytics.Run(r.Context(), request)
-	if err != nil {
-		log.Printf("run analytics demo: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo could not run")
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
-		Response:           result,
-		CashMovements:      request.CashMovements,
-		OpeningCashBalance: request.OpeningCashBalance,
-	})
-}
-
-type App struct {
-	nc *nats.Conn
-	kv jetstream.KeyValue
-
-	sqlDB          *sql.DB
-	queries        *db.Queries
-	orgID          int64 // one organization for now; see seedDevData
-	cashDataSource analytics.CashDataSource
+	fmt.Println("http://localhost:8080")
+	log.Fatal(srv.ListenAndServe())
 }
 
 func appInit() (*App, func(), error) {
-	ns, nc, err := startEmbeddedNATS("./data/js", true)
+	nc, ns, err := startEmbeddedNATS(true, true)
 	if err != nil {
-		return nil, nil, fmt.Errorf("starting NATS: %w", err)
+		return nil, nil, fmt.Errorf("starting nats: %w", err)
 	}
 
 	kv, err := StartKV(nc)
 	if err != nil {
 		shutdownEmbeddedNATS(nc, ns)
-		return nil, nil, fmt.Errorf("starting KV: %w", err)
+		return nil, nil, fmt.Errorf("starting kv: %w", err)
 	}
 
-	dbPath := os.Getenv("SUMMA_DB")
-	if dbPath == "" {
-		dbPath = filepath.Join("data", "summa.db")
-	}
-	ctx := context.Background()
-	conn, err := openDatabase(ctx, dbPath)
+	sqldb, err := sql.Open("sqlite", "file:data/summa.db?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_txlock=immediate")
 	if err != nil {
 		shutdownEmbeddedNATS(nc, ns)
-		return nil, nil, err
-	}
-	queries := db.New(conn)
-	orgID, err := seedDevData(ctx, conn, queries)
-	if err != nil {
-		conn.Close()
-		shutdownEmbeddedNATS(nc, ns)
-		return nil, nil, fmt.Errorf("seeding database: %w", err)
-	}
-	log.Printf("Database ready at %s", dbPath)
-
-	cashDataSource, err := newAnalyticsDataSource(conn, orgID)
-	if err != nil {
-		conn.Close()
-		shutdownEmbeddedNATS(nc, ns)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("opening db: %w", err)
 	}
 
 	cleanup := func() {
-		conn.Close()
+		sqldb.Close()
 		shutdownEmbeddedNATS(nc, ns)
 	}
-	return &App{
-		nc:             nc,
-		kv:             kv,
-		sqlDB:          conn,
-		queries:        queries,
-		orgID:          orgID,
-		cashDataSource: cashDataSource,
-	}, cleanup, nil
-}
 
-func newAnalyticsDataSource(
-	conn *sql.DB,
-	orgID int64,
-) (analytics.CashDataSource, error) {
-	switch os.Getenv("SUMMA_ANALYTICS_SOURCE") {
-	case "", "demo":
-		return analytics.DemoCashDataSource{
-			Path: "analytics/data/demo_cash_movements.json",
-		}, nil
-
-	case "database":
-		return analytics.DatabaseCashDataSource{
-			DB:              conn,
-			OrganizationID:  orgID,
-			ForecastDays:    30,
-			ObservationDays: 60,
-		}, nil
-
-	default:
-		return nil, fmt.Errorf(
-			"unknown SUMMA_ANALYTICS_SOURCE %q; use demo or database",
-			os.Getenv("SUMMA_ANALYTICS_SOURCE"),
-		)
+	ctx := context.Background()
+	if err := migrate(ctx, sqldb); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("migrating: %w", err)
 	}
-}
 
-func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, fmt.Errorf("create database directory: %w", err)
-	}
-	// foreign_keys makes SQLite enforce the schema's REFERENCES, and
-	// _txlock=immediate makes concurrent postings queue instead of failing
-	// with SQLITE_BUSY
-	params := url.Values{
-		"_pragma": {"foreign_keys(1)", "journal_mode(WAL)", "busy_timeout(5000)"},
-		"_txlock": {"immediate"},
-	}
-	conn, err := sql.Open("sqlite", "file:"+path+"?"+params.Encode())
+	store := db.New(sqldb)
+	orgID, err := seedDevData(ctx, sqldb, store)
 	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
+		cleanup()
+		return nil, nil, fmt.Errorf("seeding db: %w", err)
 	}
-	if err := migrate(ctx, conn); err != nil {
-		conn.Close()
-		return nil, err
+
+	cashDataSource, err := analytics.NewCashDataSource(sqldb, orgID)
+	if err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("analytics source: %w", err)
 	}
-	return conn, nil
+
+	return &App{nc: nc, kv: kv, sqlDB: sqldb, queries: store, orgID: orgID, cashDataSource: cashDataSource}, cleanup, nil
 }
 
 //go:embed internal/db/migrations/*.sql
 var migrations embed.FS
 
-// migrate applies any goose migrations the database hasn't run yet.
-func migrate(ctx context.Context, conn *sql.DB) error {
+func migrate(ctx context.Context, sqldb *sql.DB) error {
 	files, err := fs.Sub(migrations, "internal/db/migrations")
 	if err != nil {
 		return err
 	}
-	provider, err := goose.NewProvider(goose.DialectSQLite3, conn, files)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqldb, files)
 	if err != nil {
 		return fmt.Errorf("load migrations: %w", err)
 	}
@@ -266,4 +132,9 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 	return nil
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok","service":"summa"}`))
 }

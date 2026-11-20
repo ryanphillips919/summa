@@ -2,8 +2,17 @@ package main
 
 import (
 	"net/http"
+
 	"summa/views"
+
+	"github.com/go-chi/chi/v5"
 )
+
+func (a *App) homepageRoutes() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/", a.homepageHandler)
+	return r
+}
 
 func (a *App) homepageHandler(w http.ResponseWriter, r *http.Request) {
 	views.HomePage(sampleDashboardData()).Render(r.Context(), w)
