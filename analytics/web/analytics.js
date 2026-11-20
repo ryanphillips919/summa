@@ -122,12 +122,15 @@ function renderCharts() {
     activeView,
   );
 
-  const sankey = buildSankey(analyticsData.cash_movements);
+  const sankey = buildSankey(
+    analyticsData.cash_movements,
+    analyticsData.opening_cash_balance,
+  );
 
   elements.cashSummary.textContent =
-    `The business received ${money.format(sankey.cashIn)}, ` +
-    `spent ${money.format(sankey.cashOut)} on operations, and ` +
-    `retained ${money.format(sankey.netCash)} in net cash.`;
+    `Starting with ${money.format(sankey.openingCash)}, the business received ` +
+    `${money.format(sankey.cashIn)}, spent ${money.format(sankey.cashOut)}, ` +
+    `and closed with ${money.format(sankey.closingCash)}.`;
 
   elements.sankeyChart.option = sankey.option;
 }

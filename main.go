@@ -206,26 +206,12 @@ func newAnalyticsDataSource(
 	conn *sql.DB,
 	orgID int64,
 ) (analytics.CashDataSource, error) {
-	switch os.Getenv("SUMMA_ANALYTICS_SOURCE") {
-	case "", "demo":
-		return analytics.DemoCashDataSource{
-			Path: "analytics/data/demo_cash_movements.json",
-		}, nil
-
-	case "database":
-		return analytics.DatabaseCashDataSource{
-			DB:              conn,
-			OrganizationID:  orgID,
-			ForecastDays:    30,
-			ObservationDays: 120,
-		}, nil
-
-	default:
-		return nil, fmt.Errorf(
-			"unknown SUMMA_ANALYTICS_SOURCE %q; use demo or database",
-			os.Getenv("SUMMA_ANALYTICS_SOURCE"),
-		)
-	}
+	return analytics.DatabaseCashDataSource{
+		DB:              conn,
+		OrganizationID:  orgID,
+		ForecastDays:    30,
+		ObservationDays: 120,
+	}, nil
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {

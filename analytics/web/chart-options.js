@@ -13,8 +13,14 @@ const categories = {
   "travel hub": "Travel exception",
 };
 
-function categoryFor(vendor) {
-  return categories[vendor.trim().toLowerCase()] || "Other operating expense";
+function categoryFor(movement) {
+  const ledgerCategory = movement.category?.trim();
+  if (ledgerCategory) {
+    return ledgerCategory;
+  }
+
+  const vendor = movement.vendor?.trim().toLowerCase() || "";
+  return categories[vendor] || "Other operating expense";
 }
 
 function balanceData(actual, forecast, openingCashBalance) {
@@ -216,7 +222,7 @@ export function buildCashChartOption(data, activeView) {
   };
 }
 
-export function buildSankey(data) {
+export function buildSankey(data, openingCashBalance = 0) {
   const cashIn = data
     .filter((movement) => movement.amount > 0)
     .reduce((total, movement) => total + movement.amount, 0);
@@ -226,7 +232,7 @@ export function buildSankey(data) {
   data
     .filter((movement) => movement.amount < 0)
     .forEach((movement) => {
-      const category = categoryFor(movement.vendor || "");
+      const category = categoryFor(movement);
       const total = spendingByCategory.get(category) || 0;
 
       spendingByCategory.set(category, total + Math.abs(movement.amount));
@@ -238,9 +244,24 @@ export function buildSankey(data) {
   );
 
   const netCash = cashIn - cashOut;
+  const openingCash = Number(openingCashBalance) || 0;
+  const closingCash = openingCash + netCash;
 
   const links = [
-    { source: "Customer receipts", target: "Cash available", value: cashIn },
+    ...(openingCash > 0
+      ? [{
+          source: "Opening cash balance",
+          target: "Cash available",
+          value: openingCash,
+        }]
+      : []),
+    ...(cashIn > 0
+      ? [{
+          source: "Customer receipts",
+          target: "Cash available",
+          value: cashIn,
+        }]
+      : []),
     ...[...spendingByCategory.entries()].map(([category, value]) => ({
       source: "Cash available",
       target: category,
@@ -248,11 +269,11 @@ export function buildSankey(data) {
     })),
   ];
 
-  if (netCash > 0) {
+  if (closingCash > 0) {
     links.push({
       source: "Cash available",
-      target: "Net cash retained",
-      value: netCash,
+      target: "Closing cash balance",
+      value: closingCash,
     });
   }
 
@@ -260,6 +281,8 @@ export function buildSankey(data) {
     cashIn,
     cashOut,
     netCash,
+    openingCash,
+    closingCash,
 
     option: {
       tooltip: {

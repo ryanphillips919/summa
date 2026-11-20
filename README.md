@@ -102,13 +102,12 @@ expenses negative):
 }
 ```
 
-The engine supports 1-90 day forecasts. It backtests a 7-day rolling-mean
-baseline against a linear trend with weekday seasonality using rolling-origin
-MAE, then returns the better model and both error values. It flags expense
-amount outliers using median absolute deviation (threshold `3.5`) and potential
-duplicates matching date, amount, and normalized vendor or description. These
-are review signals, not accounting advice. Show the selected method and interval
-in the UI and let a bookkeeper mark a flag reviewed without altering the ledger.
+The engine supports 1-90 day forecasts. With at least 90 days of history it
+uses Holt-Winters with an approximately monthly 30-day seasonal cycle; a 7-day
+rolling mean remains the limited-history fallback. It reports rolling-origin
+MAE for both models. Expense outliers are compared within their ledger category,
+and exact duplicate candidates are grouped by date, amount, and category.
+These are review signals, not accounting advice.
 
 Use Apache ECharts for the first dashboard: plot observed daily cash flow, the
 selected forecast, a confidence band, and a linked anomaly-review table. D3 is
@@ -120,19 +119,16 @@ are required.
 
 ## Analytics development data
 
-By default, Analytics uses the JSON demo fixture:
+By default, Summa seeds a fresh SQLite database with the Northstar Equipment &
+Supply development dataset and Analytics reads organization-scoped cash movements
+from that database:
 ```sh
-go run .
+SUMMA_DB=data/northstar.db go run .
 ```
 
-To test the full database-backend analytics path, run Summa with a separate local SQLite database:
-```bash
-SUMMA_DB=data/analytics-sanity.db \
-SUMMA_ANALYTICS_SOURCE=database \
-SUMMA_SEED_ANALYTICS_DEMO=1 \
-go run .
-```
-
-This applies the current migrations and seeds balanced ledger entries derived from the analytics fixture. Open `http://localhost:8080/analytics`. 
+Use a new database filename to reset the seeded dataset. The Northstar ledger
+contains May–October history, recurring category spending, a grouped duplicate
+software renewal, and a large repair for analytics testing. Open
+`http://localhost:8080/analytics`.
 
 The `data/` directory contains local runtime state, including SQLite databases and NATS files. It must not be committed.
