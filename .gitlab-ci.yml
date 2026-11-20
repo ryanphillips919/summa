@@ -1,5 +1,12 @@
+## Lines starting with "##" are explanations.
+## Lines starting with a single "#" are proposed changes, commented out for
+## review. Nothing in this file behaves differently from the current pipeline
+## until those lines are uncommented.
+
 stages:
   - test
+##  PROPOSED: needed by the build_and_deploy job at the bottom of this file.
+#  - deploy
 
 linux_go_build_and_test:
   stage: test
@@ -8,6 +15,21 @@ linux_go_build_and_test:
     - docker
   variables:
     SUMMA_ANALYTICS_PYTHON: /tmp/summa-analytics-venv/bin/python
+  ##    PROPOSED (caching): keep Go modules, the Go build cache and pip downloads
+  ##    inside the project folder so the cache block below can save them between
+  ##    runs. Uncomment these three lines together with the cache block.
+  #    GOMODCACHE: $CI_PROJECT_DIR/.cache/go-mod
+  #    GOCACHE: $CI_PROJECT_DIR/.cache/go-build
+  #    PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
+  ##  PROPOSED (caching): reuse downloads until go.sum or requirements.txt change.
+  ##  Saves re-downloading Go modules and about 400 MB of Python packages per run.
+  #  cache:
+  #    key:
+  #      files:
+  #        - go.sum
+  #        - analytics/requirements.txt
+  #    paths:
+  #      - .cache/
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends python3 python3-venv
@@ -22,6 +44,85 @@ linux_go_build_and_test:
         echo "$unformatted"
         exit 1
       fi
+    ##    PROPOSED (required if caching is enabled): replace the gofmt check above
+    ##    with this one. It checks only files tracked by git, so the third-party
+    ##    code in .cache/ is not flagged.
+    #    - |
+    #      unformatted="$(gofmt -l $(git ls-files '*.go'))"
+    #      if [ -n "$unformatted" ]; then
+    #        echo "$unformatted"
+    #        exit 1
+    #      fi
+    ##    PROPOSED: fail if the committed *_templ.go files do not match the .templ
+    ##    sources. Uses the templ version pinned in go.mod.
+    #    - go tool templ generate
+    #    - git diff --exit-code -- views/
     - go vet ./...
     - go test ./...
+    ##    PROPOSED: replace the line above with this to run tests under the race
+    ##    detector (the app has concurrent NATS watchers and shared demo state).
+    #    - go test -race ./...
     - go build ./...
+##    PROPOSED: replace the line above with this so CI builds the same way the
+##    Dockerfile does (static binary, no C dependencies).
+#    - CGO_ENABLED=0 go build ./...
+
+## ---------------------------------------------------------------------------
+## PROPOSED: build the Docker image on the default branch, keep a copy in the
+## project's package registry, copy it to the EC2 instance and restart the app.
+##
+## It is one job on purpose: passing the image between jobs would make it a CI
+## artifact, and the image file (about 200 MB) can exceed the artifact limit.
+##
+## Before enabling:
+##   1. Uncomment "- deploy" in the stages list at the top.
+##   2. Confirm the runner can run Docker-in-Docker (privileged mode). If the
+##      job fails with "cannot connect to the Docker daemon", it cannot, and
+##      the build step needs a daemonless builder such as Kaniko instead.
+##   3. Add protected CI/CD variables (Settings > CI/CD > Variables):
+##        EC2_HOST         address of the instance
+##        EC2_USER         SSH user on the instance, able to run docker
+##        SSH_PRIVATE_KEY  type "File"; a private key authorised on the instance
+##   4. On the instance: install Docker and allow SSH from the runner.
+##      The runner connects to the instance; the instance never needs to reach
+##      this GitLab server.
+##
+## Notes:
+##   - Each build is stored under Deploy > Package registry as "summa-image",
+##     one version per commit. Delete old versions periodically.
+##   - The database and NATS state live in the "summa-data" volume and survive
+##     deploys. The app is down for a few seconds during the restart.
+##   - "-p 127.0.0.1:8080:8080" listens only on the instance itself. Put a
+##     reverse proxy with HTTPS in front of it (session cookies are marked
+##     Secure), or use "-p 80:8080" for a quick test.
+##   - "docker image prune -af" removes images no longer in use so the
+##     instance's disk does not fill up.
+## ---------------------------------------------------------------------------
+#build_and_deploy:
+#  stage: deploy
+#  image: docker:27
+#  services:
+#    - docker:27-dind
+#  tags:
+#    - docker
+#  rules:
+#    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#  variables:
+#    IMAGE: summa:$CI_COMMIT_SHORT_SHA
+#    SSH_OPTS: -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=accept-new
+#  before_script:
+#    - apk add --no-cache curl openssh-client
+#    - chmod 600 "$SSH_PRIVATE_KEY"
+#  script:
+#    - docker build -t "$IMAGE" .
+#    - docker save "$IMAGE" | gzip > summa.tar.gz
+#    - >
+#      curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file summa.tar.gz
+#      "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/summa-image/$CI_COMMIT_SHORT_SHA/summa.tar.gz"
+#    - scp $SSH_OPTS summa.tar.gz "$EC2_USER@$EC2_HOST:/tmp/summa.tar.gz"
+#    - >
+#      ssh $SSH_OPTS "$EC2_USER@$EC2_HOST"
+#      "gunzip -c /tmp/summa.tar.gz | docker load &&
+#      (docker rm -f summa || true) &&
+#      docker run -d --name summa --restart unless-stopped -p 127.0.0.1:8080:8080 -v summa-data:/app/data $IMAGE &&
+#      rm /tmp/summa.tar.gz && docker image prune -af"
