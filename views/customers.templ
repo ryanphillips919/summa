@@ -1,0 +1,78 @@
+package views
+
+import (
+	"fmt"
+	"summa/internal/db"
+)
+
+templ CustomersPage(customers []db.Customer, customer db.Customer, message string) {
+	@SummaShell(SummaPageMeta{
+		Title: "Customers · Summa",
+		Description: "View and manage customers",
+		ActiveNav: "customers",
+		Stylesheet: "/assets/customers.css",
+		ModuleScript: "/assets/customers.js",
+	}, CustomersContent(customers, customer, message))
+}
+
+templ CustomersContent(customers []db.Customer, customer db.Customer, message string) {
+	<div>
+		<header class="page-header">
+			<p>Money in</p>
+			<h1>Customers</h1>
+			<p>Changes appear automatically for everyone viewing this page.</p>
+		</header>
+		@CustomerMessage(message)
+		@CustomerForm(customer)
+		@CustomerList(customers)
+	</div>
+}
+
+templ CustomerMessage(message string) {
+	<p id="customer-message" role="status">{ message }</p>
+}
+
+templ CustomerForm(customer db.Customer) {
+	<section id="customer-form" class="customer-panel">
+		if customer.ID == 0 {
+			<h2>New customer</h2>
+		} else {
+			<h2>Edit customer</h2>
+		}
+		<form method="post" action={ templ.URL(customerSaveURL(customer.ID)) }>
+			<label>Name <input type="text" name="name" value={ customer.Name } required/></label>
+			<label>Email <input type="email" name="email" value={ customer.Email.String }/></label>
+			<div class="customer-actions">
+				<button type="submit">Save customer</button>
+				if customer.ID != 0 {
+					<a href="/customers/">Cancel</a>
+				}
+			</div>
+		</form>
+	</section>
+}
+
+func customerSaveURL(id int64) string {
+	if id == 0 {
+		return "/customers"
+	}
+	return fmt.Sprintf("/customers/%d", id)
+}
+
+templ CustomerList(customers []db.Customer) {
+	<section id="customer-list" class="customer-panel">
+		<h2>Customers</h2>
+		if len(customers) == 0 {
+			<p>No customers yet.</p>
+		} else {
+			<ul>
+				for _, customer := range customers {
+					<li>
+						<div><strong>{ customer.Name }</strong><span>{ customer.Email.String }</span></div>
+						<a href={ templ.URL(fmt.Sprintf("/customers/%d/edit", customer.ID)) }>Edit</a>
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}

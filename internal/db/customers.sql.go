@@ -32,6 +32,27 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 	return i, err
 }
 
+const getCustomer = `-- name: GetCustomer :one
+SELECT id, organization_id, name, email FROM customers WHERE organization_id = ? AND id = ?
+`
+
+type GetCustomerParams struct {
+	OrganizationID int64
+	ID             int64
+}
+
+func (q *Queries) GetCustomer(ctx context.Context, arg GetCustomerParams) (Customer, error) {
+	row := q.db.QueryRowContext(ctx, getCustomer, arg.OrganizationID, arg.ID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Email,
+	)
+	return i, err
+}
+
 const listCustomers = `-- name: ListCustomers :many
 SELECT id, organization_id, name, email FROM customers WHERE organization_id = ? ORDER BY name, id
 `
@@ -62,4 +83,32 @@ func (q *Queries) ListCustomers(ctx context.Context, organizationID int64) ([]Cu
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCustomer = `-- name: UpdateCustomer :one
+UPDATE customers SET name = ?, email = ? WHERE organization_id = ? AND id = ? RETURNING id, organization_id, name, email
+`
+
+type UpdateCustomerParams struct {
+	Name           string
+	Email          sql.NullString
+	OrganizationID int64
+	ID             int64
+}
+
+func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error) {
+	row := q.db.QueryRowContext(ctx, updateCustomer,
+		arg.Name,
+		arg.Email,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Email,
+	)
+	return i, err
 }

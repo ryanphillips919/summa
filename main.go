@@ -57,6 +57,7 @@ func newRouter(app *App) http.Handler {
 	r.Get("/presentation", templ.Handler(views.Presentation()).ServeHTTP)
 	r.Mount("/demo", app.demoRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
+	r.Mount("/customers", app.customerRoutes())
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))

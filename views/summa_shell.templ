@@ -36,7 +36,7 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						@SummaNavLink(meta.ActiveNav, "", "/#activity", "history", "Activity")
 						<p class="nav-section">Money in</p>
 						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "file-text", "Invoices")
-						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers")
+						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
 						<p class="nav-section">Money out</p>
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "receipt", "Bills")
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "truck", "Vendors")
@@ -61,7 +61,7 @@ templ SummaShell(meta SummaPageMeta, content templ.Component) {
 						@SummaNavLink(meta.ActiveNav, "timeline", "/timeline", "history", "Timeline")
 						@SummaNavLink(meta.ActiveNav, "", "/#activity", "history", "Activity")
 						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "file-text", "Invoices")
-						@SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers")
+						@SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers")
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "receipt", "Bills")
 						@SummaNavLink(meta.ActiveNav, "", "/#review", "truck", "Vendors")
 						@SummaNavLink(meta.ActiveNav, "journal", "/demo", "book-open", "General Journal")

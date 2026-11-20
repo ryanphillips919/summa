@@ -121,7 +121,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -201,7 +201,7 @@ func SummaShell(meta SummaPageMeta, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "", "/#receivables", "users-2", "Customers").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SummaNavLink(meta.ActiveNav, "customers", "/customers", "users-2", "Customers").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
