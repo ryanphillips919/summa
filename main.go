@@ -148,6 +148,7 @@ type App struct {
 	queries        *db.Queries
 	orgID          int64 // one organization for now; see seedDevData
 	cashDataSource analytics.CashDataSource
+	databasePath   string
 }
 
 func appInit() (*App, func(), error) {
@@ -199,6 +200,7 @@ func appInit() (*App, func(), error) {
 		queries:        queries,
 		orgID:          orgID,
 		cashDataSource: cashDataSource,
+		databasePath:   dbPath,
 	}, cleanup, nil
 }
 

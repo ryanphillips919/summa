@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -80,6 +81,9 @@ type pythonCommand struct {
 	program string
 	args    []string
 }
+
+// ErrNoCashMovements means the organization has no posted cash activity yet.
+var ErrNoCashMovements = errors.New("no cash movements")
 
 func findPythonCommand(script string) (pythonCommand, error) {
 	if configured := os.Getenv("SUMMA_ANALYTICS_PYTHON"); configured != "" {
@@ -164,4 +168,54 @@ func Run(parent context.Context, request Request) (Response, error) {
 	}
 
 	return response, nil
+}
+
+// RunDatabase invokes the engine with a database location and organization
+// scope. Python loads the ledger-derived cash movements itself, so the normal
+// dashboard path does not serialize a second copy of the ledger through Go.
+func RunDatabase(
+	parent context.Context,
+	databasePath string,
+	organizationID int64,
+	forecastDays int,
+	observationDays int,
+) ([]byte, error) {
+	script := os.Getenv("SUMMA_ANALYTICS_SCRIPT")
+	if script == "" {
+		script = filepath.Join("analytics", "engine.py")
+	}
+	python, err := findPythonCommand(script)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
+	defer cancel()
+
+	args := append(python.args, script,
+		"--database", databasePath,
+		"--organization-id", strconv.FormatInt(organizationID, 10),
+		"--forecast-days", strconv.Itoa(forecastDays),
+		"--observation-days", strconv.Itoa(observationDays),
+	)
+	cmd := exec.CommandContext(ctx, python.program, args...)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("run database analytics engine: %w: %s", err, stderr.String())
+	}
+
+	var status struct {
+		Empty bool `json:"empty"`
+	}
+	if err := json.Unmarshal(output, &status); err != nil {
+		return nil, fmt.Errorf("decode database analytics response: %w", err)
+	}
+	if status.Empty {
+		return nil, ErrNoCashMovements
+	}
+
+	return output, nil
 }

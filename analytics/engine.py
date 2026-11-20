@@ -8,16 +8,22 @@ receives already-authorized ledger-derived cash movements.
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import re
+import sqlite3
 import statistics
 import sys
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+
+DEFAULT_OBSERVATION_DAYS = 120
 
 
 def parse_date(value: str) -> date:
@@ -57,6 +63,129 @@ def validate_request(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], int
             "category": entry.get("category", ""),
         })
     return normalized, horizon
+
+
+def load_database_request(
+    database_path: str,
+    organization_id: int,
+    forecast_days: int,
+    observation_days: int,
+) -> dict[str, Any] | None:
+    """Load one organization's cash movements directly from SQLite."""
+    database_uri = Path(database_path).resolve().as_uri() + "?mode=ro"
+
+    with sqlite3.connect(database_uri, uri=True) as conn:
+        latest_row = conn.execute(
+            """
+            SELECT MAX(t.date)
+            FROM transactions AS t
+            JOIN entries AS e ON e.transaction_id = t.id
+            JOIN accounts AS cash ON cash.id = e.account_id
+            WHERE t.organization_id = ?
+              AND cash.organization_id = t.organization_id
+              AND cash.name = 'Cash'
+              AND cash.type = 'asset'
+            """,
+            (organization_id,),
+        ).fetchone()
+
+        if latest_row is None or latest_row[0] is None:
+            return None
+
+        latest = parse_date(latest_row[0])
+        start_date = (latest - timedelta(days=observation_days - 1)).isoformat()
+
+        opening_row = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                CASE e.direction
+                    WHEN 'debit' THEN e.amount
+                    ELSE -e.amount
+                END
+            ), 0)
+            FROM transactions AS t
+            JOIN entries AS e ON e.transaction_id = t.id
+            JOIN accounts AS cash ON cash.id = e.account_id
+            WHERE t.organization_id = ?
+              AND cash.organization_id = t.organization_id
+              AND cash.name = 'Cash'
+              AND cash.type = 'asset'
+              AND t.date < ?
+            """,
+            (organization_id, start_date),
+        ).fetchone()
+
+        rows = conn.execute(
+            """
+            SELECT
+                t.id,
+                t.date,
+                SUM(CASE e.direction
+                    WHEN 'debit' THEN e.amount
+                    ELSE -e.amount
+                END) AS cash_cents,
+                t.description,
+                COALESCE((
+                    SELECT GROUP_CONCAT(DISTINCT counterparty.name)
+                    FROM entries AS other_entry
+                    JOIN accounts AS counterparty
+                        ON counterparty.id = other_entry.account_id
+                    WHERE other_entry.transaction_id = t.id
+                      AND counterparty.organization_id = t.organization_id
+                      AND counterparty.name != 'Cash'
+                ), '') AS category
+            FROM transactions AS t
+            JOIN entries AS e ON e.transaction_id = t.id
+            JOIN accounts AS cash ON cash.id = e.account_id
+            WHERE t.organization_id = ?
+              AND cash.organization_id = t.organization_id
+              AND cash.name = 'Cash'
+              AND cash.type = 'asset'
+              AND t.date >= ?
+            GROUP BY t.id, t.date, t.description
+            HAVING cash_cents != 0
+            ORDER BY t.date, t.id
+            """,
+            (organization_id, start_date),
+        ).fetchall()
+
+    movements = [
+        {
+            "id": str(transaction_id),
+            "date": movement_date,
+            "amount": cash_cents / 100,
+            "description": description,
+            "category": category,
+        }
+        for transaction_id, movement_date, cash_cents, description, category in rows
+    ]
+
+    return {
+        "forecast_days": forecast_days,
+        "opening_cash_balance": opening_row[0] / 100,
+        "cash_movements": movements,
+    }
+
+
+def analyze_database(
+    database_path: str,
+    organization_id: int,
+    forecast_days: int,
+    observation_days: int,
+) -> dict[str, Any]:
+    request = load_database_request(
+        database_path,
+        organization_id,
+        forecast_days,
+        observation_days,
+    )
+    if request is None:
+        return {"empty": True}
+
+    result = analyze(request)
+    result["cash_movements"] = request["cash_movements"]
+    result["opening_cash_balance"] = request["opening_cash_balance"]
+    return result
 
 
 def rolling_mean_prediction(values: list[float]) -> float:
@@ -259,11 +388,38 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> None:
     try:
-        payload = json.load(sys.stdin)
-        if not isinstance(payload, dict):
-            raise ValueError("request body must be a JSON object")
-        json.dump(analyze(payload), sys.stdout, separators=(",", ":"))
-    except (ValueError, json.JSONDecodeError) as exc:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--database")
+        parser.add_argument("--organization-id", type=int)
+        parser.add_argument("--forecast-days", type=int, default=30)
+        parser.add_argument(
+            "--observation-days",
+            type=int,
+            default=DEFAULT_OBSERVATION_DAYS,
+        )
+        args = parser.parse_args()
+
+        if args.database:
+            if args.organization_id is None:
+                raise ValueError("--organization-id is required with --database")
+            if not 1 <= args.forecast_days <= 90:
+                raise ValueError("--forecast-days must be an integer between 1 and 90")
+            if args.observation_days < 1:
+                raise ValueError("--observation-days must be positive")
+            result = analyze_database(
+                args.database,
+                args.organization_id,
+                args.forecast_days,
+                args.observation_days,
+            )
+        else:
+            payload = json.load(sys.stdin)
+            if not isinstance(payload, dict):
+                raise ValueError("request body must be a JSON object")
+            result = analyze(payload)
+
+        json.dump(result, sys.stdout, separators=(",", ":"))
+    except (OSError, sqlite3.Error, ValueError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": str(exc)}), file=sys.stderr)
         sys.exit(2)
 

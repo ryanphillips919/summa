@@ -84,10 +84,14 @@ go run .
 
 The Go client uses this `.venv` by default; `SUMMA_ANALYTICS_PYTHON` overrides it.
 
-Go owns authorization and database access. After it loads organization-scoped
-cash movements, it sends only that data to `analytics/engine.py` over stdin as
-JSON. Python returns JSON for a templ component or Datastar update and has no
-database credentials. The Go client stops the subprocess after 10 seconds.
+Go owns authorization and selects the organization scope. For the dashboard,
+it invokes `analytics/engine.py` with the SQLite path, organization ID, and
+forecast settings; Python loads that organization's cash movements directly
+from SQLite and returns the dashboard JSON. The Go client stops the subprocess
+after 10 seconds.
+
+`POST /api/analytics/run` remains a development endpoint for passing a JSON
+cash-movement fixture directly to the engine.
 
 `POST /api/analytics/run` accepts signed cash movements (inflows positive and
 expenses negative):

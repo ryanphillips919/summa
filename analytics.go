@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
@@ -52,23 +52,18 @@ func (app *App) analyticsHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	snapshot, err := app.cashDataSource.LoadCashSnapshot(r.Context())
+	result, err := analytics.RunDatabase(
+		r.Context(),
+		app.databasePath,
+		app.orgID,
+		30,
+		120,
+	)
 	if err != nil {
-		log.Printf("load analytics data: %v", err)
-		writeJSONError(
-			w,
-			http.StatusInternalServerError,
-			"analytics data is unavailable",
-		)
-		return
-	}
-
-	result, err := analytics.Run(r.Context(), analytics.Request{
-		CashMovements:      snapshot.Movements,
-		ForecastDays:       snapshot.ForecastDays,
-		OpeningCashBalance: snapshot.OpeningCashBalance,
-	})
-	if err != nil {
+		if errors.Is(err, analytics.ErrNoCashMovements) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		log.Printf("run analytics: %v", err)
 		writeJSONError(
 			w,
@@ -79,10 +74,5 @@ func (app *App) analyticsHandler(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
-	_ = json.NewEncoder(w).Encode(analyticsResponse{
-		Response:           result,
-		CashMovements:      snapshot.Movements,
-		OpeningCashBalance: snapshot.OpeningCashBalance,
-	})
+	_, _ = w.Write(result)
 }
