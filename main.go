@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"summa/internal/analytics"
 	"summa/internal/db"
 	"summa/views"
 
@@ -69,26 +68,7 @@ func newRouter(app *App) http.Handler {
 func (a *App) mountRoutes(r chi.Router) {
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	r.Get("/", a.homepageHandler)
-	r.Post("/api/analytics/run", func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
-		var request analytics.Request
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&request); err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid analytics request: "+err.Error())
-			return
-		}
-		result, err := analytics.Run(r.Context(), request)
-		if err != nil {
-			log.Printf("analytics request failed: %v", err)
-			writeJSONError(w, http.StatusUnprocessableEntity, "analytics could not process these cash movements")
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(result)
-	})
 
-	r.Get("/api/analytics/demo", demoAnalyticsHandler)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","service":"summa"}`))
@@ -104,42 +84,6 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
-type analyticsDemoResponse struct {
-	analytics.Response
-	CashMovements      []analytics.CashMovement `json:"cash_movements"`
-	OpeningCashBalance float64                  `json:"opening_cash_balance"`
-}
-
-func demoAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
-	fixture, err := os.ReadFile("analytics/data/demo_cash_movements.json")
-	if err != nil {
-		log.Printf("read analytics demo fixture: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is unavailable")
-		return
-	}
-
-	var request analytics.Request
-	if err := json.Unmarshal(fixture, &request); err != nil {
-		log.Printf("decode analytics demo fixture: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo data is invalid")
-		return
-	}
-
-	result, err := analytics.Run(r.Context(), request)
-	if err != nil {
-		log.Printf("run analytics demo: %v", err)
-		writeJSONError(w, http.StatusInternalServerError, "analytics demo could not run")
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(analyticsDemoResponse{
-		Response:           result,
-		CashMovements:      request.CashMovements,
-		OpeningCashBalance: request.OpeningCashBalance,
-	})
-}
-
 type App struct {
 	nc *nats.Conn
 	kv jetstream.KeyValue
@@ -147,7 +91,6 @@ type App struct {
 	sqlDB          *sql.DB
 	queries        *db.Queries
 	orgID          int64 // one organization for now; see seedDevData
-	cashDataSource analytics.CashDataSource
 	databasePath   string
 }
 
@@ -182,13 +125,6 @@ func appInit() (*App, func(), error) {
 	}
 	log.Printf("Database ready at %s", dbPath)
 
-	cashDataSource, err := newAnalyticsDataSource(conn, orgID)
-	if err != nil {
-		conn.Close()
-		shutdownEmbeddedNATS(nc, ns)
-		return nil, nil, err
-	}
-
 	cleanup := func() {
 		conn.Close()
 		shutdownEmbeddedNATS(nc, ns)
@@ -199,21 +135,8 @@ func appInit() (*App, func(), error) {
 		sqlDB:          conn,
 		queries:        queries,
 		orgID:          orgID,
-		cashDataSource: cashDataSource,
 		databasePath:   dbPath,
 	}, cleanup, nil
-}
-
-func newAnalyticsDataSource(
-	conn *sql.DB,
-	orgID int64,
-) (analytics.CashDataSource, error) {
-	return analytics.DatabaseCashDataSource{
-		DB:              conn,
-		OrganizationID:  orgID,
-		ForecastDays:    30,
-		ObservationDays: 120,
-	}, nil
 }
 
 func openDatabase(ctx context.Context, path string) (*sql.DB, error) {

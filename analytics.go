@@ -42,12 +42,6 @@ func (app *App) analyticsPageHandler(
 	}
 }
 
-type analyticsResponse struct {
-	analytics.Response
-	CashMovements      []analytics.CashMovement `json:"cash_movements"`
-	OpeningCashBalance float64                  `json:"opening_cash_balance"`
-}
-
 func (app *App) analyticsHandler(
 	w http.ResponseWriter,
 	r *http.Request,
