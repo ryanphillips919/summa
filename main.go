@@ -10,11 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"summa/internal/analytics"
 	"summa/internal/db"
-	"summa/views"
 
-	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
@@ -24,12 +21,10 @@ import (
 )
 
 type App struct {
-	nc             *nats.Conn
-	kv             jetstream.KeyValue
-	sqlDB          *sql.DB
-	queries        *db.Queries
-	orgID          int64
-	cashDataSource analytics.CashDataSource
+	nc      *nats.Conn
+	kv      jetstream.KeyValue
+	sqlDB   *sql.DB
+	queries *db.Queries
 }
 
 func main() {
@@ -45,26 +40,19 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/presentation", templ.Handler(views.Presentation()).ServeHTTP)
-	r.Mount("/demo", app.demoRoutes())
+	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	r.Get("/health", healthHandler)
+	r.Mount("/", app.homepageRoutes())
 	r.Mount("/timeline", app.timelineRoutes())
-
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.Timeout(60 * time.Second))
-
-		r.Get("/health", healthHandler)
-		r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-
-		r.Mount("/", app.homepageRoutes())
-		r.Mount("/analytics", app.analyticsRoutes())
-		r.Mount("/api/analytics", app.analyticsAPIRoutes())
-	})
+	r.Mount("/analytics", app.analyticsRoutes())
+	r.Mount("/api/analytics", app.analyticsAPIRoutes())
 
 	csrf := http.NewCrossOriginProtection()
 	srv := &http.Server{
 		Addr:              ":8080",
 		Handler:           csrf.Handler(r),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 	fmt.Println("http://localhost:8080")
@@ -101,19 +89,7 @@ func appInit() (*App, func(), error) {
 	}
 
 	store := db.New(sqldb)
-	orgID, err := seedDevData(ctx, sqldb, store)
-	if err != nil {
-		cleanup()
-		return nil, nil, fmt.Errorf("seeding db: %w", err)
-	}
-
-	cashDataSource, err := analytics.NewCashDataSource(sqldb, orgID)
-	if err != nil {
-		cleanup()
-		return nil, nil, fmt.Errorf("analytics source: %w", err)
-	}
-
-	return &App{nc: nc, kv: kv, sqlDB: sqldb, queries: store, orgID: orgID, cashDataSource: cashDataSource}, cleanup, nil
+	return &App{nc: nc, kv: kv, sqlDB: sqldb, queries: store}, cleanup, nil
 }
 
 //go:embed internal/db/migrations/*.sql

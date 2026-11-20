@@ -43,7 +43,9 @@ func (a *App) analyticsPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) analyticsHandler(w http.ResponseWriter, r *http.Request) {
-	snapshot, err := a.cashDataSource.LoadCashSnapshot(r.Context())
+	// One organization until auth exists.
+	source := analytics.DatabaseCashDataSource{DB: a.sqlDB, OrganizationID: 1}
+	snapshot, err := source.LoadCashSnapshot(r.Context())
 	if err != nil {
 		log.Printf("load analytics data: %v", err)
 		writeJSONError(w, http.StatusInternalServerError, "analytics data is unavailable")

@@ -38,9 +38,9 @@ go install github.com/pressly/goose/v3/cmd/goose@latest
 ## Generating and running the code
 For the templ code.
 ```sh
-templ generate # whenever you change a templ file you need to run this to apply the changes. templ is compiled into Go code so without it the pages won't update
+go tool templ generate # whenever you change a templ file you need to run this to apply the changes. templ is compiled into Go code so without it the pages won't update
 # otherwise for local development you can use this to watch all the changes and apply in real-time
-templ generate --watch --proxy="http://localhost:8080" --cmd="go run ."
+go tool templ generate --watch --proxy="http://localhost:8080" --cmd="go run ."
 ```
 
 For the sqlc and goose migrations
