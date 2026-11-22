@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"log"
 	"net/http"
@@ -14,10 +15,7 @@ import (
 func (app *App) analyticsRoutes() chi.Router {
 	r := chi.NewRouter()
 
-	// The short analytics dashboard URL.
 	r.Get("/", app.analyticsPageHandler)
-
-	// Serves analytics.js and any later analytics-specific browser assets.
 	r.Handle(
 		"/*",
 		http.StripPrefix(
@@ -46,27 +44,55 @@ func (app *App) analyticsHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	result, err := analytics.RunDatabase(
+	currentTransactionID, err := app.queries.LatestTransactionID(
 		r.Context(),
-		app.databasePath,
 		app.orgID,
-		30,
-		120,
 	)
 	if err != nil {
+		log.Printf("read latest ledger transaction: %v", err)
+		writeJSONError(
+			w,
+			http.StatusInternalServerError,
+			"analytics could not load",
+		)
+		return
+	}
+
+	run, err := app.queries.GetLatestAnalyticsRun(r.Context(), app.orgID)
+	if errors.Is(err, sql.ErrNoRows) ||
+		(err == nil && currentTransactionID > run.SourceTransactionID) {
+		_, err = analytics.RunDatabase(
+			r.Context(),
+			app.databasePath,
+			app.orgID,
+			30,
+			120,
+		)
 		if errors.Is(err, analytics.ErrNoCashMovements) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		log.Printf("run analytics: %v", err)
+		if err != nil {
+			log.Printf("run analytics: %v", err)
+			writeJSONError(
+				w,
+				http.StatusInternalServerError,
+				"analytics could not run",
+			)
+			return
+		}
+		run, err = app.queries.GetLatestAnalyticsRun(r.Context(), app.orgID)
+	}
+	if err != nil {
+		log.Printf("read analytics run: %v", err)
 		writeJSONError(
 			w,
 			http.StatusInternalServerError,
-			"analytics could not run",
+			"analytics could not load",
 		)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(result)
+	_, _ = w.Write([]byte(run.ResultJson))
 }

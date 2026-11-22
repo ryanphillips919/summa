@@ -15,6 +15,17 @@ type Account struct {
 	Type           string
 }
 
+type AnalyticsRun struct {
+	ID                  int64
+	OrganizationID      int64
+	CreatedAt           string
+	SourceTransactionID int64
+	ForecastDays        int64
+	ObservationDays     int64
+	Model               string
+	ResultJson          string
+}
+
 type Customer struct {
 	ID             int64
 	OrganizationID int64

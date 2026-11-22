@@ -10,7 +10,7 @@ import sys
 
 from anomalies import find_anomalies
 from cash_flow import forecast
-from database import load_cash_snapshot
+from database import load_cash_snapshot, save_analytics_run
 
 
 def main() -> None:
@@ -46,6 +46,17 @@ def main() -> None:
             }
             result["cash_movements"] = movements
             result["opening_cash_balance"] = snapshot["opening_cash_balance"]
+
+            result_json = json.dumps(result, separators=(",", ":"))
+            save_analytics_run(
+                args.database,
+                args.organization_id,
+                snapshot["source_transaction_id"],
+                args.forecast_days,
+                args.observation_days,
+                result["summary"]["forecast_model"],
+                result_json,
+            )
 
         json.dump(result, sys.stdout, separators=(",", ":"))
     except (OSError, sqlite3.Error, ValueError) as exc:

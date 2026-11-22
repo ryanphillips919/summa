@@ -18,6 +18,15 @@ def load_cash_snapshot(
     database_uri = Path(database_path).resolve().as_uri() + "?mode=ro"
 
     with sqlite3.connect(database_uri, uri=True) as conn:
+        source_transaction_id = conn.execute(
+            """
+            SELECT COALESCE(MAX(id), 0)
+            FROM transactions
+            WHERE organization_id = ?
+            """,
+            (organization_id,),
+        ).fetchone()[0]
+
         latest_row = conn.execute(
             """
             SELECT MAX(t.date)
@@ -81,6 +90,7 @@ def load_cash_snapshot(
         ).fetchall()
 
     return {
+        "source_transaction_id": source_transaction_id,
         "forecast_days": forecast_days,
         "opening_cash_balance": opening_cents / 100,
         "cash_movements": [
@@ -94,3 +104,37 @@ def load_cash_snapshot(
             for transaction_id, movement_date, cash_cents, description, category in rows
         ],
     }
+
+
+def save_analytics_run(
+    database_path: str,
+    organization_id: int,
+    source_transaction_id: int,
+    forecast_days: int,
+    observation_days: int,
+    model: str,
+    result_json: str,
+) -> None:
+    """Save one completed analytics snapshot for an organization."""
+    with sqlite3.connect(database_path) as conn:
+        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute(
+            """
+            INSERT INTO analytics_runs (
+                organization_id,
+                source_transaction_id,
+                forecast_days,
+                observation_days,
+                model,
+                result_json
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                organization_id,
+                source_transaction_id,
+                forecast_days,
+                observation_days,
+                model,
+                result_json,
+            ),
+        )
